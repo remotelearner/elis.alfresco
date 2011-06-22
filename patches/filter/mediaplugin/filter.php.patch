@@ -1,0 +1,189 @@
+diff --git a/filter/mediaplugin/filter.php b/filter/mediaplugin/filter.php
+index f63e28d..b625362 100644
+--- a/filter/mediaplugin/filter.php
++++ b/filter/mediaplugin/filter.php
+@@ -113,6 +113,20 @@ function mediaplugin_filter($courseid, $text) {
+         $newtext = preg_replace_callback($search, 'mediaplugin_filter_youtube_callback', $newtext);
+     }
+ 
++
++/// Remote Learner Edit -- BEGIN
++
++    // Alfresco multialfmedia plug-in code
++    $search = '/<a.*?href="([^<]+openfile\.php)(\?uuid=([^\W_]{1,8})-([^\W_]{1,4})-([^\W_]{1,4})-'.
++              '([^\W_]{1,4})-([^\W_]{1,12}))?(&d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/';
++
++    if (preg_match($search, $newtext)) {
++        $newtext = preg_replace_callback($search, 'alfresco_multimedia_filter_callback', $newtext);
++    }
++    // End
++
++/// Remote Learner Edit -- END
++
+     if (is_null($newtext) or $newtext === $text) {
+         // error or not filtered
+         return $text;
+@@ -384,4 +398,163 @@ function mediaplugin_filter_qt_callback($link, $autostart=false) {
+ </object></span>';
+ }
+ 
++// Alfresco multialfmedia plug-in code
++function alfresco_multimedia_filter_callback($link) {
++    global $CFG;
++
++    // Alfresco multialfmedia plug-in code
++    // Only run this code if the repository is enabled and configured.
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') &&
++        file_exists($CFG->dirroot . '/file/repository/repository.class.php') && file_exists($CFG->libdir.'/filelib.php')) {
++
++        require_once($CFG->libdir.'/filelib.php');
++        require_once($CFG->dirroot . '/file/repository/repository.class.php');
++
++        if (!$repo = repository_factory::factory('alfresco')) {
++            $repo = false;
++        }
++
++        /// If an Alfresco repository is configured
++        if (!empty($repo)) {
++            require_once($CFG->dirroot . '/file/repository/alfresco/repository.php');
++
++            $uuid = $link[3] . '-' .$link[4] . '-' . $link[5] . '-' . $link[6] . '-' . $link[7];
++
++            $nodeinfo = $repo->get_info($uuid);
++
++            if (empty($nodeinfo->uuid)) {
++                return $link[0];
++            }
++
++            $fileurl = $CFG->wwwroot . '/file/repository/alfresco/openfile.php?uuid=' . $nodeinfo->uuid;
++
++            $extension = false;
++            $pos = strrpos($nodeinfo->fileurl, '.');
++
++            if (false !== $pos) {
++                $extension = substr($nodeinfo->fileurl, $pos+1);
++            }
++
++            if (false === $extension) {
++                return $link[0];
++            }
++
++            if (false !== stripos('mp3', $extension) and
++                $CFG->filter_alfmediaplugin_enable_mp3) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                return mediaplugin_filter_mp3_callback($link);
++            }
++
++            if (false !== stripos('swf', $extension) and
++                $CFG->filter_alfmediaplugin_enable_swf) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;
++
++                return mediaplugin_filter_swf_callback($file);
++            }
++
++            if (false !== stripos('flv', $extension) and
++                $CFG->filter_alfmediaplugin_enable_flv) {
++
++                $file = array();
++                $file[0] = $link[0];
++                // Appended filename to url so it is recognized as a flash file
++                $file[1] = $fileurl.'/'.$nodeinfo->filename;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;   
++                return mediaplugin_filter_flv_callback($file);
++            }
++
++            if ((false !== stripos('mov', $extension) or
++                false !== stripos('mp4', $extension) or
++                false !== stripos('m4v', $extension) or
++                false !== stripos('m4a', $extension)) and
++                $CFG->filter_alfmediaplugin_enable_mov) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;
++                return mediaplugin_filter_qt_callback($file);
++            }
++
++            if (false !== stripos('wmv', $extension) and
++                $CFG->filter_alfmediaplugin_enable_wmv) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;
++                return mediaplugin_filter_wmp_callback($file);
++            }
++
++            if ((false !== stripos('mpg', $extension) or
++                false !== stripos('mpeg', $extension)) and
++                $CFG->filter_alfmediaplugin_enable_mpg) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;
++                return mediaplugin_filter_qt_callback($file);
++
++            }
++
++            if (false !== stripos('avi', $extension) and
++                $CFG->filter_alfmediaplugin_enable_avi) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                $file[3] = (isset($link[9]) and !empty($link[9])) ? $link[9] : 0;
++                $file[4] = (isset($link[10]) and !empty($link[10])) ? $link[10] : 0;
++                return mediaplugin_filter_wmp_callback($file);
++
++            }
++
++            if (false !== strpos('ram', $extension) and
++                $CFG->filter_alfmediaplugin_enable_ram) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                return mediaplugin_filter_real_callback($file);
++            }
++
++            if (false !== stripos('rpm', $extension) and
++                $CFG->filter_alfmediaplugin_enable_rpm) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                return mediaplugin_filter_real_callback($file);
++            }
++
++            if (false !== stripos('rm', $extension) and
++                $CFG->filter_alfmediaplugin_enable_rm) {
++
++                $file = array();
++                $file[0] = $link[0];
++                $file[1] = $fileurl;
++                return mediaplugin_filter_real_callback($file);
++            }
++
++        }
++
++        return $link[0];
++    }
++}
++
++/// Remote Learner Edit -- END
++
+ ?>

@@ -1,0 +1,325 @@
+diff --git a/files/index.php b/files/index.php
+index 6438418..50213f5 100644
+--- a/files/index.php
++++ b/files/index.php
+@@ -10,10 +10,12 @@
+     require('../config.php');
+     require_once($CFG->libdir . '/filelib.php');
+     require_once($CFG->libdir . '/adminlib.php');
++    require_once $CFG->dirroot . '/file/repository/repository.class.php';
+ 
+     $id      = required_param('id', PARAM_INT);
+     $file    = optional_param('file', '', PARAM_PATH);
+     $wdir    = optional_param('wdir', '', PARAM_PATH);
++    $dd      = optional_param('dd', 0, PARAM_INT);
+     $action  = optional_param('action', '', PARAM_ACTION);
+     $name    = optional_param('name', '', PARAM_FILE);
+     $oldname = optional_param('oldname', '', PARAM_FILE);
+@@ -23,6 +25,13 @@
+     $text    = optional_param('text', '', PARAM_RAW);
+     $confirm = optional_param('confirm', 0, PARAM_BOOL);
+ 
++/// Remote Learner Edit -- BEGIN
++
++    $repouuid = optional_param('repouuid', '', PARAM_CLEAN);
++    $repofile = optional_param('repofile', '', PARAM_FILE);
++
++/// Remote Learner Edit -- END
++
+     if ($choose) {
+         if (count(explode('.', $choose)) > 2) {
+             error('Incorrect format for choose parameter');
+@@ -38,6 +47,33 @@
+ 
+     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $course->id));
+ 
++/// Setup a repository plug-in, if configured to be used.
++    if (isset($CFG->repository_plugins_enabled) &&
++        strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++
++        if (!$repo = repository_factory::factory('alfresco')) {
++            print_error('couldnotcreaterepositoryobject', 'repository');
++        }
++
++        // If we didn't get here from the drop-down...
++        if (empty($dd) && $wdir == '') {
++            if ($uuid = $repo->get_repository_location($id, $userid, $shared)) {
++                redirect($CFG->wwwroot . '/file/repository/index.php?id=' . $id . '&amp;choose=' . $choose .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
++            }
++
++            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared)) {
++                redirect($CFG->wwwroot . '/file/repository/index.php?id=' . $id . '&amp;choose=' . $choose .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
++            }
++        }
++
++        // Clear out the previous repository location settings as we are going to browse Moodledata.
++        $repo->set_repository_location('', 0, 0, '', true);
++    }
++
++
++
+     function html_footer() {
+         global $COURSE, $choose;
+ 
+@@ -47,7 +83,7 @@
+     }
+ 
+     function html_header($course, $wdir, $formfield=""){
+-        global $CFG, $ME, $choose;
++        global $CFG, $ME, $USER, $choose, $repo;
+ 
+         $navlinks = array();
+         // $navlinks[] = array('name' => $course->shortname, 'link' => "../course/view.php?id=$course->id", 'type' => 'misc');
+@@ -151,6 +187,26 @@
+ 
+ 
+         echo "<table border=\"0\" style=\"margin-left:auto;margin-right:auto\" cellspacing=\"3\" cellpadding=\"3\" width=\"640\">";
++
++/// Remote Learner Edit -- BEGIN
++
++    /// Build an array of options for a navigation drop-down menu.
++        if (!empty($repo)) {
++            $default = '';
++
++            $opts = $repo->file_browse_options($course->id, 0, '', false, $choose, 'files/index.php',
++                                               'files/index.php', 'file/repository/index.php', $default);
++
++            if (!empty($opts)) {
++                echo '<tr><td colspan="2" align="right">' . get_string('browsefilesfrom', 'repository') . ': ';
++                popup_form($CFG->wwwroot . '/', $opts, 'filepluginselect', $default, '');
++            }
++
++            echo '</td></tr>';
++        }
++
++/// Remote Learner Edit -- END
++
+         echo "<tr>";
+         echo "<td colspan=\"2\">";
+ 
+@@ -208,6 +264,13 @@
+                 // um will take care of error reporting.
+                 displaydir($wdir);
+             } else {
++                if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && !count($_POST)) {
++                    /*  This situation is likely the result of the user
++                        attempting to upload a file larger than POST_MAX_SIZE
++                        See bug MDL-14000 */
++                    notify(get_string('uploadserverlimit'));
++                }
++
+                 $upload_max_filesize = get_max_upload_file_size($CFG->maxbytes);
+                 $filesize = display_size($upload_max_filesize);
+ 
+@@ -216,15 +279,41 @@
+                 $strmaxsize = get_string("maxsize", "", $filesize);
+                 $strcancel = get_string("cancel");
+ 
++                /*  Create form action - See MDL-14000
++                    It is necessary to send these details via GET as if the user
++                    submits a file larger than POST_MAX_SIZE, all post data will
++                    be lost. */
++
++                // Build up the URL used in the upload form.
++                $vars = array(
++                    'choose' => $choose,
++                    'id'     => $id,
++                    'wdir'   => urlencode($wdir),
++                    'action' => 'upload'
++                );
++
++                $action = 'index.php?';
++
++                $count = count($vars);
++                $i     = 0;
++                foreach ($vars as $var => $val) {
++                    $action .= $var . '=' . $val . ($i < $count - 1 ? '&amp;' : '');
++                    $i++;
++                }
++
+                 echo "<p>$struploadafile ($strmaxsize) --> <b>$wdir</b></p>";
+-                echo "<form enctype=\"multipart/form-data\" method=\"post\" action=\"index.php\">";
++
++                echo "<form enctype=\"multipart/form-data\" method=\"post\" action=\"$action\">";
+                 echo "<div>";
+                 echo "<table><tr><td colspan=\"2\">";
+-                echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
+-                echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+-                echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
+-                echo " <input type=\"hidden\" name=\"action\" value=\"upload\" />";
+-                echo " <input type=\"hidden\" name=\"sesskey\" value=\"$USER->sesskey\" />";
++
++                $vars['wdir']    = urldecode($vars['wdir']);
++                $vars['sesskey'] = $USER->sesskey;
++
++                foreach ($vars as $var => $val) {
++                    echo '    <input type="hidden" name="' . $var . '" value="' . $val . '" />' . "\n";
++                }
++
+                 upload_print_form_fragment(1,array('userfile'),null,false,null,$upload_max_filesize,0,false);
+                 echo " </td></tr></table>";
+                 echo " <input type=\"submit\" name=\"save\" value=\"$struploadthisfile\" />";
+@@ -305,6 +394,19 @@
+             html_header($course, $wdir);
+             if (isset($USER->fileop) and ($USER->fileop == "move") and confirm_sesskey()) {
+                 foreach ($USER->filelist as $file) {
++                /// Determine if the content being moved is an Alfresco UUID or a moodledata file.
++                    if (preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/', $file) > 0 &&
++                        $repo->verify_setup() && $repo->is_configured()) {
++
++                        $properties = $repo->get_info($file);
++                        if (!$repo->copy_local($file, $properties->title, $basedir)) {
++                            echo "<p>Error: $properties->title not moved";
++                        } else {
++                            if (!alfresco_delete($file, true)) {
++                                debugging('Could not delete ' . $properties->title);
++                            }
++                        }
++                    } else {
+                     $shortfile = basename($file);
+                     $oldfile = $basedir.'/'.$file;
+                     $newfile = $basedir.$wdir."/".$shortfile;
+@@ -313,6 +415,7 @@
+                     }
+                 }
+             }
++            }
+             clearfilelist();
+             displaydir($wdir);
+             html_footer();
+@@ -391,6 +494,14 @@
+                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                 echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
+                 echo " <input type=\"hidden\" name=\"action\" value=\"makedir\" />";
++
++/// Remote Learner Edit -- BEGIN
++
++                echo " <input type=\"hidden\" name=\"repouuid\" value=\"$repouuid\" />";
++                echo " <input type=\"hidden\" name=\"repofile\" value=\"$repofile\" />";
++
++/// Remote Learner Edit -- END
++
+                 echo " <input type=\"text\" name=\"name\" size=\"35\" />";
+                 echo " <input type=\"hidden\" name=\"sesskey\" value=\"$USER->sesskey\" />";
+                 echo " <input type=\"submit\" value=\"$strcreate\" />";
+@@ -402,6 +513,14 @@
+                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
+                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                 echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
++
++/// Remote Learner Edit -- BEGIN
++
++                echo " <input type=\"hidden\" name=\"repouuid\" value=\"$repouuid\" />";
++                echo " <input type=\"hidden\" name=\"repofile\" value=\"$repofile\" />";
++
++/// Remote Learner Edit -- END
++
+                 echo " <input type=\"hidden\" name=\"action\" value=\"cancel\" />";
+                 echo " <input type=\"submit\" value=\"$strcancel\" />";
+                 echo "</div>";
+@@ -707,6 +826,13 @@ function displaydir ($wdir) {
+     global $USER, $CFG;
+     global $choose;
+ 
++/// Remote Learner Edit -- BEGIN
++
++    global $repouuid;
++    global $repofile;
++
++/// Remote Learner Edit -- END
++
+     $fullpath = $basedir.$wdir;
+     $dirlist = array();
+ 
+@@ -747,6 +873,20 @@ function displaydir ($wdir) {
+     $strfile   = get_string("file");
+ 
+ 
++/// Display a link to download a repository file in this directory (if we're searching
++/// for a location to download a repo file).
++    if (!empty($repouuid) && !empty($repofile)) {
++        $repofname = str_replace('//', '/', "$fullpath");
++        $repofname = str_replace($CFG->dataroot, '', $fullpath);
++
++        echo '<center><strong><a href="' . $CFG->wwwroot . '/file/repository/downloadfile.php?' .
++             'cid=' . $id . '&amp;uuid=' . $repouuid . '&amp;filename=' . $repofile . '&amp;path=' .
++             rawurlencode($repofname) . '">' . get_string('downloadhere', 'repository') .
++             '</strong></center>';
++    }
++
++/// Remote Learner Edit -- END
++
+     echo "<form action=\"index.php\" method=\"post\" id=\"dirform\">";
+     echo "<div>";
+     echo '<input type="hidden" name="choose" value="'.$choose.'" />';
+@@ -776,7 +916,16 @@ function displaydir ($wdir) {
+                 $fileurl = rawurlencode(dirname($wdir));
+                 print_cell();
+                 // alt attribute intentionally empty to prevent repetition in screen reader
+-                print_cell('left', '<a href="index.php?id='.$id.'&amp;wdir='.$fileurl.'&amp;choose='.$choose.'"><img src="'.$CFG->pixpath.'/f/parent.gif" class="icon" alt="" />&nbsp;'.get_string('parentfolder').'</a>', 'name');
++
++/// Remote Learner Edit -- BEGIN
++
++                print_cell('left', '<a href="index.php?id=' . $id . '&amp;wdir=' . $fileurl . '&amp;choose=' .
++                           $choose . '&amp;repouuid=' . $repouuid . '&amp;repofile=' . rawurlencode($repofile) .
++                           '"><img src="' . $CFG->pixpath . '/f/parent.gif" class="icon" alt="" />&nbsp;' .
++                           get_string('parentfolder') . '</a>', 'name');
++
++/// Remote Learner Edit -- END
++
+                 print_cell();
+                 print_cell();
+                 print_cell();
+@@ -793,9 +942,34 @@ function displaydir ($wdir) {
+                 } else {
+                     print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" />", 'checkbox');
+                 }
+-                print_cell("left", "<a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" class=\"icon\" alt=\"$strfolder\" />&nbsp;".htmlspecialchars($dir)."</a>", 'name');
++
++/// Remote Learner Edit -- BEGIN
++
++                if (!empty($repouuid) && !empty($repofile)) {
++                    print_cell("left", "<a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose&amp;repouuid=$repouuid&amp;repofile=" . rawurlencode($repofile) . "\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> <a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose&amp;repouuid=$repouuid&amp;repofile=" . rawurlencode($repofile) . "\">".htmlspecialchars($dir)."</a>", 'name');
++                } else {
++                    print_cell("left", "<a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> <a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose\">".htmlspecialchars($dir)."</a>", 'name');
++                }
++
++/// Remote Learner Edit -- END
++
+                 print_cell("right", $filesize, 'size');
+                 print_cell("right", $filedate, 'date');
++
++/// Remote Learner Edit -- BEGIN
++
++                if (!empty($repouuid) && !empty($repofile)) {
++                    $repofname = str_replace('//', '/', $filename);
++                    $edittext  = '<center><strong><a href="' . $CFG->wwwroot . '/repository/downloadfile.php?' .
++                                 'cid=' . $id . '&amp;uuid=' . $repouuid . '&amp;filename=' . $repofile . '&amp;path=' .
++                                 rawurlencode($repofname) . '">' . $strchoose .
++                                '</strong></center>';
++                } else {
++                    $edittext = "<a href=\"index.php?id=$id&amp;wdir=$wdir&amp;file=$filesafe&amp;action=rename&amp;choose=$choose\">$strrename</a>";
++                }
++
++/// Remote Learner Edit -- END
++
+                 if ($wdir.$dir === '/moddata') {
+                     print_cell();
+                 } else { 
+@@ -912,6 +1086,14 @@ function displaydir ($wdir) {
+         echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+         echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
+         echo " <input type=\"hidden\" name=\"action\" value=\"makedir\" />";
++
++/// Remote Learner Edit -- BEGIN
++
++        echo " <input type=\"hidden\" name=\"repouuid\" value=\"$repouuid\" />";
++        echo " <input type=\"hidden\" name=\"repofile\" value=\"$repofile\" />";
++
++/// Remote Learner Edit -- END
++
+         echo " <input type=\"submit\" value=\"$strmakeafolder\" />";
+         echo "</div>";
+         echo "</form>";

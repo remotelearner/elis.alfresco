@@ -1,0 +1,14 @@
+diff --git a/lib/editor/htmlarea/coursefiles.php b/lib/editor/htmlarea/coursefiles.php
+index 19a4058..c120b28 100644
+--- a/lib/editor/htmlarea/coursefiles.php
++++ b/lib/editor/htmlarea/coursefiles.php
+@@ -134,7 +134,8 @@
+                 var f = upper.forms[i];
+                 for(var j = 0; j < f.elements.length; j++) {
+                     var e = f.elements[j];
+-                    if(e.type != "submit" && e.type != "button" && e.type != "hidden") {
++                    // Do not reset submit, button, hidden, or select-one types
++                    if(e.type != "submit" && e.type != "button" && e.type != "hidden" && e.type != "select-one") {
+                         try {
+                             e.value = "";
+                         } catch (e) {

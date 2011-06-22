@@ -1,0 +1,41 @@
+diff --git a/admin/cron.php b/admin/cron.php
+index ca72d03..6031816 100644
+--- a/admin/cron.php
++++ b/admin/cron.php
+@@ -522,6 +522,36 @@
+         }
+     }
+ 
++/// Remote Learner Edit -- BEGIN
++
++    // Run the repository cron, if any
++    mtrace("\nRunning repository crons if required...");
++
++    if (file_exists($CFG->dirroot . '/file/repository/repository.class.php') &&
++        !empty($CFG->repository_plugins_enabled)) {
++
++        if (!($plugins = explode(',', $CFG->repository_plugins_enabled))) {
++            $plugins = array($CFG->repository);
++        }
++
++        require_once($CFG->dirroot . '/file/repository/repository.class.php');
++
++        foreach ($plugins as $p) {
++            $repository = repository_factory::factory($p);
++
++            if (method_exists($repository, 'cron')) {
++                $repository->cron();
++            }
++
++            if (!empty($repository->log)) {
++                mtrace($repository->log);
++            }
++
++            unset($repository);
++        }
++    }
++
++/// Remote Learner Edit -- END
+     // run the ELIS cron jobs
+     mtrace("Running ELIS cron tasks...");
+     require_once($CFG->dirroot.'/elis/core/cron.php');

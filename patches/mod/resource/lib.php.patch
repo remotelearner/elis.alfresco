@@ -1,0 +1,44 @@
+diff --git a/mod/resource/lib.php b/mod/resource/lib.php
+index f1d2626..7113148 100644
+--- a/mod/resource/lib.php
++++ b/mod/resource/lib.php
+@@ -361,8 +361,38 @@ function resource_get_coursemodule_info($coursemodule) {
+ 
+        require_once($CFG->libdir.'/filelib.php');
+ 
++        // Determine if Alfresco is even enabled on the site right now.
++        $hasalfresco = isset($CFG->repository_plugins_enabled) &&
++                      (strstr($CFG->repository_plugins_enabled, 'alfresco') !== false);
++
++        if ($hasalfresco) {
++            require_once($CFG->dirroot . '/file/repository/repository.class.php');
++        }
++
+        if ($resource->type == 'file') {
+-           $icon = mimeinfo("icon", $resource->reference);
++        /// If an Alfresco repository is configured and this resource is a link to an Alfresco file,
++        /// then we need to handle getting the file icon differently than a regular file link.
++            if ($hasalfresco && (strpos($resource->reference, $CFG->wwwroot . '/file/repository/alfresco/openfile.php') === 0) &&
++                ($repo = repository_factory::factory('alfresco')) && $repo->is_configured()) {
++
++                $nodeinfo = null;
++
++                preg_match('/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/', $resource->reference, $matches);
++
++                if (!empty($matches) && is_array($matches) && count($matches) === 1) {
++                    $uuid     = $matches[0];
++                    $nodeinfo = $repo->get_info($uuid);
++                }
++
++                if (!empty($nodeinfo->filename)) {
++                    $icon = mimeinfo('icon', $nodeinfo->filename);
++                } else {
++                    $icon = mimeinfo('icon', $resource->reference);
++                }
++            } else {
++                $icon = mimeinfo('icon', $resource->reference);
++            }
++
+            if ($icon != 'unknown.gif') {
+                $info->icon ="f/$icon";
+            } else {

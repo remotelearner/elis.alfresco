@@ -1,0 +1,65 @@
+diff --git a/user/tabs.php b/user/tabs.php
+index 498f7c8..37d33f1 100644
+--- a/user/tabs.php
++++ b/user/tabs.php
+@@ -268,6 +268,60 @@
+             }
+         }
+     }
++
++/// Remote Learner Edit -- BEGIN
++
++    /// Make sure the plug-in is enabled and setup correctly.
++        if (isset($CFG->repository_plugins_enabled) &&
++            strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++
++            require_once $CFG->dirroot . '/file/repository/repository.class.php';
++
++            if (!$repo = repository_factory::factory('alfresco')) {
++                print_error('couldnotcreaterepositoryobject', 'repository');
++            }
++
++            if ($repo->verify_setup() && $repo->is_configured()) {
++            /// Personal file storage area.
++                if (!empty($user) && ($user->id == $USER->id)) {
++                    $personalfiles = false;
++
++                    if (!empty($USER->access['rdef'])) {
++                        foreach ($USER->access['rdef'] as $ct) {
++                            if ($personalfiles) {
++                                continue;
++                            }
++
++                            if (isset($ct['block/repository:createowncontent']) &&
++                                      $ct['block/repository:createowncontent'] == CAP_ALLOW) {
++
++                                $personalfiles = true;
++                            }
++                        }
++                    }
++
++                    if ($personalfiles) {
++                        if (($quotainfo = alfresco_quota_info($USER->username)) && $quotainfo->quota !== -1) {
++                            if ($quotainfo->quota > $quotainfo->current) {
++                                $freespace = round(($quotainfo->quota - $quotainfo->current) / 1048576 * 10, 1) / 10 . get_string('sizemb');
++                            } else {
++                                $freespace = '0 ' . get_string('sizemb');
++                            }
++                            $strmyfiles = get_string('myfilesquota', 'repository_alfresco', $freespace);
++                        } else {
++                            $strmyfiles = get_string('myfiles', 'repository_alfresco');
++                        }
++
++                        $toprow[] = new tabobject('repofiles', $CFG->wwwroot . '/file/repository/index.php?id=' .
++                                                  $course->id . '&amp;userid=' . $user->id, $strmyfiles);
++                    }
++
++                }
++            }
++        }
++
++/// Remote Learner Edit -- END
++
+ /// Add second row to display if there is one
+ 
+     if (!empty($secondrow)) {

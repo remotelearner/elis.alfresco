@@ -1,0 +1,21 @@
+diff --git a/lib/editor/htmlarea/htmlarea.php b/lib/editor/htmlarea/htmlarea.php
+index 30395a7..33113e7 100644
+--- a/lib/editor/htmlarea/htmlarea.php
++++ b/lib/editor/htmlarea/htmlarea.php
+@@ -3,6 +3,7 @@
+     require_once($CFG->dirroot.'/lib/languages.php');
+ 
+     $id            = optional_param('id', SITEID, PARAM_INT);
++    $userid        = optional_param('userid', 0, PARAM_INT);
+     $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL); //flag indicating editor on page with required https
+ 
+     require_course_login($id);
+@@ -1672,7 +1673,7 @@ HTMLArea.prototype._insertImage = function(image) {
+     if(!empty($id) and has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id))) {
+         echo "insert_image.php?id=$id";
+     } else {
+-        echo "insert_image_std.php?id=$id";
++        echo "insert_image_std.php?id=$id&userid=$userid";
+     }?>", function(param) {
+         if (!param) {   // user must have pressed Cancel
+             return false;

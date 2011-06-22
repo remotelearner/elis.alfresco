@@ -1,0 +1,41 @@
+diff --git a/lib/weblib.php b/lib/weblib.php
+index f76a261..e8c0e9b 100644
+--- a/lib/weblib.php
++++ b/lib/weblib.php
+@@ -1234,13 +1234,15 @@ $targetwindow='self', $selectlabel='', $optionsextra=NULL, $gobutton=NULL) {
+     if ($gobutton) {
+         // Using the no-JavaScript version
+         $javascript = '';
+-    } else if (check_browser_version('MSIE') || (check_browser_version('Opera') && !check_browser_operating_system("Linux"))) {
+-        //IE and Opera fire the onchange when ever you move into a dropdown list with the keyboard.
+-        //onfocus will call a function inside dropdown.js. It fixes this IE/Opera behavior.
++    }  else if ((check_browser_version('Opera') && !check_browser_operating_system("Linux"))) {
++        //Opera fire the onchange when ever you move into a dropdown list with the keyboard.
++        //onfocus will call a function inside dropdown.js. It fixes this Opera behavior.
+         //Note: There is a bug on Opera+Linux with the javascript code (first mouse selection is inactive),
+         //so we do not fix the Opera behavior on Linux
+         $javascript = ' onfocus="initSelect(\''.$formid.'\','.$targetwindow.')"';
+     } else {
++        // IE complains about undefined fields in the above code, however
++        // it works fine with the onchange even below
+         //Other browser
+         $javascript = ' onchange="'.$targetwindow.
+           '.location=document.getElementById(\''.$formid.
+@@ -5019,7 +5021,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
+ /// $width and height are legacy fields and no longer used as pixels like they used to be.
+ /// However, you can set them to zero to override the mincols and minrows values below.
+ 
+-    global $CFG, $COURSE, $HTTPSPAGEREQUIRED;
++    global $CFG, $COURSE, $HTTPSPAGEREQUIRED, $USER;
+     static $scriptcount = 0; // For loading the htmlarea script only once.
+ 
+     $mincols = 65;
+@@ -5044,7 +5046,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
+             } else {
+                 $httpsrequired = empty($HTTPSPAGEREQUIRED) ? '' : '?httpsrequired=1';
+                 $str .= ($scriptcount < 1) ? '<script type="text/javascript" src="'.
+-                         $CFG->httpswwwroot .'/lib/editor/htmlarea/htmlarea.php'.$httpsrequired.'"></script>'."\n" : '';
++                         $CFG->httpswwwroot .'/lib/editor/htmlarea/htmlarea.php?userid='.$USER->id.'&id='.$courseid.$httpsrequired.'"></script>'."\n" : '';
+ 
+             }
+             $str .= ($scriptcount < 1) ? '<script type="text/javascript" src="'.
