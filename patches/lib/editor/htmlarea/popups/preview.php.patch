@@ -1,0 +1,37 @@
+diff --git a/lib/editor/htmlarea/popups/preview.php b/lib/editor/htmlarea/popups/preview.php
+index 204302e..0c5e4fc 100644
+--- a/lib/editor/htmlarea/popups/preview.php
++++ b/lib/editor/htmlarea/popups/preview.php
+@@ -6,7 +6,32 @@
+     $imageurl = required_param('imageurl', PARAM_RAW);
+ 
+     require_login($id);
++
++/// Remote Learner Edit -- BEGIN
++
++    // Determine if this is an Alfresco image we are previewing.
++    $search = '/uuid=([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/';
++
++    if (!preg_match($search, $imageurl, $matches)) {
+     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
++    } else {
++        // Initialize the repository plug-in and verify permissions through the Alfresco API.
++        $uuid = $matches[1];
++
++        require_once($CFG->dirroot . '/file/repository/repository.class.php');
++
++        if (!isset($CFG->repository_plugins_enabled) || (strstr($CFG->repository_plugins_enabled, 'alfresco') === false) ||
++            (($repo = repository_factory::factory($CFG->repository)) === false)) {
++
++            print_error('couldnotcreaterepositoryobject', 'repository');
++        }
++
++        if (!$repo->permission_check($uuid, $USER->id)) {
++            print_error('youdonothaveaccesstothisfunctionality', 'repository_alfresco');
++        }
++    }
++
++/// Remote Learner Edit -- END
+ 
+     @header('Content-Type: text/html; charset=utf-8');
+ 

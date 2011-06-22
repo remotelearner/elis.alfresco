@@ -1,0 +1,243 @@
+diff --git a/lib/editor/htmlarea/popups/insert_image.php b/lib/editor/htmlarea/popups/insert_image.php
+index 5822ef3..3c53072 100644
+--- a/lib/editor/htmlarea/popups/insert_image.php
++++ b/lib/editor/htmlarea/popups/insert_image.php
+@@ -1,18 +1,88 @@
+ <?php // $Id$
+ 
+     require("../../../../config.php");
++    require_once $CFG->dirroot . '/file/repository/repository.class.php';
++
++/// Remote Learner Edit -- BEGIN
+ 
+     $id = optional_param('id', SITEID, PARAM_INT);
+     $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL);
++    $shared = optional_param('shared', '', PARAM_ALPHA);
++    $userid = optional_param('userid', 0, PARAM_INT);
++    $uuid   = optional_param('uuid', '', PARAM_TEXT);
++    $ouuid  = optional_param('ouuid', '', PARAM_TEXT);
++    $alf    = optional_param('alf', 0, PARAM_INT);
++    $dd     = optional_param('dd', 0, PARAM_INT);
++
++    // If ouuid is set, set uuid to ouuid
++    if (!empty($ouuid)) {
++        $uuid = $ouuid;
++    }
++
++/// Remote Learner Edit -- END
+ 
+     require_login($id);
++
++    if (empty($alf)) {
+     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
++    }
++
++    // Make sure the plug-in is enabled and setup correctly.
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++        if (!$repo = repository_factory::factory('alfresco')) {
++            debugging('Could not create repository object.', DEBUG_DEVELOPER);
++        }
++
++        // If we didn't get here from the drop-down...
++        if (empty($uuid) && empty($dd)) {
++            if ($uuid = $repo->get_repository_location($id, $userid, $shared, false)) {
++                redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?id=' . $id .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;choose=', '', 0);
++            }
++
++            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared, false)) {
++               redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?id=' . $id .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;choose=', '', 0);
++            }
++        }
++
++        if (!empty($alf)) {
++            global $USER;
++            $canaccessorganization = false;
++            $canmanageorganization = false;
++
++            if (!empty($USER->access['rdef'])) {
++                foreach ($USER->access['rdef'] as $rdef) {
++                    if ($canaccessorganization && $canmanageorganization) {
++                        continue;
++                    }
++
++                    if (isset($rdef['block/repository:vieworganizationcontent']) &&
++                              $rdef['block/repository:vieworganizationcontent'] == CAP_ALLOW) {
++                        $canaccessorganization = true;
++                    }
++                    if (isset($rdef['block/repository:createorganizationcontent']) &&
++                              $rdef['block/repository:createorganizationcontent'] == CAP_ALLOW) {
++                        $canmanageorganization = true;
++                    }
++                }
++            }
++        }
++
++
++        // Clear out the previous repository location settings.
++        $repo->set_repository_location('', 0, 0, '', true);
++    }
++
++/// Remote Learner Edit -- END
+ 
+     @header('Content-Type: text/html; charset=utf-8');
+ 
+     $upload_max_filesize = get_max_upload_file_size($CFG->maxbytes);
+ 
+-    if ($httpsrequired or (!empty($_SERVER['HTTPS']) and $_SERVER['HTTPS'] != 'off')) {
++    if (!empty($httpsrequired) or (!empty($_SERVER['HTTPS']) and $_SERVER['HTTPS'] != 'off')) {
+         $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
+     } else {
+         $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
+@@ -268,11 +338,53 @@ form { margin-bottom: 0px; margin-top: 0px; }
+     </tr>
+   </table></form>
+   <table width="100%" border="0" cellspacing="0" cellpadding="0">
++<?php
++
++/// Remote Learner Edit -- BEGIN
++
++    // Build an array of options for a navigation drop-down menu.
++
++    // Make sure the plug-in is enabled and setup correctly.
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && !empty($repo)) {
++        $default = '';
++        $opts = $repo->file_browse_options($id, $userid, $ouuid, $shared, '',
++                                           'lib/editor/htmlarea/popups/insert_image.php?alf=' . $alf,
++                                           'lib/editor/htmlarea/popups/insert_image.php?alf=0',
++                                           'lib/editor/htmlarea/popups/insert_image.php?alf=1', $default);
++
++        if (!empty($opts)) {
++            echo '<tr><td width="450" align="right">'. get_string('browsefilesfrom', 'repository') . ': ';
++            popup_form($CFG->wwwroot . '/', $opts, 'filepluginselect', $default, '');
++            echo '</td></tr>';
++        }
++    }
++
++/// Remote Learner Edit -- END
++
++
++?>
+     <tr>
+       <td width="55%" valign="top"><?php
+           print_string("filebrowser","editor");
+           echo "<br />";
+-          echo "<iframe id=\"ibrowser\" name=\"ibrowser\" src=\"{$CFG->wwwroot}/lib/editor/htmlarea/coursefiles.php?usecheckboxes=1&id=$id\" style=\"width: 100%; height: 200px;\"></iframe>";
++
++/// Remote Learner Edit -- BEGIN
++
++        // Display the Alfrsco file browser within the IFRAME if we are accessing Alfresco files.
++        if (empty($alf)) {
++            echo "<iframe id=\"ibrowser\" name=\"ibrowser\" src=\"{$CFG->wwwroot}/lib/editor/htmlarea/coursefiles.php" .
++                 "?usecheckboxes=1&id=$id\" style=\"width: 100%; height: 200px;\"></iframe>";
++        } else {
++            $ref = urlencode($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?alf=1&amp;');
++
++            echo '<iframe id="ibrowser" name="ibrowser" src="' . $CFG->wwwroot . '/file/repository/alfresco/' .
++                 'coursefiles.php?usecheckboxes=1&amp;id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' .
++                 $userid . '&amp;uuid=' . $uuid . '&amp;ref=' . $ref . '" style="width: 100%; height: 200px;">' .
++                 '</iframe>';
++        }
++
++/// Remote Learner Edit -- END
++
+       ?>
+       </td>
+       <td width="45%" valign="top"><?php print_string("preview","editor");?>:<br />
+@@ -288,10 +400,13 @@ form { margin-bottom: 0px; margin-top: 0px; }
+           <tr><td><?php print_string("selection","editor");?>: </td>
+           <td><form id="idelete">
+           <input name="btnDelete" type="submit" id="btnDelete" value="<?php print_string("delete","editor");?>" onclick="return submit_form('delete');" /></form></td>
++<?php if (empty($alf)) { ?>
+           <td><form id="imove">
+           <input name="btnMove" type="submit" id="btnMove" value="<?php print_string("move","editor");?>" onclick="return submit_form('move');" /></td>
++<?php } ?>
+           <td><form id="izip">
+           <input name="btnZip" type="submit" id="btnZip" value="<?php print_string("zip","editor");?>" onclick="return submit_form('zip');" /></form></td>
++<?php if (empty($alf)) { ?>
+           <td><form method="post" action="../coursefiles.php" target="ibrowser">
+           <input type="hidden" name="id" value="<?php print($id);?>" />
+           <input type="hidden" name="wdir" value="" />
+@@ -299,6 +414,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
+           <input type="hidden" name="action" value="rename" />
+           <input type="hidden" name="sesskey" value="<?php p($USER->sesskey) ?>" />
+           <input name="btnRename" type="submit" id="btnRename" value="<?php print_string("rename","editor");?>" /></form></td>
++<?php } ?>
+           <tr></table>
+           <br />
+           <?php
+@@ -319,7 +435,15 @@ form { margin-bottom: 0px; margin-top: 0px; }
+     </tr>
+     <tr>
+       <td height="22">
++<?php if (empty($alf)) { ?>
+           <form id="cfolder" action="../coursefiles.php" method="post" target="ibrowser">
++<?php } else { ?>
++          <form id="cfolder" action="<?php echo $CFG->wwwroot . '/file/repository/alfresco/'; ?>coursefiles.php" method="post" target="ibrowser">
++          <input type="hidden" name="shared" value="<?php print($shared); ?>" />
++          <input type="hidden" name="userid" value="<?php print($userid); ?>" />
++          <input type="hidden" name="uuid" value="<?php print($uuid); ?>" />
++          <input type="hidden" name="ref" value="<?php print(urlencode($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?alf=1&amp;')); ?>" />
++<?php } ?>
+           <input type="hidden" name="id" value="<?php print($id);?>" />
+           <input type="hidden" name="wdir" value="" />
+           <input type="hidden" name="action" value="mkdir" />
+@@ -328,6 +452,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
+           <input name="btnCfolder" type="submit" id="btnCfolder" value="<?php print_string("createfolder","editor");?>" onclick="return checkvalue('foldername','cfolder');" />
+           </form>
+           <div class="space"></div>
++<?php if (empty($alf)) { ?>
+           <form action="../coursefiles.php?id=<?php print($id);?>" method="post" enctype="multipart/form-data" target="ibrowser" id="uploader">
+           <input type="hidden" name="MAX_FILE_SIZE" value="<?php print($upload_max_filesize);?>" />
+           <input type="hidden" name="id" VALUE="<?php print($id);?>" />
+@@ -336,6 +461,47 @@ form { margin-bottom: 0px; margin-top: 0px; }
+           <input type="hidden" name="sesskey" value="<?php p($USER->sesskey) ?>" />
+           <input type="file" name="userfile" id="userfile" size="35" />
+           <input name="save" type="submit" id="save" onclick="return checkvalue('userfile','uploader');" value="<?php print_string("upload","editor");?>" />
++<?php
++
++    } else {
++        require_once($CFG->libdir . '/uploadlib.php');
++
++        // Build up the URL used in the upload form.
++        $vars = array(
++            'id'      => $id,
++            'shared'  => $shared,
++            'userid'  => $userid,
++            'uuid'    => $uuid,
++            'action'  => 'upload',
++            'sesskey' => $USER->sesskey,
++            'save'    => urlencode(get_string('upload', 'editor'))
++        );
++
++        $action = $CFG->wwwroot . '/file/repository/alfresco/coursefiles.php?';
++
++        $count = count($vars);
++        $i     = 0;
++        foreach ($vars as $var => $val) {
++            $action .= $var . '=' . $val . ($i < $count - 1 ? '&amp;' : '');
++            $i++;
++        }
++
++        echo '<form action="' . $action . '" method="post" enctype="multipart/form-data" target="ibrowser" id="uploader">';
++
++        // Include the form variables.
++        unset($vars['save']);
++
++        foreach ($vars as $var => $val) {
++            echo '    <input type="hidden" name="' . $var . '" value="' . $val . '" />' . "\n";
++        }
++
++        upload_print_form_fragment(1, array('userfile'), null, false, null, $upload_max_filesize, 0, false);
++
++        echo '<input name="save" type="submit" id="save" onclick="return checkvalue(\'userfile\',\'uploader\');" ' .
++             'value="' . get_string('upload', 'editor') . '" />';
++    }
++
++?>
+           </form>
+       </td>
+     </tr>

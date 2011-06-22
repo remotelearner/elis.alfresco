@@ -1,0 +1,112 @@
+diff --git a/lib/editor/htmlarea/popups/link_std.php b/lib/editor/htmlarea/popups/link_std.php
+index f3f354a..a61efb7 100644
+--- a/lib/editor/htmlarea/popups/link_std.php
++++ b/lib/editor/htmlarea/popups/link_std.php
+@@ -1,10 +1,48 @@
+-<?php // $Id$
++<?php
++
+     require("../../../../config.php");
+ 
+     $id = optional_param('id', SITEID, PARAM_INT);
+ 
+     require_course_login($id);
+     @header('Content-Type: text/html; charset=utf-8');
++
++
++    if ($id === SITEID) {
++        $context = get_context_instance(CONTEXT_SYSTEM);
++    } else {
++        $context = get_context_instance(CONTEXT_COURSE, $id);
++    }
++
++    $canbrowse = false;
++    $alfbrowse = '';
++
++    if (has_capability('moodle/course:managefiles', $context)) {
++        $canbrowse = true;
++    }
++
++    if (empty($canbrowse) && !empty($USER->access['rdef'])) {
++        foreach ($USER->access['rdef'] as $rdef) {
++            if ($canbrowse) {
++                continue;
++            }
++
++            if (isset($rdef['block/repository:viewsitecontent']) &&
++                      $rdef['block/repository:viewsitecontent'] == CAP_ALLOW) {
++                $canbrowse = true;
++                $alfbrowse = 'site';
++            } else if (isset($rdef['block/repository:viewsharedcontent']) &&
++                             $rdef['block/repository:viewsharedcontent'] == CAP_ALLOW) {
++                $canbrowse = true;
++                $alfbrowse = 'shared';
++            } else if (isset($rdef['block/repository:viewowncontent']) &&
++                             $rdef['block/repository:viewowncontent'] == CAP_ALLOW) {
++                $canbrowse = true;
++                $alfbrowse = 'personal';
++            }
++        }
++    }
++
+ ?>
+ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+@@ -106,9 +144,41 @@ function onBrowse() {
+     settings += " scrollbars=no,";
+     settings += " resizable=no,";
+     settings += " width=470,";
+-    settings += " height=400,";
++    settings += " height=440,";
++
++<?php
++
++/// Remote Learner Edit -- BEGIN
++
++    // Determine which
++    if ($canbrowse) {
++        switch ($alfbrowse) {
++            case 'personal':
++                echo 'var newwin = window.open("' . $CFG->wwwroot . '/file/repository/alfresco/link.php?id=' .
++                     $id . '&userid=' . $USER->id . '","",""+ settings +" left="+ lx +", top="+ tx +"");';
++                break;
++
++            case 'shared':
++                echo 'var newwin = window.open("' . $CFG->wwwroot . '/file/repository/alfresco/link.php?id=' .
++                     $id . '&shared=true&userid=0","",""+ settings +" left="+ lx +", top="+ tx +"");';
++                break;
++
++            case 'site':
++                echo 'var newwin = window.open("' . $CFG->wwwroot . '/file/repository/alfresco/link.php?id=' .
++                     $id . '","",""+ settings +" left="+ lx +", top="+ tx +"");';
++                break;
++
++            default:
++                echo 'var newwin = window.open("link.php?id=' . $id . '","",""+ settings +" left="+ lx +", ' .
++                     'top="+ tx +"");';
++                break;
++        }
++    }
++
++/// Remote Learner Edit -- END
++
++?>
+ 
+-    var newwin = window.open("link.php?id=<?php echo $id; ?>","",""+ settings +" left="+ lx +", top="+ tx +"");
+     return false;
+ }
+ function seturl() {
+@@ -175,8 +245,11 @@ border-bottom: 1px solid black; letter-spacing: 2px;
+ </table>
+ 
+ <div id="buttons">
+-  <?php if (has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id))) {
+-            echo "<button type=\"button\" name=\"browse\" onclick=\"return onBrowse();\">".get_string("browse","editor")."...</button>";
++<?php
++
++    if ($canbrowse) {
++        echo '<button type="button" name="browse" onclick="return onBrowse();">' .
++             get_string('browse', 'editor') . '...</button>';
+         }
+   ?>
+   <button type="button" name="ok" onclick="return onOK();"><?php print_string("ok","editor");?></button>

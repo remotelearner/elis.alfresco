@@ -1,0 +1,13 @@
+diff --git a/lib/editor/htmlarea/dialog.js b/lib/editor/htmlarea/dialog.js
+index da0b810..4f944de 100644
+--- a/lib/editor/htmlarea/dialog.js
++++ b/lib/editor/htmlarea/dialog.js
+@@ -39,7 +39,7 @@ Dialog._geckoOpenModal = function(url, action, init) {
+         case "select_color": x = 238; y = 195; break;
+         case "insert_table": x = 420; y = 250; break;
+         case "link_std":     x = 420; y = 230; break;
+-        case "insert_image_std": x = 450; y = 240; break;
++        case "insert_image_std": x = 730; y = 560; break;
+         case "createanchor": x = 300; y = 140; break;
+         case "searchandreplace": x = 400; y = 250; break;
+         default: x = 50; y = 50;

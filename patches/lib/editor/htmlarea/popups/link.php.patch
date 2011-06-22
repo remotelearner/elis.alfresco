@@ -1,0 +1,91 @@
+diff --git a/lib/editor/htmlarea/popups/link.php b/lib/editor/htmlarea/popups/link.php
+index fd9b451..1b8b9dd 100644
+--- a/lib/editor/htmlarea/popups/link.php
++++ b/lib/editor/htmlarea/popups/link.php
+@@ -1,9 +1,37 @@
+-<?php // $Id$
++<?php
+     require("../../../../config.php");
++    require_once $CFG->dirroot . '/file/repository/repository.class.php';
+ 
+     $id = optional_param('id', SITEID, PARAM_INT);
++    $dd = optional_param('dd', 0, PARAM_INT);
++
++    $upload_max_filesize = get_max_upload_file_size($CFG->maxbytes);
+ 
+     require_course_login($id);
++
++    // Make sure the plug-in is enabled and setup correctly.
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++        if (!$repo = repository_factory::factory('alfresco')) {
++            debugging('Could not create repository object.', DEBUG_DEVELOPER);
++        }
++
++        // If we didn't get here from the drop-down...
++        if (empty($uuid) && empty($dd)) {
++            if ($uuid = $repo->get_repository_location($id, $userid, $shared, false)) {
++                redirect($CFG->wwwroot . '/file/repository/alfresco/link.php?id=' . $id . '&amp;userid=' . $userid .
++                         '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
++            }
++
++            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared, false)) {
++                redirect($CFG->wwwroot . '/file/repository/alfresco/link.php?id=' . $id . '&amp;userid=' . $userid .
++                         '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
++            }
++        }
++
++        // Clear out the previous repository location settings.
++        $repo->set_repository_location('', 0, 0, '', true);
++    }
++
+     @header('Content-Type: text/html; charset=utf-8');
+ ?>
+ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+@@ -77,6 +105,32 @@ form { margin-bottom: 1px; margin-top: 1px; }
+ <body>
+ <div class="title"><?php print_string("insertlink","editor");?></div>
+   <table width="450" border="0" cellspacing="0" cellpadding="2">
++<?php
++
++/// Remote Learner Edit -- BEGIN
++
++/// Build an array of options for a navigation drop-down menu.
++
++/// Make sure the plug-in is enabled and setup correctly.
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && !empty($repo)) {
++        // Build an array of options for a navigation drop-down menu.
++        $default = '';
++
++        $opts = $repo->file_browse_options($id, $USER->id, '', false, '',
++                                           'lib/editor/htmlarea/popups/link.php',
++                                           'lib/editor/htmlarea/popups/link.php',
++                                           'file/repository/alfresco/link.php', $default);
++
++        if (!empty($opts)) {
++            echo '<tr><td colspan="2" align="right">' . get_string('browsefilesfrom', 'repository') . ': ';
++            popup_form($CFG->wwwroot . '/', $opts, 'filepluginselect', $default, '');
++        }
++    }
++
++/// Remote Learner Edit -- END
++
++
++?>
+     <tr>
+       <td width="450" valign="top"><fieldset>
+         <legend><?php
+@@ -87,9 +141,11 @@ form { margin-bottom: 1px; margin-top: 1px; }
+         }?></legend>
+ 
+         <div class="space"></div>
+-        <?php print(has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id)))?
+-        "<iframe id=\"fbrowser\" name=\"fbrowser\" src=\"../coursefiles.php?id=".$id."\" width=\"420\" height=\"180\"></iframe>":
+-        ""; ?>
++        <?php
++            if(has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id))) {
++                print "<iframe id=\"fbrowser\" name=\"fbrowser\" src=\"../coursefiles.php?id=".$id."\" width=\"420\" height=\"180\"></iframe>";
++            }
++        ?>
+         <p>
+         </p>
+         <div class="space"></div>

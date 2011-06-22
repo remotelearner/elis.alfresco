@@ -1,0 +1,35 @@
+diff --git a/filter/mediaplugin/filtersettings.php b/filter/mediaplugin/filtersettings.php
+index 6411eb2..a46c9af 100644
+--- a/filter/mediaplugin/filtersettings.php
++++ b/filter/mediaplugin/filtersettings.php
+@@ -25,4 +25,30 @@ $settings->add(new admin_setting_configcheckbox('filter_mediaplugin_enable_youtu
+ $settings->add(new admin_setting_configcheckbox('filter_mediaplugin_enable_ogg', get_string('mediapluginogg','admin'), '', 1));
+ 
+ $settings->add(new admin_setting_configcheckbox('filter_mediaplugin_enable_ogv', get_string('mediapluginogv','admin'), '', 1));
++
++
++// Alfresco multimedia plug-in
++$headtitle = get_string('alfheader', 'repository_alfresco');
++$headintro = get_string('alfheaderintro', 'repository_alfresco');
++$settings->add(new admin_setting_heading('filter_alf_header', $headtitle, $headintro));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_mp3', get_string('alfmediapluginmp3','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_swf', get_string('alfmediapluginswf','repository_alfresco'), get_string('alfmediapluginswfnote','repository_alfresco'), 0));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_mov', get_string('alfmediapluginmov','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_wmv', get_string('alfmediapluginwmv','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_mpg', get_string('alfmediapluginmpg','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_avi', get_string('alfmediapluginavi','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_flv', get_string('alfmediapluginflv','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_ram', get_string('alfmediapluginram','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_rpm', get_string('alfmediapluginrpm','repository_alfresco'), '', 1));
++
++$settings->add(new admin_setting_configcheckbox('filter_alfmediaplugin_enable_rm', get_string('alfmediapluginrm','repository_alfresco'), '', 1));
+ ?>
