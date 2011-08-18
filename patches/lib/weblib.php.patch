@@ -1,5 +1,5 @@
 diff --git a/lib/weblib.php b/lib/weblib.php
-index f76a261..e8c0e9b 100644
+index aaf50be..b7faad9 100644
 --- a/lib/weblib.php
 +++ b/lib/weblib.php
 @@ -1234,13 +1234,15 @@ $targetwindow='self', $selectlabel='', $optionsextra=NULL, $gobutton=NULL) {

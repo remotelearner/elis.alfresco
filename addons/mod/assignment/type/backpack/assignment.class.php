@@ -37,7 +37,7 @@ class assignment_backpack extends assignment_upload {
     function assignment_backpack($cmid='staticonly', $assignment=NULL, $cm=NULL, $course=NULL) {
         parent::assignment_base($cmid, $assignment, $cm, $course);
         $this->type = 'backpack';
-        $this->release = '1.8.9';
+        $this->release = '1.9.2';
     }
 
     /**
