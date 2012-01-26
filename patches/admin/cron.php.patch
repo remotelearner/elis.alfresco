@@ -1,8 +1,8 @@
 diff --git a/admin/cron.php b/admin/cron.php
-index ca72d03..6031816 100644
+index e1a94b4..5724210 100644
 --- a/admin/cron.php
 +++ b/admin/cron.php
-@@ -522,6 +522,36 @@
+@@ -524,6 +524,36 @@
          }
      }
  

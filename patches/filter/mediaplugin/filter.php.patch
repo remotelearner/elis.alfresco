@@ -1,5 +1,5 @@
 diff --git a/filter/mediaplugin/filter.php b/filter/mediaplugin/filter.php
-index f63e28d..b625362 100644
+index f63e28d8..b625362 100644
 --- a/filter/mediaplugin/filter.php
 +++ b/filter/mediaplugin/filter.php
 @@ -113,6 +113,20 @@ function mediaplugin_filter($courseid, $text) {
