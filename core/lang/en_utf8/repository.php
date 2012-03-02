@@ -13,6 +13,7 @@ $string['nodefaultrepositoryplugin'] = 'No default repository plug-in configured
 $string['parentfolder'] = 'Parent folder: $a';
 $string['repositories'] = 'Repositories';
 $string['repository'] = 'Repository';
+$string['repositoryclusterfiles'] = ' files';
 $string['repositorycoursefiles'] = 'Repository course files';
 $string['repositoryfiles'] = 'Repository Files';
 $string['repositoryplugins'] = 'Repository plugins';

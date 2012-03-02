@@ -41,5 +41,5 @@ function chooseRootFolder(obj) {
     queryString += "&choose=id_s__repository_alfresco_root_folder";
 
     return openpopup('/file/repository/alfresco/rootfolder.php?' + queryString, 'rootfolder',
-    		         'scrollbars=yes,resizable=no,width=640,height=480');
+                      'scrollbars=yes,resizable=no,width=640,height=480', 0);
 }

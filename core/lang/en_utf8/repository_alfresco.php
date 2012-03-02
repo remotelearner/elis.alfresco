@@ -51,7 +51,7 @@ $string['configdeleteuserdir'] = 'When deleting a Moodle user account, if that u
                                  'that was located in that directory.';
 $string['configuserquota'] = 'Set the default value for how much storage space all Moodle users on Alfresco can use.  ' .
                              '<b>Select Unlimited for unlimited storage space.</b>';
-$string['couldnotaccessserviceat'] = 'Could not access Alfrecso service at: $a';
+$string['couldnotaccessserviceat'] = 'Could not access Alfresco service at: $a';
 $string['couldnotdeletefile'] = '<br />Error: Could not delete: $a';
 $string['couldnotgetalfrescouserdirectory'] = 'Could not get Alfresco user directory for user: $a';
 $string['couldnotgetfiledataforuuid'] = 'Could not get file data for UUID: $a';

@@ -57,7 +57,7 @@
 ///////////////////////////////////////////////////////////////////////////
 
     class repository_factory {
-        
+
         function factory($repository = '') {
             global $CFG, $USER;
             if (!$repository) {
@@ -65,11 +65,17 @@
             }
             if (file_exists("$CFG->dirroot/file/repository/$repository/repository.php")) {
                 require_once("$CFG->dirroot/file/repository/$repository/repository.php");
-                $class = "repository_plugin_$repository";                
+                $class = "repository_plugin_{$repository}";
+                if ($repository == 'alfresco' && isset($USER->repo) && is_siteadmin($USER->id) &&
+                    !get_config(repository_plugin_alfresco::$plugin_name, 'initialized')) {
+
+                    error_log("repository_factory::factory({$repository}): unsetting USER->repo");
+                    unset($USER->repo);
+                }
                 if (!(isset($USER->repo))) {
                     $USER->repo = new $class;
                 } else {
-                    $USER->repo = unserialize(serialize($USER->repo));      
+                    $USER->repo = unserialize(serialize($USER->repo));
                 }
                 return $USER->repo;
             } else {

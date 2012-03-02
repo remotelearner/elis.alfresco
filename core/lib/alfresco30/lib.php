@@ -1,6 +1,6 @@
 <?php
 /**
- * Alfresco CMIS REST interface API for Alfresco version 3.0
+ * Alfresco CMIS REST interface API for Alfresco version 3.x
  *
  * ELIS(TM): Enterprise Learning Intelligence Suite
  * Copyright (C) 2008-2009 Remote-Learner.net Inc (http://www.remote-learner.net)
@@ -28,7 +28,96 @@
 
 
 require_once($CFG->dirroot . '/file/repository/alfresco/repository.php');
+require_once($CFG->libdir . '/cmis-php/cmis_repository_wrapper.php');
 
+/**
+ * Display an message with optional details from HTML
+ *
+ * @param string $msg     The message to display
+ * @param string $details Any message details to be initially hidden
+ * @param string $type    The 'type' of message: i.e. 'error','general', ???
+ */
+function display_msg($msg, $details = '', $type = 'error') {
+    $width = '';
+    if (!empty($details)) {
+        $innertags = array('html', 'body');
+        foreach ($innertags as $tag) {
+            if (($tagpos = stripos($details, '<'. $tag)) !== false &&
+                ($firstend = strpos(substr($details, $tagpos), '>')) !== false) {
+                if (($tagend = stripos($details, '</'. $tag .'>')) !== false) {
+                    $details = substr($details, $tagpos + $firstend + 1, $tagend - $tagpos - $firstend - 1);
+                } else {
+                    $details = substr($details, $tagpos + $firstend + 1);
+                }
+            }
+        }
+        $details = addcslashes($details, "'");
+        $details = preg_replace("/\n/", '', $details);
+        $details = preg_replace("|/alfresco/images/logo/AlfrescoLogo32.png|",
+                                '/blocks/repository/AlfrescoLogo32.png',
+                                $details);
+        $width = '99%'; // TBD
+    }
+    $output = print_simple_box_start('center', $width, '', 5, $type .'box', '', true);
+    $output .= $msg;
+    if (!empty($details)) {
+        $output .= '<p align="right"><input type="button" value="'.
+                   get_string('details', 'block_repository') .
+                   '" onclick="toggle_msgdetails();" /></p>'
+                   .'<div id="msgdetails" style="overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden"></div>';
+        $output .= "
+<script type=\"text/javascript\">
+//<![CDATA[
+function toggle_msgdetails() {
+    mddiv = document.getElementById('msgdetails');
+    if (mddiv) {
+        mddiv.innerHTML = (mddiv.innerHTML == '') ? '{$details}' : '';
+    }
+}
+//]]>
+</script>
+";
+    }
+
+    $output .= print_simple_box_end(true);
+    echo $output;
+}
+
+/**
+ * Function to transform Moodle username to Alfresco username
+ * converting 'admin' user and adding tenant info.
+ * Check to make sure username has NOT already been transformed
+ *
+ * @param  $username the username to transform
+ * @uses   $CFG
+ * @uses   $USER
+ * @return string    the transformed username.
+ */
+function alfresco_transform_username($username) {
+    global $CFG, $USER;
+
+    $tenantpos = strpos($CFG->repository_alfresco_server_username, '@');
+    if ($username == 'admin' || empty($USER->username) || $USER->username == $username ||
+        (($atpos = strpos($username, '@')) !== false &&
+          ($tenantpos === false ||
+           strcmp(substr($username, $atpos),
+                  substr($CFG->repository_alfresco_server_username, $tenantpos))))
+       || ($atpos === false && $tenantpos !== false)) {
+
+        // Fix username
+        $username = repository_plugin_alfresco::fix_username($username);
+
+        // So that we don't conflict with the default Alfresco admin account.
+        $username = ($username == 'admin')
+                    ? $CFG->repository_alfresco_admin_username : $username;
+
+        // We must include the tenant portion of the username here.
+        if ($tenantpos > 0) {
+            $username .= substr($CFG->repository_alfresco_server_username, $tenantpos);
+        }
+    }
+    return $username;
+}
 
 /**
  * Send a GET request to the Alfresco repository.
@@ -41,7 +130,6 @@ function alfresco_request($uri, $username = '') {
     global $CFG;
 
     if (ALFRESCO_DEBUG_TRACE) print_object('$uri: ' . $uri);
-
     if (!$response = alfresco_utils_invoke_service($uri, 'ticket', array(), 'GET', array(), $username)) {
         debugging(get_string('couldnotaccessserviceat', 'repository_alfresco', $uri), DEBUG_DEVELOPER);
         if (ALFRESCO_DEBUG_TRACE && $CFG->debug == DEBUG_DEVELOPER) print_object($response);
@@ -130,6 +218,42 @@ function alfresco_get_services() {
     return $services;
 }
 
+function RLsimpleXMLelement($resp, $displayerrors = true) {
+    $details = $resp;
+    if (($preend = strpos($resp, '<title><!DOCTYPE')) !== false &&
+        ($lastentry = strrpos($resp, "<entry>")) !== false) {
+        $details = substr($resp, $preend + 7, -7);
+        $resp = substr($resp, 0, $lastentry - 1) ."\n</feed>";
+        error_log("/lib/alfresco30/lib.php:: WARNING - Alfresco Server Error: {$details}");
+        if ($displayerrors) {
+            display_msg(get_string('incompletequeryresponse', 'block_repository'),
+                        $details);
+        }
+    }
+    $resp = preg_replace('/&nbsp;/', ' ', $resp); // TBD?
+    libxml_use_internal_errors(true);
+    try {
+        $sxml = new SimpleXMLElement($resp);
+    } catch (Exception $e) {
+        error_log("/lib/alfresco30/lib.php:: WARNING - Alfresco Server Error: BAD XML => {$details}");
+        if ($displayerrors) {
+            display_msg(get_string('badqueryresponse', 'block_repository'),
+                        $details);
+        }
+        if (debugging('', DEBUG_DEVELOPER)) {
+            if (!$displayerrors) {
+                echo 'Bad XML: ', $details;
+            }
+            echo "<br/><pre>\n";
+            foreach (libxml_get_errors() as $error) {
+                echo "\t", $error->message, "\n";
+            }
+            echo '</pre>';
+        }
+        return false;
+    }
+    return $sxml;
+}
 
 /**
  * Determine the current repository version.
@@ -142,10 +266,8 @@ function alfresco_get_services() {
 function alfresco_get_repository_version($versioncheck = '') {
     $response = alfresco_request('/moodle/repoversion');
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -229,7 +351,6 @@ function alfresco_uuid_from_path($path, $uuid = '') {
     if ($path == '/') {
         return true;
     }
-
 /// Remove any extraneous slashes from the ends of the string
     $path = trim($path, '/');
 
@@ -237,7 +358,6 @@ function alfresco_uuid_from_path($path, $uuid = '') {
 
 /// Initialize the folder structure if a structure piece wasn't passed to this function.
     $children = alfresco_read_dir($uuid);
-
 /// Get the first piece from the list of path elements.
     $pathpiece = array_shift($parts);
 
@@ -281,10 +401,25 @@ function alfresco_read_dir($uuid = '', $useadmin = true) {
     $return->files   = array();
 
     if (empty($uuid)) {
-        $services = alfresco_get_services();
-        $response = alfresco_request($services['root']);
+        if (repository_plugin_alfresco::is_version('3.2')) {
+            $services = alfresco_get_services();
+            $response = alfresco_request($services['root']);
+        } else if (repository_plugin_alfresco::is_version('3.4')) {
+            // Force the usage of the configured Alfresco admin account, if requested.
+            if ($useadmin) {
+                $username = '';
+            } else if (isloggedin()) {
+                $username = $USER->username;
+                // Fix username
+                $username = repository_plugin_alfresco::fix_username($username);
+            } else {
+                $username = '';
+            }
+            $response = alfresco_request('/cmis/p/children', $username);
+        }
     } else {
-        if (alfresco_get_type($uuid) != 'folder') {
+
+        if (alfresco_get_type($uuid) != ALFRESCO_TYPE_FOLDER) {
             return;
         }
 
@@ -293,11 +428,17 @@ function alfresco_read_dir($uuid = '', $useadmin = true) {
             $username = '';
         } else if (isloggedin()) {
             $username = $USER->username;
+            // Fix username
+            $username = repository_plugin_alfresco::fix_username($username);
         } else {
             $username = '';
         }
 
-        $response = alfresco_request(alfresco_get_uri($uuid, 'children'), $username);
+        if (repository_plugin_alfresco::is_version('3.2')) {
+            $response = alfresco_request(alfresco_get_uri($uuid, 'children'), $username);
+        } else if (repository_plugin_alfresco::is_version('3.4')) {
+            $response = alfresco_request('/cmis/i/' . $uuid .'/children', $username);
+        }
     }
 
     if (empty($response)) {
@@ -318,11 +459,11 @@ function alfresco_read_dir($uuid = '', $useadmin = true) {
 
         $contentNode = alfresco_process_node($dom, $node, $type);
 
-        if ($type == 'folder') {
+        if ($type == ALFRESCO_TYPE_FOLDER) {
             $return->folders[] = $contentNode;
 
         // Only include a file in the list if it's title does not start with a period '.'
-        } else if ($type == 'document' && !empty($contentNode->title) && $contentNode->title[0] !== '.') {
+        } else if ($type == ALFRESCO_TYPE_DOCUMENT && !empty($contentNode->title) && $contentNode->title[0] !== '.') {
             $return->files[] = $contentNode;
         }
     }
@@ -410,8 +551,14 @@ function alfresco_get_uri($uuid = '', $function = '') {
  * @return string|bool A string name for the node type or, False on error.
  */
 function alfresco_get_type($uuid) {
-    if (!$response = alfresco_request(alfresco_get_uri($uuid, 'self'))) {
-        return false;
+    if (repository_plugin_alfresco::is_version('3.2')) {
+        if (!$response = alfresco_request(alfresco_get_uri($uuid, 'self'))) {
+            return false;
+        }
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
+        if (!$response = alfresco_request('/cmis/i/' . $uuid)) {
+            return false;
+        }
     }
 
     $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
@@ -420,17 +567,40 @@ function alfresco_get_type($uuid) {
     $dom->preserverWhiteSpace = false;
     $dom->loadXML($response);
 
-    $entries = $dom->getElementsByTagName('propertyString');
+    if (repository_plugin_alfresco::is_version('3.2')) {
+        $entries = $dom->getElementsByTagName('propertyString');
 
-    if ($entries->length) {
-        for ($i = 0; $i < $entries->length; $i++) {
-            $node = $entries->item($i);
+        if ($entries->length) {
+            for ($i = 0; $i < $entries->length; $i++) {
+                $node = $entries->item($i);
 
-        /// Sloppily handle strict namespacing here.
-            if ($node->getAttribute('cmis:name') == 'BaseType' ||
-                $node->getAttribute('name') == 'BaseType') {
+            /// Sloppily handle strict namespacing here.
+                if ($node->getAttribute('cmis:name') == 'BaseType' ||
+                    $node->getAttribute('name') == 'BaseType') {
 
-                return $node->nodeValue;
+                    return $node->nodeValue;
+                }
+            }
+        }
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
+        $elm = $dom->getElementsByTagNameNS('http://docs.oasis-open.org/ns/cmis/core/200908/', 'properties');
+
+        if ($elm->length === 1) {
+            $elm = $elm->item(0);
+            $properties = $elm->childNodes;
+
+            if ($properties->length) {
+                for ($i = 0; $i < $properties->length; $i++) {
+                     $node = $properties->item($i);
+                     if (!$node->hasAttributes()) {
+                        continue;
+                     }
+
+            /// Sloppily handle strict namespacing here.
+                    if ($node->hasAttribute('propertyDefinitionId') && $node->getAttribute('propertyDefinitionId') == 'cmis:objectTypeId') {
+                        return $node->nodeValue;
+                    }
+                }
             }
         }
     }
@@ -463,7 +633,10 @@ function alfresco_node_properties($uuid) {
     }
 
     $type  = '';
-    return alfresco_process_node($dom, $nodes->item(0), $type);
+    $node = alfresco_process_node($dom, $nodes->item(0), $type);
+    $node->type = $type;
+
+    return $node;
 }
 
 
@@ -496,7 +669,7 @@ function alfresco_get_file($uuid) {
  * @param bool   $recursive Whether to recursively delete child content.
  * @return mixed
  */
-function alfresco_delete($uuid, $recursive = false) {
+function alfresco_delete($uuid, $recursive = false, $repo = NULL) {
     global $CFG, $USER;
 
     if (ALFRESCO_DEBUG_TRACE)  print_object('alfresco_delete(' . $uuid . ', ' . $recursive . ')');
@@ -506,7 +679,24 @@ function alfresco_delete($uuid, $recursive = false) {
     // ELIS-1102
     alfresco_request('/moodle/nodeowner/' . $uuid . '?username=' . $CFG->repository_alfresco_server_username);
 
-    return (true === alfresco_send(alfresco_get_uri($uuid, 'delete'), array(), 'DELETE'));
+    if (repository_plugin_alfresco::is_version('3.2')) {
+        return (true === alfresco_send(alfresco_get_uri($uuid, 'delete'), array(), 'DELETE'));
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
+        // Get node type and use descendants delete for folders
+        $node_type = alfresco_get_type($uuid);
+
+        if (!(strstr($node_type,$repo->type_folder) === FALSE)) {
+            if (alfresco_send('/cmis/i/' . $uuid.'/descendants', array(), 'DELETE') === false) {
+                return false;
+            }
+        } else {
+            if (alfresco_send('/cmis/i/' . $uuid, array(), 'DELETE') === false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 
@@ -526,45 +716,63 @@ function alfresco_create_dir($name, $uuid = '', $description = '', $useadmin = t
 
     $properties = alfresco_node_properties($uuid);
 
-    $data = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
+    if (repository_plugin_alfresco::is_version('3.2')) {
+        $data .= '<?xml version="1.0" encoding="utf-8"?>
+                  <entry xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app"
+                         xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200901" xmlns:alf="http://www.alfresco.org">
+                    <link rel="type" href="' . alfresco_base_url() . '/api/type/folder"/>
+                    <link rel="repository" href="' . alfresco_base_url() . '/api/repository"/>
+                    <title>' . $name . '</title>
+                    <summary>' . $description . '</summary>
+                    <cmis:object>
+                      <cmis:properties>
+                        <cmis:propertyString cmis:name="ObjectTypeId">
+                          <cmis:value>'.ALFRESCO_TYPE_FOLDER.'</cmis:value>
+                        </cmis:propertyString>
+                      </cmis:properties>
+                    </cmis:object>
+                  </entry>';
 
-    if (alfresco_get_repository_version('3.2')) {
-        $data .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app" ' .
-                 'xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200901" xmlns:alf="http://www.alfresco.org">' . "\n" .
-                 '  <link rel="type" href="' . alfresco_base_url() . '/api/type/folder"/>' . "\n" .
-                 '  <link rel="repository" href="' . alfresco_base_url() . '/api/repository"/>' . "\n";
-    } else {
-        $data .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:cmis="http://www.cmis.org/2008/05">' . "\n";
+        $uri = '/api/node/workspace/SpacesStore/' . $uuid . '/descendants';
+
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
+        $uri = '/cmis/i/' . $uuid . '/children';
+
+        $data = '<?xml version="1.0" encoding="utf-8"?>
+                 <entry xmlns="http://www.w3.org/2005/Atom"
+                        xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/"
+                        xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">
+                   <link rel="type" href="' . alfresco_base_url() . '/api/type/folder"/>
+                   <link rel="repository" href="' . alfresco_base_url() . '/api/repository"/>
+                   <title>' . $name . '</title>
+                   <summary>' . $description . '</summary>
+                   <cmisra:object>
+                     <cmis:properties>
+                       <cmis:propertyId propertyDefinitionId="cmis:objectTypeId">
+                         <cmis:value>'.ALFRESCO_TYPE_FOLDER.'</cmis:value>
+                       </cmis:propertyId>
+                     </cmis:properties>
+                   </cmisra:object>
+                 </entry>';
     }
-
-    $data .= '  <title>' . $name . '</title>' . "\n" .
-             '  <summary>' . $description . '</summary>' . "\n" .
-             '  <cmis:object>' . "\n" .
-             '    <cmis:properties>' . "\n" .
-             '      <cmis:propertyString cmis:name="ObjectTypeId">' . "\n" .
-             '        <cmis:value>folder</cmis:value>' . "\n" .
-             '      </cmis:propertyString>' . "\n" .
-             '    </cmis:properties>' . "\n" .
-             '  </cmis:object>' . "\n" .
-             '</entry>';
 
     $header[] = 'Content-type: application/atom+xml;type=entry';
     $header[] = 'Content-length: ' . strlen($data);
     $header[] = 'MIME-Version: 1.0';
-
-    $uri = '/api/node/workspace/SpacesStore/' . $uuid . '/descendants';
 
     // Force the usage of the configured Alfresco admin account, if requested.
     if ($useadmin) {
         $username = '';
     } else {
         $username = $USER->username;
+        // Fix username
+        $username = repository_plugin_alfresco::fix_username($username);
     }
 
     $response = alfresco_utils_invoke_service($uri, 'basic', $header, 'CUSTOM-POST', $data, $username);
 
     if ($response === false) {
-        debugging(get_string('couldnotaccessserviceat', 'repository_alfresco', $uri), DEBUG_DEVELOPER);
+//        debugging(get_string('couldnotaccessserviceat', 'repository_alfresco', $uri), DEBUG_DEVELOPER);
         return false;
     }
 
@@ -585,14 +793,7 @@ function alfresco_create_dir($name, $uuid = '', $description = '', $useadmin = t
 
     // Ensure that we set the current user to be the owner of the newly created directory.
     if (!empty($properties->uuid)) {
-        // So that we don't conflict with the default Alfresco admin account.
-        $username = $USER->username == 'admin' ? $CFG->repository_alfresco_admin_username : $USER->username;
-
-        // We must include the tenant portion of the username here.
-        if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-            $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-        }
-
+        $username = alfresco_transform_username($USER->username);
         // We're not going to check the response for this right now.
         alfresco_request('/moodle/nodeowner/' . $properties->uuid . '?username=' . $username);
     }
@@ -651,18 +852,16 @@ function alfresco_upload_file($upload = '', $path = '', $uuid = '', $useadmin = 
 /// that will potentially overrun the maximum memory allowed to a PHP script.
     $data1 = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 
-    if (alfresco_get_repository_version('3.2')) {
+    if (repository_plugin_alfresco::is_version('3.2')) {
         $data1 .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app" ' .
                   'xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200901" xmlns:alf="http://www.alfresco.org">' . "\n" .
                   '  <link rel="type" href="' . alfresco_base_url() . '/api/type/document"/>' . "\n" .
                   '  <link rel="repository" href="' . alfresco_base_url() . '/api/repository"/>' . "\n";
-    } else {
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
         $data1 .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:cmis="http://www.cmis.org/2008/05">' . "\n";
     }
 
-    $data1 .= '  <link rel="type" href="' . alfresco_base_url() . '/api/type/document"/>' . "\n" .
-              '  <link rel="repository" href="' . alfresco_base_url() . '/api/repository"/>' . "\n" .
-              '  <title>' . $filename . '</title>' . "\n" .
+    $data1 .= '  <title>' . $filename . '</title>' . "\n" .
               '  <summary>' . get_string('uploadedbymoodle', 'repository_alfresco') . '</summary>' . "\n" .
               '  <content type="' . $filemime . '">';
 
@@ -705,9 +904,16 @@ function alfresco_upload_file($upload = '', $path = '', $uuid = '', $useadmin = 
         $username = '';
     } else {
         $username = $USER->username;
+        // Fix username
+        $username = repository_plugin_alfresco::fix_username($username);
     }
 
-    $serviceuri = '/api/node/workspace/SpacesStore/' . $uuid . '/descendants';
+    if (repository_plugin_alfresco::is_version('3.2')) {
+        $serviceuri = '/api/node/workspace/SpacesStore/' . $uuid . '/descendants';
+    } else if (repository_plugin_alfresco::is_version('3.4')) {
+        $serviceuri = '/cmis/i/' . $uuid . '/children';
+    }
+
     $url        = alfresco_utils_get_wc_url($serviceuri, 'refresh', $username);
 
     $uri        = parse_url($url);
@@ -834,13 +1040,7 @@ function alfresco_upload_file($upload = '', $path = '', $uuid = '', $useadmin = 
 
     // Ensure that we set the current user to be the owner of the newly created directory.
     if (!empty($properties->uuid)) {
-        // So that we don't conflict with the default Alfresco admin account.
-        $username = $USER->username == 'admin' ? $CFG->repository_alfresco_admin_username : $USER->username;
-
-            // We must include the tenant portion of the username here.
-        if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-            $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-        }
+        $username = alfresco_transform_username($USER->username);
 
         // We're not going to check the response for this right now.
         alfresco_request('/moodle/nodeowner/' . $properties->uuid . '?username=' . $username);
@@ -867,10 +1067,8 @@ function alfresco_search($query, $page = 1, $perpage = 9999) {
     $return->folders = array();
     $return->files   = array();
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -898,9 +1096,9 @@ function alfresco_search($query, $page = 1, $perpage = 9999) {
 
             $type = alfresco_get_type($node->uuid);
 
-            if ($type == 'folder') {
+            if ($type == ALFRESCO_TYPE_FOLDER) {
                 $return->folders[] = $node;
-            } else if ($type == 'document') {
+            } else if ($type == ALFRESCO_TYPE_DOCUMENT) {
                 $return->files[] = $node;
             }
         }
@@ -940,10 +1138,8 @@ function alfresco_category_search($categories) {
         $cattitle = str_replace($search, $replace, $category->title);
         $response = alfresco_utils_invoke_service('/moodle/categorysearch/' . $cattitle);
 
-        try {
-            $sxml = new SimpleXMLElement($response);
-        } catch (Exception $e) {
-            debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+        $sxml = RLsimpleXMLelement($response);
+        if (empty($sxml)) {
             return false;
         }
 
@@ -959,9 +1155,9 @@ function alfresco_category_search($categories) {
             $node = alfresco_node_properties($uuid);
             $type = alfresco_get_type($node->uuid);
 
-            if ($type == 'folder') {
+            if ($type == ALFRESCO_TYPE_FOLDER) {
                 $return->folders[] = $node;
-            } else if ($type == 'document') {
+            } else if ($type == ALFRESCO_TYPE_DOCUMENT) {
                 $return->files[] = $node;
             }
         }
@@ -994,10 +1190,8 @@ function alfresco_get_node_categories($noderef = '', $uuid = '') {
 
     $response = alfresco_request('/moodle/nodecategory?nodeRef=' . $noderef);
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1050,10 +1244,8 @@ function alfresco_process_categories($sxml) {
 function alfresco_get_categories() {
     $response = alfresco_request('/moodle/categories');
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1106,10 +1298,8 @@ function alfresco_folder_structure() {
 
     $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1169,6 +1359,107 @@ function alfresco_validate_path($path, $folders = null) {
     return false;
 }
 
+/**
+ * Process a node to return an array of values for it and determine whether it is
+ * a folder or content node.
+ *
+ * @param DOMDocument $dom  The XML data read into a DOMDocument object.
+ * @param DOMNode     $node The specific node from the document we are processing.
+ * @param string      $type Refernce to a variable to store the node type.
+ * @return object The node properties in an object format.
+ */
+function alfresco_process_node_new($node, &$type) {
+    $contentNode = new stdClass;
+
+    $contentNode->uuid    = str_replace('urn:uuid:', '', $node->uuid);
+    $contentNode->summary = ''; // Not returned with CMIS data
+    $contentNode->title   = $node->properties['cmis:name'];
+    $contentNode->icon    = '';
+    $contentNode->type    = $type = $node->properties['cmis:baseTypeId'];
+
+    if (isset($node->properties['cmis:lastModifiedBy'])) {
+        $contentNode->owner   = $node->properties['cmis:lastModifiedBy'];
+    } else if (isset($node->properties['cmis:createdBy'])) {
+        $contentNode->owner   = $node->properties['cmis:createdBy'];
+    } else {
+        $contentNode->owner   = 'none';
+    }
+    if (isset($node->properties['cmis:contentStreamFileName'])) {
+        $contentNode->filename = $node->properties['cmis:contentStreamFileName'];
+    }
+
+    if (isset($node->properties['cmis:contentStreamLength'])) {
+        $contentNode->filesize = $node->properties['cmis:contentStreamLength'];
+    }
+
+    if (isset($node->properties['cmis:contentStreamMimeType'])) {
+        $contentNode->filemimetype = $node->properties['cmis:contentStreamMimeType'];
+    }
+
+    // We have to recontextualize the date & time values given to us into
+    // a standard UNIX timestamp value that Moodle uses.
+    $created = $node->properties['cmis:creationDate'];
+
+    if (!empty($created)) {
+        $d_year   = substr($created, 0, 4);
+        $d_month  = substr($created, 5, 2);
+        $d_day    = substr($created, 8, 2);
+        $t_hour   = substr($created, 11, 2);
+        $t_minute = substr($created, 14, 2);
+        $t_second = substr($created, 17, 2);
+        $tz       = substr($created, -6, 3);
+        if (substr($created, -2, 2) == '30') {
+            $tz .= '.5';
+        } else {
+            $tz .= '.0';
+        }
+
+        $contentNode->created = make_timestamp($d_year, $d_month, $d_day, $t_hour,
+                                               $t_minute, $t_second, $tz);
+    }
+
+    // We have to recontextualize the date & time values given to us into
+    // a standard UNIX timestamp value that Moodle uses.
+    $updated = $node->properties['cmis:lastModificationDate'];
+
+    if (!empty($updated)) {
+        $d_year   = substr($updated, 0, 4);
+        $d_month  = substr($updated, 5, 2);
+        $d_day    = substr($updated, 8, 2);
+        $t_hour   = substr($updated, 11, 2);
+        $t_minute = substr($updated, 14, 2);
+        $t_second = substr($updated, 17, 2);
+        $tz       = substr($updated, -6, 3);
+        if (substr($updated, -2, 2) == '30') {
+            $tz .= '.5';
+        } else {
+            $tz .= '.0';
+        }
+
+        $contentNode->modified = make_timestamp($d_year, $d_month, $d_day, $t_hour,
+                                                $t_minute, $t_second, $tz);
+    }
+
+    $contentNode->links['self']         = $node->links['self'];
+
+    if (!empty($node->links['down'])) {
+        $contentNode->links['children'] = $node->links['down'];
+    }
+
+    if (!empty($node->links['down-tree'])) {
+        $contentNode->links['descendants'] = $node->links['down-tree'];
+    }
+
+    if (!empty($node->links['describedby'])) {
+        $contentNode->links['type'] = $node->links['describedby'];
+    }
+
+    if (!empty($node->links['edit-media'])) {
+        $contentNode->fileurl = $node->links['edit-media'];
+    }
+
+    return $contentNode;
+}
 
 /**
  * Process a node to return an array of values for it and determine whether it is
@@ -1326,39 +1617,47 @@ function alfresco_process_node($dom, $node, &$type) {
                 $propname = $prop->getAttribute('name');
             }
 
-            switch ($propname) {
-                case 'ObjectId':
-                    $contentNode->noderef = $prop->nodeValue;
-                    break;
+            if (!empty($propname)) {
+                switch ($propname) {
+                    case 'ObjectId':
+                        $contentNode->noderef = $prop->nodeValue;
+                        break;
 
-                case 'BaseType':
-                    if ($prop->nodeValue == 'folder') {
-                        $isfolder = true;
-                    } else if ($prop->nodeValue == 'document') {
-                        $isdocument = true;
-                    }
+                    case 'BaseType':
+                        if ($prop->nodeValue == ALFRESCO_TYPE_FOLDER) { // this has to be depending on the version of Alfresco
+                            $isfolder = true;
+                        } else if ($prop->nodeValue == ALFRESCO_TYPE_DOCUMENT) { // this is also dependant upon the version of Alfresco
+                            $isdocument = true;
+                        }
 
-                    break;
+                        break;
 
-                case 'ContentStreamLength':
-                    $contentNode->filesize = $prop->nodeValue;
-                    break;
+                    case 'ContentStreamLength':
+                        $contentNode->filesize = $prop->nodeValue;
+                        break;
 
-                case 'ContentStreamMimeType':
-                    $contentNode->filemimetype = $prop->nodeValue;
-                    break;
+                    case 'ContentStreamMimeType':
+                        $contentNode->filemimetype = $prop->nodeValue;
+                        break;
 
-                case 'ContentStreamFilename':
-                    $contentNode->filename = $prop->nodeValue;
-                    break;
+                    case 'ContentStreamFilename':
+                        $contentNode->filename = $prop->nodeValue;
+                        break;
 
-                case 'ContentStreamURI':
-                case 'ContentStreamUri':
-                    $contentNode->fileurl = $prop->nodeValue;
-                    break;
+                    case 'ContentStreamURI':
+                    case 'ContentStreamUri':
+                        $contentNode->fileurl = $prop->nodeValue;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
+            } else if ($prop->nodeValue == ALFRESCO_TYPE_FOLDER) { // Added for Moodle 2.1 as this seems to be the only way to find folders
+                $type = $prop->nodeValue;
+                $isfolder = true;
+            } else if ($prop->nodeValue == ALFRESCO_TYPE_DOCUMENT) { // Added for Moodle 2.1 as this seems to be the only way to find folders
+                $type = $prop->nodeValue;
+                $isdocument = true;
             }
         }
     }
@@ -1377,10 +1676,8 @@ function alfresco_process_node($dom, $node, &$type) {
 function alfresco_root_move($fromuuid, $touuid) {
     $response = alfresco_request('/moodle/movenode/' . $fromuuid . '/' . $touuid);
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1403,10 +1700,8 @@ function alfresco_root_move($fromuuid, $touuid) {
 function alfresco_move_node($fromuuid, $touuid) {
     $response = alfresco_request('/moodle/movenode/' . $fromuuid . '/' . $touuid);
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1429,13 +1724,7 @@ function alfresco_move_node($fromuuid, $touuid) {
 function alfresco_create_user($user, $password = '') {
     global $CFG;
 
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $user->username == 'admin' ? $CFG->repository_alfresco_admin_username : $user->username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
+    $username = alfresco_transform_username($user->username);
 
     $result = alfresco_request('/api/people/' . $username);
 
@@ -1468,10 +1757,8 @@ function alfresco_create_user($user, $password = '') {
         return false;
     }
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1488,18 +1775,8 @@ function alfresco_create_user($user, $password = '') {
  * @return bool True on success, False otherwise.
  */
 function alfresco_delete_user($username, $deletehomedir = false) {
-    global $CFG;
-
     $status = true;
-
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
-
+    $username = alfresco_transform_username($username);
     if ($deletehomedir) {
         $uuid = alfresco_get_home_directory($username);
     }
@@ -1518,20 +1795,12 @@ function alfresco_delete_user($username, $deletehomedir = false) {
 /**
  * Get a user's home directory UUID.
  *
- * @uses $CFG
  * @param string $username The Moodle / Alfresco username to fetch a home directory UUID for.
  * @return string|bool The home directory UUID value or, False on error.
  */
 function alfresco_get_home_directory($username) {
-    global $CFG;
 
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
+    $username = alfresco_transform_username($username);
 
     $response = alfresco_request('/moodle/homedirectory?username=' . $username);
 
@@ -1550,7 +1819,6 @@ function alfresco_get_home_directory($username) {
  * Determine if a user has permission to access a specific node.  If a username is not specified,
  * the username of the currently logged in user will be used instead.
  *
- * @uses $CFG
  * @uses $USER
  * @param string $uuid     The node UUID value.
  * @param string $username A Moodle / Alfresco username (optional).
@@ -1558,7 +1826,7 @@ function alfresco_get_home_directory($username) {
  * @return bool True if the user has access, False if not.
  */
 function alfresco_has_permission($uuid, $username = '', $edit = false) {
-    global $CFG, $USER;
+    global $USER;
 
     // If no username was specified, make sure that there is a user currently logged in and use that username.
     if (empty($username)) {
@@ -1569,20 +1837,12 @@ function alfresco_has_permission($uuid, $username = '', $edit = false) {
         $username = $USER->username;
     }
 
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
+    $username = alfresco_transform_username($username);
 
     $response = alfresco_request('/moodle/getpermissions/' . $uuid . '?username=' . $username);
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1621,48 +1881,28 @@ function alfresco_has_permission($uuid, $username = '', $edit = false) {
     }
 }
 
-
 /**
  * Get a list of all the permissions a user has set to "ALLOW" on a specific node.  If a username is not specified,
  * the username of the currently logged in user will be used instead.
  *
- * @uses $CFG
  * @uses $USER
  * @param string $uuid     The node UUID value.
  * @param string $username A Moodle / Alfresco username (optional).
  * @return bool True if the user has access, False if not.
  */
 function alfresco_get_permissions($uuid, $username = '') {
-    global $CFG, $USER;
+    global $USER;
 
-    // If no username was specified, make sure that there is a user currently logged in and use that username.
-/*
-    if (empty($username)) {
-        if (!isloggedin()) {
-            return false;
-        }
-
-        $username = $USER->username;
-    }
-*/
     if (!empty($username)) {
-        // So that we don't conflict with the default Alfresco admin account.
-        $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
-
-        // We must include the tenant portion of the username here.
-        if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-            $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-        }
+        $username = alfresco_transform_username($username);
     }
 
     $permissions = array();
 
     $response = alfresco_request('/moodle/getpermissions/' . $uuid . (!empty($username) ? '?username=' . $username : ''));
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1718,7 +1958,6 @@ function alfresco_get_permissions($uuid, $username = '') {
  * - Consumer
  *   - Includes Read
  *
- * @uses $CFG
  * @param string $username   The Alfresco username value.
  * @param string $uuid       The node UUID value.
  * @param string $role       The capability name being assigned for this user.
@@ -1726,7 +1965,6 @@ function alfresco_get_permissions($uuid, $username = '') {
  * @return bool True on success, False otherwise.
  */
 function alfresco_set_permission($username, $uuid, $role, $capability) {
-    global $CFG;
 
     switch ($role) {
         case ALFRESCO_ROLE_COORDINATOR:
@@ -1751,13 +1989,7 @@ function alfresco_set_permission($username, $uuid, $role, $capability) {
             return false;
     }
 
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
+    $username = alfresco_transform_username($username);
 
     $postdata = array(
         'username'   => $username,
@@ -1767,10 +1999,8 @@ function alfresco_set_permission($username, $uuid, $role, $capability) {
 
     $response = alfresco_send('/moodle/setpermissions/' . $uuid, $postdata, 'POST');
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1822,9 +2052,8 @@ function alfresco_set_permission($username, $uuid, $role, $capability) {
     return false;
 }
 
-
 /**
- * Rename a node in Alfrecso, keeping all other data intact.
+ * Rename a node in Alfresco, keeping all other data intact.
  *
  * @param string $uuid    The node UUID value.
  * @param string $newname The new name value for the node.
@@ -1837,10 +2066,8 @@ function alfresco_node_rename($uuid, $newname) {
 
     $response = alfresco_send('/moodle/noderename/' . $uuid, array('name' => $newname), 'POST');
 
-    try {
-        $sxml = new SimpleXMLElement($response);
-    } catch (Exception $e) {
-        debugging(get_string('badxmlreturn', 'repository_alfresco') . "\n\n$response", DEBUG_DEVELOPER);
+    $sxml = RLsimpleXMLelement($response);
+    if (empty($sxml)) {
         return false;
     }
 
@@ -1857,25 +2084,17 @@ function alfresco_node_rename($uuid, $newname) {
  *
  * NOTE: no quota is represented by a value of -1 for the 'quota' property.
  *
- * @uses $CFG
  * @uses $USER
  * @param string $username A Moodle username.
  * @return object|bool An object containing the quota values for this user or, False on error.
  */
 function alfresco_quota_info($username = '') {
-    global $CFG, $USER;
+    global $USER;
 
     if (empty($username)) {
         $username = $USER->username;
     }
-
-    // So that we don't conflict with the default Alfresco admin account.
-    $username = $USER->username == 'admin' ? $CFG->repository_alfresco_admin_username : $USER->username;
-
-    // We must include the tenant portion of the username here.
-    if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-        $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-    }
+    $username = alfresco_transform_username($username);
 
     // Get the JSON response containing user data for the given account.
     if (($json = alfresco_request('/api/people/' . $username)) === false) {
@@ -1894,7 +2113,6 @@ function alfresco_quota_info($username = '') {
 
     return $userquota;
 }
-
 
 /**
  * Check if a given file size (in bytes) will run over a user's quota limit on Alfresco.
@@ -2197,14 +2415,18 @@ function alfresco_utils_get_ticket($op = 'norefresh', $username = '') {
         curl_close($session);
 
         if ($httpcode == 200 || $httpcode == 201) {
-            $sxml       = new SimpleXMLElement($return_data);
+            $sxml = RLsimpleXMLelement($return_data);
+            if (empty($sxml)) {
+                return false;
+            }
             $alf_ticket = current($sxml);
         } else {
-            return false;
-
+          /*
             debugging(get_string('errorreceivedfromendpoint', 'repository_alfresco') .
                       (!empty($response->code) ? $response->code . ' ' : ' ') .
                       $response->error, DEBUG_DEVELOPER);
+          */
+            return false;
         }
 
         if ($alf_ticket == '') {
@@ -2263,18 +2485,10 @@ function alfresco_utils_invoke_service($serviceurl, $op = 'ticket', $headers = a
     if (ALFRESCO_DEBUG_TRACE) print_object('alfresco_utils_invoke_service(' . $serviceurl . ', ' . $op . ', ' .
                                            'array(), ' . $method . ', $data, ' . $username . ', ' . $retry . ')');
 
-    // We must include the tenant portion of the username here if it is not already included.
-//    if ($username != $CFG->repository_alfresco_server_username) {
-//        if (($tenantpos = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-//            $tenantname = substr($CFG->repository_alfresco_server_username, $tenantpos);
-//
-//            if (strpos($username, $tenantname) === false) {
-//                $username .= $tenantname;
-//            }
-//        }
-//    }
-
     $response = alfresco_utils_http_request($serviceurl, $op, $headers, $method, $data, $username, $retry);
+    if (ALFRESCO_DEBUG_TRACE) {
+        print_object($response);
+    }
 
     if ($response->code == 200 || $response->code == 201 || $response->code == 204) {
         $content = $response->data;
@@ -2352,7 +2566,7 @@ function alfresco_utils_http_request($serviceurl, $auth = 'ticket', $headers = a
         default:
             return false;
     }
- 
+
 /// Prepare curl sessiontoge
     $session = curl_init($url);
 
@@ -2406,7 +2620,24 @@ function alfresco_utils_http_request($serviceurl, $auth = 'ticket', $headers = a
     $result = new stdClass();
     $result->code = $httpcode;
     $result->data = $return_data;
-    
+
+    return $result;
+}
+
+/*
+ * Invoke alfresco service for current user
+ *
+ * @param  string The username to use for user authentication
+ * @uses   $USER
+ * @return mixed User object or false on failure
+ */
+function alfresco_user_request() {
+    global $USER;
+
+    $username = alfresco_transform_username($USER->username);
+
+    $result = alfresco_utils_invoke_service('/api/people/' . $username);
+
     return $result;
 }
 

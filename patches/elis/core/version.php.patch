@@ -1,0 +1,10 @@
+diff --git a/elis/core/version.php b/elis/core/version.php
+index 478ccf4..1fe108a 100644
+--- a/elis/core/version.php
++++ b/elis/core/version.php
+@@ -1,4 +1,4 @@
+ <?php
+ 
+ $plugin->version = 2011030404;
+-$plugin->release = '1.9.3 (Build: 20120229)';
++$plugin->release = '1.9.3 (Build: 20120210)';

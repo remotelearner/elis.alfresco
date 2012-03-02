@@ -28,12 +28,13 @@
 
     require_once dirname(dirname(dirname(dirname(__FILE__)))) . '/config.php';
     require_once $CFG->dirroot . '/file/repository/repository.class.php';
+    require_once($CFG->libdir . '/alfresco30/lib.php');
 
     $id     = optional_param('id', SITEID, PARAM_INT);
+    $oid    = optional_param('oid', '', PARAM_INT);
     $shared = optional_param('shared', '', PARAM_ALPHA);
     $userid = optional_param('userid', 0, PARAM_INT);
     $uuid   = optional_param('uuid', '', PARAM_TEXT);
-    $ouuid  = optional_param('ouuid', '', PARAM_TEXT);
     $dd     = optional_param('dd', 0, PARAM_INT);
 
     $upload_max_filesize = get_max_upload_file_size($CFG->maxbytes);
@@ -48,21 +49,28 @@
 
         // If we don't have something explicitly to load and we didn't get here from the drop-down...
         if (empty($uuid) && empty($dd)) {
-            if ($uuid = $repo->get_repository_location($id, $userid, $shared)) {
+            if ($uuid = $repo->get_repository_location($id, $userid, $shared, $oid)) {
                 redirect($CFG->wwwroot . '/file/repository/alfresco/link.php?id=' . $id . '&amp;userid=' . $userid .
-                         '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
+                         '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid, '', 0);
             }
 
             if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared)) {
                 redirect($CFG->wwwroot . '/file/repository/alfresco/link.php?id=' . $id . '&amp;userid=' . $userid .
-                         '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
+                         '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid, '', 0);
             }
         }
     }
 
     @header('Content-Type: text/html; charset=utf-8');
 
+    if(!alfresco_user_request()) {
+      print_error('nopermissions');
+    }
+
 /// Get the context instance for where we originated viewing this browser from.
+    if (!empty($oid)) {
+        $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+    }
     if ($id == SITEID) {
         $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
     } else {
@@ -73,16 +81,17 @@
     $canedit = false;
 
     if (empty($userid) && empty($shared)) {
-        if (($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
-            ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id)) ||
-            ($id != SITEID && has_capability('block/repository:createorganizationcontent', $context, $USER->id))) {
+        if ((!empty($oid) && has_capability('block/repository:createorganizationcontent', $cluster_context, $USER->id)) ||
+            ($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
+            ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id))) {
 
             $canedit = true;
         }
     } else if (empty($userid) && $shared == 'true') {
         if (!empty($USER->access['rdef'])) {
             foreach ($USER->access['rdef'] as $rdef) {
-                if (isset($rdef['block/repository:createsharedcontent'])) {
+                if (isset($rdef['block/repository:createsharedcontent']) &&
+                          $rdef['block/repository:createsharedcontent'] == CAP_ALLOW) {
                     $canedit = true;
                 }
             }
@@ -91,15 +100,14 @@
         if ($USER->id == $userid) {
             if (!empty($USER->access['rdef'])) {
                 foreach ($USER->access['rdef'] as $rdef) {
-                    if (isset($rdef['block/repository:createowncontent'])) {
+                    if (isset($rdef['block/repository:createowncontent']) &&
+                              $rdef['block/repository:createowncontent'] == CAP_ALLOW) {
                         $canedit = true;
                     }
                 }
             }
         } else {
             if (has_capability('block/repository:createsitecontent', $context, $USER->id)) {
-                $canedit = true;
-            } else if (has_capability('block/repository:createorganizationcontent', $context, $USER->id)) {
                 $canedit = true;
             }
         }
@@ -166,12 +174,19 @@
 
         $view = 'viewsharedcontent';
 
-    } else if (!empty($id) && empty($shared) && $id != SITEID) {
+    } else if (!empty($id) && empty($oid) && empty($shared) && $id != SITEID) {
         require_capability('block/repository:viewcoursecontent', $context, $USER->id);
         $view = 'viewcoursecontent';
 
         if (empty($uuid)) {
             $uuid = $repo->get_course_store($id);
+        }
+    }  else if (!empty($oid)) {
+        require_capability('block/repository:vieworganizationcontent', $cluster_context, $USER->id);
+        $view = 'vieworganizationcontent';
+
+        if (empty($uuid)) {
+            $uuid = $repo->get_organization_store($oid);
         }
     } else {
         require_capability('block/repository:viewsitecontent', $context, $USER->id);
@@ -261,7 +276,7 @@ form { margin-bottom: 1px; margin-top: 1px; }
         // Build an array of options for a navigation drop-down menu.
         $default = '';
 
-        $opts = $repo->file_browse_options($id, $userid, $ouuid, $shared, '',
+        $opts = $repo->file_browse_options($id, $userid, $oid, $shared, '',
                                            'file/repository/alfresco/link.php',
                                            'lib/editor/htmlarea/popups/link.php',
                                            'file/repository/alfresco/link.php', $default);
@@ -289,7 +304,7 @@ form { margin-bottom: 1px; margin-top: 1px; }
         <?php
 
             if (!empty($has_any_capability)) {
-                echo "<iframe id=\"fbrowser\" name=\"fbrowser\" src=\"coursefiles.php?id=$id&amp;shared=$shared" .
+                echo "<iframe id=\"fbrowser\" name=\"fbrowser\" src=\"coursefiles.php?id=$id&amp;shared=$shared&amp;oid=$oid" .
                      "&amp;userid=$userid&amp;uuid=$uuid\" width=\"420\" height=\"180\"></iframe>";
             }
 
@@ -325,6 +340,7 @@ form { margin-bottom: 1px; margin-top: 1px; }
 ?>
           <form id="cfolder" action="coursefiles.php" method="post" target="fbrowser">
           <input type="hidden" name="id" value="<?php print($id);?>" />
+          <input type="hidden" name="oid" value="<?php print($oid);?>" />
           <input type="hidden" name="shared" value="<?php print($shared); ?>" />
           <input type="hidden" name="userid" value="<?php print($userid);?>" />
           <input type="hidden" name="action" value="mkdir" />
@@ -338,6 +354,7 @@ form { margin-bottom: 1px; margin-top: 1px; }
     // Build up the URL used in the upload form.
     $vars = array(
         'id'      => $id,
+        'oid'     => $oid,
         'shared'  => $shared,
         'userid'  => $userid,
         'uuid'    => $uuid,

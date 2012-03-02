@@ -24,6 +24,46 @@
 
 require_once($CFG->dirroot . '/file/repository/repository.class.php');
 
+/**
+ * Method to return authentication methods that DO NOT use passwords
+ *
+ * @return array  list of authentications that DO NOT use passwords
+ */
+function block_repository_nopasswd_auths() {
+    // TBD: determine from auth plugin which don't support passwords ???
+    return array('openid', 'cas');
+}
+
+/**
+ * Handle the event when a user is created in Moodle.
+ *
+ * @uses $CFG
+ * @param object $user Moodle user record object.
+ * @return bool True on success, False otherwise.
+ */
+function block_repository_user_created($user) {
+    global $CFG;
+    $result = true;
+
+    // Only proceed here if the Alfresco plug-in is actually enabled.
+    if (!isset($CFG->repository_plugins_enabled) || (strstr($CFG->repository_plugins_enabled, 'alfresco') === false) ||
+        !($repo = repository_factory::factory('alfresco')) || !$repo->is_configured() || !$repo->verify_setup()) {
+        error_log("block_repository_user_created(): Alfresco NOT enabled!");
+        return true; // TBD
+    }
+
+    // create a random password for certain authentications
+    $auths = block_repository_nopasswd_auths();
+    if (!empty($user->auth) && in_array($user->auth, $auths)) {
+        $passwd = random_string(8);
+        //$user->password = md5($passwd); // TBD: or reversible encrypt
+        //update_record('user', $user);
+        //error_log("block_repository_user_created(): generating password for {$user->id} ({$user->auth}) => {$passwd}");
+        $result = $repo->migrate_user($user, $passwd);
+    }
+
+    return $result;
+}
 
 /**
  * Handle the event when a user is deleted in Moodle.

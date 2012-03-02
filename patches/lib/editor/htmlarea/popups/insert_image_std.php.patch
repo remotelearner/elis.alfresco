@@ -1,103 +1,106 @@
 diff --git a/lib/editor/htmlarea/popups/insert_image_std.php b/lib/editor/htmlarea/popups/insert_image_std.php
-index 1bb913a..fdd5d45 100644
+index 1bb913a..d09ad36 100644
 --- a/lib/editor/htmlarea/popups/insert_image_std.php
 +++ b/lib/editor/htmlarea/popups/insert_image_std.php
-@@ -1,14 +1,104 @@
+@@ -1,5 +1,97 @@
  <?php // $Id$
      require("../../../../config.php");
 +    require_once $CFG->dirroot . '/file/repository/repository.class.php';
-+
++    require_once($CFG->libdir . '/alfresco30/lib.php');
 +
 +/// Remote Learner Edit -- BEGIN
- 
-     $id = optional_param('id', SITEID, PARAM_INT);
-     $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL);
++
++    $id     = optional_param('id', SITEID, PARAM_INT);
++    $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL);
 +    $shared = optional_param('shared', '', PARAM_ALPHA);
 +    $userid = optional_param('userid', 0, PARAM_INT);
 +    $uuid   = optional_param('uuid', '', PARAM_TEXT);
-+    $ouuid  = optional_param('ouuid', '', PARAM_TEXT);
++    $oid    = optional_param('oid', '', PARAM_TEXT);
 +    $alf    = optional_param('alf', 0, PARAM_INT);
 +    $dd     = optional_param('dd', 0, PARAM_INT);
 +
-+    // If ouuid is set, set uuid to ouuid
-+    if (!empty($ouuid)) {
-+        $uuid = $ouuid;
-+    }
++   require_login($id);
 +
-+    require_login($id);
++   $canedit = false;
 +
 +    /// Make sure the plug-in is enabled and setup correctly.
-+    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && alfresco_user_request()) {
 +        if (!$repo = repository_factory::factory('alfresco')) {
 +            debugging('Could not create repository object.', DEBUG_DEVELOPER);
 +        }
 +
 +        // If we didn't get here from the drop-down...
 +        if (empty($uuid) && empty($dd)) {
-+            if ($uuid = $repo->get_repository_location($id, $userid, $shared, false)) {
++            if ($uuid = $repo->get_repository_location($id, $userid, $shared, $oid)) {
 +                redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image_std.php?id=' . $id .
-+                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid . '&amp;alf=1' .
 +                         '&amp;choose=', '', 0);
 +            }
 +
-+            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared, false)) {
++            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared)) {
 +               redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image_std.php?id=' . $id .
-+                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid . '&amp;alf=1' .
 +                         '&amp;choose=', '', 0);
 +            }
 +        }
 +
++        if (!empty($alf)) {
++
++            global $USER;
++
++        /// Get the context instance for where we originated viewing this browser from.
++            if (!empty($oid)) {
++                $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
++            }
++            if ($id == SITEID) {
++                $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
++            } else {
++                $context = get_context_instance(CONTEXT_COURSE, $id);
++            }
++
++        /// Determine whether the current user has editing permissions.
++            $canedit = false;
++
++            if (empty($userid) && empty($shared)) {
++                if (($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
++                    ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id)) ||
++                    (!empty($oid) && has_capability('block/repository:createorganizationcontent', $cluster_context, $USER->id))) {
++
++                    $canedit = true;
++                }
++            } else if (empty($userid) && $shared == 'true') {
++                if (!empty($USER->access['rdef'])) {
++                    foreach ($USER->access['rdef'] as $rdef) {
++                        if (isset($rdef['block/repository:createsharedcontent']) &&
++                            $rdef['block/repository:createsharedcontent'] == CAP_ALLOW) {
++
++                            $canedit = true;
++                        }
++                    }
++                }
++            } else {
++                if ($USER->id == $userid) {
++                    if (!empty($USER->access['rdef'])) {
++                        foreach ($USER->access['rdef'] as $rdef) {
++                            if (isset($rdef['block/repository:createowncontent']) && $rdef['block/repository:createowncontent'] == CAP_ALLOW) {
++                                $canedit = true;
++                            }
++                        }
++                    }
++                } else {
++                    if (has_capability('block/repository:createsitecontent', $context, $USER->id)) {
++                        $canedit = true;
++                    }
++                }
++            }
++        }
 +        // Clear out the previous repository location settings.
 +        $repo->set_repository_location('', 0, 0, '', true);
 +    }
-+
-+        // Determine if the current user actually has the capabilties to access this functionality and editing as well.
-+    if (empty($alf)) {
-+        if ($id == SITEID) {
-+            $canmanagefiles = has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_SYSTEM));
-+        } else {
-+            $canmanagefiles = has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
-+        }
-+    } else {
-+        $canaccessfiles = false;
-+        $canmanagefiles = false;
-+        $canaccessorganization = false;
-+        $canmanageorganization = false;
-+
-+        if (!empty($USER->access['rdef'])) {
-+            foreach ($USER->access['rdef'] as $rdef) {
-+                if ($canaccessfiles && $canmanagefiles &&
-+                    $canaccessorganization && $canmanageorganization) {
-+                    continue;
-+                }
-+
-+                if (isset($rdef['block/repository:viewowncontent']) &&
-+                          $rdef['block/repository:viewowncontent'] == CAP_ALLOW) {
-+                    $canaccessfiles = true;
-+                } else if (isset($rdef['block/repository:createowncontent']) &&
-+                                 $rdef['block/repository:createowncontent'] == CAP_ALLOW) {
-+                    $canmanagefiles = true;
-+                }
-+                if (isset($rdef['block/repository:vieworganizationcontent']) &&
-+                          $rdef['block/repository:vieworganizationcontent'] == CAP_ALLOW) {
-+                    $canaccessorganization = true;
-+                }
-+                if (isset($rdef['block/repository:createorganizationcontent']) &&
-+                          $rdef['block/repository:createorganizationcontent'] == CAP_ALLOW) {
-+                    $canmanageorganization = true;
-+                }
-+            }
-+        }
-+
-+        if (!$canaccessfiles) {
-+            $capabilityname = get_capability_string('block/repository:viewowncontent');
-+            print_error('nopermissions', '', '', $capabilityname);
-+        }
-+    }
-+
-+/// Remote Learner Edit -- END
  
-     require_course_login($id);
+     $id = optional_param('id', SITEID, PARAM_INT);
+     $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL);
+@@ -8,7 +100,9 @@
  
      @header('Content-Type: text/html; charset=utf-8');
  
@@ -108,7 +111,7 @@ index 1bb913a..fdd5d45 100644
          $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
      } else {
          $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
-@@ -36,8 +126,9 @@ function Init() {
+@@ -36,8 +130,9 @@ function Init() {
        document.getElementById("f_url").value = param["f_url"];
        document.getElementById("f_alt").value = param["f_alt"] ? param["f_alt"] : alt;
        document.getElementById("f_border").value = parseInt(param["f_border"] || 0);
@@ -120,7 +123,7 @@ index 1bb913a..fdd5d45 100644
    }
    document.getElementById("f_url").focus();
  };
-@@ -45,7 +136,7 @@ function Init() {
+@@ -45,7 +140,7 @@ function Init() {
  function onOK() {
    var required = {
      "f_url": "<?php print_string("mustenterurl", "editor");?>",
@@ -129,7 +132,7 @@ index 1bb913a..fdd5d45 100644
    };
    for (var i in required) {
      var el = document.getElementById(i);
-@@ -57,7 +148,7 @@ function onOK() {
+@@ -57,7 +152,7 @@ function onOK() {
    }
    // pass data back to the calling window
    var fields = ["f_url", "f_alt", "f_align", "f_border",
@@ -138,7 +141,7 @@ index 1bb913a..fdd5d45 100644
    var param = new Object();
    for (var i in fields) {
      var id = fields[i];
-@@ -123,70 +214,90 @@ function onPreview() {
+@@ -123,70 +218,90 @@ function onPreview() {
    win.focus();
    return false;
  };
@@ -276,7 +279,7 @@ index 1bb913a..fdd5d45 100644
    title="Positioning of this image">
    <option value=""                       ><?php print_string("notset","editor") ?></option>
    <option value="left"                   ><?php print_string("left","editor") ?></option>
-@@ -198,42 +309,185 @@ form { padding: 0px; margin: 0px; }
+@@ -198,42 +313,211 @@ form { padding: 0px; margin: 0px; }
    <option value="bottom"                 ><?php print_string("bottom","editor") ?></option>
    <option value="middle"                 ><?php print_string("middle","editor") ?></option>
    <option value="top"                    ><?php print_string("top","editor") ?></option>
@@ -317,9 +320,9 @@ index 1bb913a..fdd5d45 100644
 +/// Build an array of options for a navigation drop-down menu.
 +
 +    // Make sure the plug-in is enabled and setup correctly.
-+    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && !empty($repo)) {
++    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && !empty($repo) && alfresco_user_request()) {
 +        $default = '';
-+        $opts = $repo->file_browse_options($id, $userid, $ouuid, $shared, '',
++        $opts = $repo->file_browse_options($id, $userid, $oid, $shared, '',
 +                                           'lib/editor/htmlarea/popups/insert_image_std.php?alf=' . $alf,
 +                                           'lib/editor/htmlarea/popups/insert_image_std.php?alf=0',
 +                                           'lib/editor/htmlarea/popups/insert_image_std.php?alf=1', $default);
@@ -331,52 +334,66 @@ index 1bb913a..fdd5d45 100644
 +        }
 +    }
 +/// Remote Learner Edit -- END
-+
-+
+ 
+-<p />
 +?>
 +    <tr>
 +      <td width="55%" valign="top"><?php
-+        print_string("filebrowser","editor");
-+        echo "<br />";
- 
--<p />
-+/// Remote Learner Edit -- BEGIN
  
 -<div class="fl"><?php print_string("borderthickness","editor");?>:</div>
 -<input type="text" name="border" id="f_border" size="5"
 -title="Leave empty for no border" />
++      if(alfresco_user_request()) {
+ 
+-<div class="space"></div>
++        print_string("filebrowser","editor");
++        echo "<br />";
+ 
+-</fieldset>
++/// Remote Learner Edit -- BEGIN
+ 
+-<fieldset style="float:right; margin-right: 5px;">
+-<legend><?php print_string("spacing","editor");?></legend>
 +        // Display the Alfresco file browser within the IFRAME if we are accessing Alfresco files.
 +        if (empty($alf)) {
 +            echo "<iframe id=\"ibrowser\" name=\"ibrowser\" src=\"{$CFG->wwwroot}/lib/editor/htmlarea/coursefiles.php" .
 +                 "?usecheckboxes=1&id=$id\" style=\"width: 100%; height: 200px;\"></iframe>";
 +        } else {
 +            $ref = urlencode($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image_std.php?alf=1&amp;');
- 
--<div class="space"></div>
 +            echo '<iframe id="ibrowser" name="ibrowser" src="' . $CFG->wwwroot . '/file/repository/alfresco/' .
-+                 'coursefiles.php?usecheckboxes=1&amp;id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' .
++                 'coursefiles.php?usecheckboxes='.$canedit.'&amp;id=' . $id . '&amp;oid=' . $oid . '&amp;shared=' . $shared . '&amp;userid=' .
 +                 $userid . '&amp;uuid=' . $uuid . '&amp;ref=' . $ref . '" style="width: 100%; height: 200px;">' .
 +                 '</iframe>';
 +        }
  
--</fieldset>
- 
--<fieldset style="float:right; margin-right: 5px;">
--<legend><?php print_string("spacing","editor");?></legend>
+-<div class="space"></div>
++      }
 +/// Remote Learner Edit -- END
  
--<div class="space"></div>
+-<div class="fr"><?php print_string("horizontal","editor");?>:</div>
+-<input type="text" name="horiz" id="f_horiz" size="5"
+-title="Horizontal padding" />
 +      ?>
 +      </td>
-+      <td width="45%" valign="top"><?php print_string("preview","editor");?>:<br />
++      <td width="45%" valign="top">
++      <?php 
++      if(alfresco_user_request()) {
++      print_string("preview","editor");?>:<br />
 +      <iframe id="ipreview" name="ipreview" src="<?php echo $url ?>blank.html" style="width: 100%; height: 200px;"></iframe>
++      <?php } ?>
 +      </td>
 +    </tr>
 +  </table>
 +    <table width="100%" border="0" cellspacing="0" cellpadding="0">
 +      <tr>
 +        <td width="55%"><div class="space"></div>
-+        <?php if ($canmanagefiles) { ?>
++        <?php
++
++/// Remote Learner Edit -- BEGIN
++    // If we are in the repository, we do need to check permissions before displaying file management options
++        if (($alf && $canedit) ||
++            (!$alf && has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id)))) {
++        ?>
 +        <table border="0" cellpadding="2" cellspacing="0">
 +          <tr><td><?php print_string("selection","editor");?>: </td>
 +          <td><form id="idelete">
@@ -403,7 +420,9 @@ index 1bb913a..fdd5d45 100644
 +              print "";
 +          } ?>
 +        </td>
-+      <td width="45%" rowspan="2" valign="top"><fieldset>
++      <td width="45%" rowspan="2" valign="top">
++      <?php if(alfresco_user_request()) { ?>
++      <fieldset>
 +          <legend><?php print_string("properties","editor");?></legend>
 +          <div class="space"></div>
 +          <div class="space"></div>
@@ -412,66 +431,75 @@ index 1bb913a..fdd5d45 100644
 +      <?php print_string("type","editor");?>: <input type="text" id="itype" name="itype" size="10" style="background: transparent; border: none;" />
 +      <div class="space"></div>
 +      <div class="space"></div>
-+      </fieldset></td>
++      </fieldset>
++      <?php } ?>
++      </td>
 +    </tr>
 +    <tr>
 +      <td height="22">
-+        <form id="cfolder" action="<?php echo $CFG->wwwroot . '/file/repository/alfresco/'; ?>coursefiles.php" method="post" target="ibrowser">
-+          <input type="hidden" name="userid" value="<?php print($userid); ?>" />
++<?php   if (($alf && $canedit) || (!$alf && has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id)))) {
++            if (empty($alf)) { ?>
++          <form id="cfolder" action="<?php echo $CFG->wwwroot . '/file/repository/alfresco/'; ?>coursefiles.php" method="post" target="ibrowser">
++<?php       } else { ?>
++          <form id="cfolder" action="<?php echo $CFG->wwwroot . '/file/repository/alfresco/'; ?>coursefiles.php" method="post" target="ibrowser">
++          <input type="hidden" name="oid" value="<?php print($oid); ?>" />
++          <input type="hidden" name="shared" value="<?php print($shared); ?>" />
++          <input type="hidden" name="uuid" value="<?php print($uuid); ?>" />
++          <input type="hidden" name="ref" value="<?php print(urlencode($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image_std.php?alf=1&amp;')); ?>" />
++<?php       } ?>
 +          <input type="hidden" name="id" value="<?php print($id);?>" />
++          <input type="hidden" name="userid" value="<?php print($userid); ?>" />
 +          <input type="hidden" name="wdir" value="" />
 +          <input type="hidden" name="action" value="mkdir" />
 +          <input type="hidden" name="sesskey" value="<?php p($USER->sesskey) ?>" />
 +          <input name="name" type="text" id="foldername" size="35" />
 +          <input name="btnCfolder" type="submit" id="btnCfolder" value="<?php print_string("createfolder","editor");?>" onclick="return checkvalue('foldername','cfolder');" />
-+        </form>
-+        <div class="space"></div>
++          </form>
++          <div class="space"></div>
 +<?php
 +
-+    require_once($CFG->libdir . '/uploadlib.php');
++        require_once($CFG->libdir . '/uploadlib.php');
 +
-+    // Build up the URL used in the upload form.
-+    $vars = array(
-+        'id'      => $id,
-+        'shared'  => $shared,
-+        'userid'  => $userid,
-+        'uuid'    => $uuid,
-+        'action'  => 'upload',
-+        'sesskey' => $USER->sesskey,
-+        'save'    => urlencode(get_string('upload', 'editor'))
-+    );
++        // Build up the URL used in the upload form.
++        $vars = array(
++            'id'      => $id,
++            'oid'     => $oid,
++            'shared'  => $shared,
++            'userid'  => $userid,
++            'uuid'    => $uuid,
++            'action'  => 'upload',
++            'sesskey' => $USER->sesskey,
++            'save'    => urlencode(get_string('upload', 'editor'))
++        );
 +
-+    $action = $CFG->wwwroot . '/file/repository/alfresco/coursefiles.php?';
++        $action = $CFG->wwwroot . '/file/repository/alfresco/coursefiles.php?';
 +
-+    $count = count($vars);
-+    $i     = 0;
-+    foreach ($vars as $var => $val) {
-+        $action .= $var . '=' . $val . ($i < $count - 1 ? '&amp;' : '');
-+        $i++;
-+    }
- 
--<div class="fr"><?php print_string("horizontal","editor");?>:</div>
--<input type="text" name="horiz" id="f_horiz" size="5"
--title="Horizontal padding" />
-+    echo '<form action="' . $action . '" method="post" enctype="multipart/form-data" target="ibrowser" id="uploader">';
++        $count = count($vars);
++        $i     = 0;
++        foreach ($vars as $var => $val) {
++            $action .= $var . '=' . $val . ($i < $count - 1 ? '&amp;' : '');
++            $i++;
++        }
  
 -<p />
-+    // Include the form variables.
-+    unset($vars['save']);
++        echo '<form action="' . $action . '" method="post" enctype="multipart/form-data" target="ibrowser" id="uploader">';
  
 -<div class="fr"><?php print_string("vertical","editor");?>:</div>
 -<input type="text" name="vert" id="f_vert" size="5"
 -title="Vertical padding" />
-+    foreach ($vars as $var => $val) {
-+        echo '    <input type="hidden" name="' . $var . '" value="' . $val . '" />' . "\n";
-+    }
++        // Include the form variables.
++        unset($vars['save']);
  
 -<div class="space"></div>
-+    upload_print_form_fragment(1, array('userfile'), null, false, null, $upload_max_filesize, 0, false);
++        foreach ($vars as $var => $val) {
++            echo '    <input type="hidden" name="' . $var . '" value="' . $val . '" />' . "\n";
++        }
++
++        upload_print_form_fragment(1, array('userfile'), null, false, null, $upload_max_filesize, 0, false);
  
 -</fieldset>
-+    echo '<input name="save" type="submit" id="save" onclick="return checkvalue(\'userfile\',\'uploader\');" ' .
-+         'value="' . get_string('upload', 'editor') . '" />';
++        echo '<input name="save" type="submit" id="save" onclick="return checkvalue(\'userfile\',\'uploader\');" ' .
++             'value="' . get_string('upload', 'editor') . '" />';
  
 -<div style="margin-top: 85px; text-align: right;">
 -<hr />
@@ -480,7 +508,8 @@ index 1bb913a..fdd5d45 100644
 -</div>
 -</form>
 +?>
-+        </form>
++          </form>
++          <?php } ?>
 +      </td>
 +    </tr>
 +  </table>

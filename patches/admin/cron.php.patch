@@ -1,13 +1,11 @@
 diff --git a/admin/cron.php b/admin/cron.php
-index e1a94b4..5724210 100644
+index e1a94b4..5c5e70a 100644
 --- a/admin/cron.php
 +++ b/admin/cron.php
-@@ -524,6 +524,36 @@
-         }
-     }
+@@ -529,6 +529,33 @@
+     require_once($CFG->dirroot.'/elis/core/cron.php');
+     elis_cron();
  
-+/// Remote Learner Edit -- BEGIN
-+
 +    // Run the repository cron, if any
 +    mtrace("\nRunning repository crons if required...");
 +
@@ -35,7 +33,6 @@ index e1a94b4..5724210 100644
 +        }
 +    }
 +
-+/// Remote Learner Edit -- END
-     // run the ELIS cron jobs
-     mtrace("Running ELIS cron tasks...");
-     require_once($CFG->dirroot.'/elis/core/cron.php');
+     // run any customized cronjobs, if any
+     // looking for functions in lib/local/cron.php
+     if (file_exists($CFG->dirroot.'/local/cron.php')) {

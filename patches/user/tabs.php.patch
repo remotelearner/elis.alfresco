@@ -1,22 +1,24 @@
 diff --git a/user/tabs.php b/user/tabs.php
-index 498f7c8..37d33f1 100644
+index 498f7c8..85029bf 100644
 --- a/user/tabs.php
 +++ b/user/tabs.php
-@@ -268,6 +268,60 @@
+@@ -268,6 +268,62 @@
              }
          }
      }
 +
 +/// Remote Learner Edit -- BEGIN
 +
++        require_once($CFG->libdir . '/alfresco30/lib.php');
++
 +    /// Make sure the plug-in is enabled and setup correctly.
 +        if (isset($CFG->repository_plugins_enabled) &&
-+            strstr($CFG->repository_plugins_enabled, 'alfresco')) {
++            strstr($CFG->repository_plugins_enabled, 'alfresco') && alfresco_user_request()) {
 +
 +            require_once $CFG->dirroot . '/file/repository/repository.class.php';
 +
 +            if (!$repo = repository_factory::factory('alfresco')) {
-+                print_error('couldnotcreaterepositoryobject', 'repository');
++              print_error('couldnotcreaterepositoryobject', 'repository');
 +            }
 +
 +            if ($repo->verify_setup() && $repo->is_configured()) {
@@ -30,8 +32,8 @@ index 498f7c8..37d33f1 100644
 +                                continue;
 +                            }
 +
-+                            if (isset($ct['block/repository:createowncontent']) &&
-+                                      $ct['block/repository:createowncontent'] == CAP_ALLOW) {
++                            if (isset($ct['block/repository:viewowncontent']) &&
++                                      $ct['block/repository:viewowncontent'] == CAP_ALLOW) {
 +
 +                                $personalfiles = true;
 +                            }

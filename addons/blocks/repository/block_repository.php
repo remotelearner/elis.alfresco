@@ -21,13 +21,14 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+require_once(dirname(__FILE__) .'/lib.php');
 
 class block_repository extends block_base {
 
     function block_repository() {
         $this->title   = get_string('blockname', 'block_repository');
-        $this->version = 2010090900;
-        $this->release = '1.9.0';
+        $this->version = 2010090901;
+        $this->release = '1.9.3';
     }
 
 
@@ -41,14 +42,21 @@ class block_repository extends block_base {
         $content = '';
         $footer  = '';
 
+        $nologin_auths = block_repository_nopasswd_auths();
+        if (!empty($USER->auth) && in_array($USER->auth, $nologin_auths)) {
+            return '';
+        }
+
         if (isloggedin() && file_exists($CFG->dirroot . '/file/repository/alfresco/repository.php')) {
             require_once($CFG->dirroot . '/file/repository/repository.class.php');
 
             if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco')) {
                 if ($repo = repository_factory::factory('alfresco')) {
                     if ($repo->alfresco_userdir($USER->username) !== false) {
+                        // Fix username
+                        $username = repository_plugin_alfresco::fix_username($USER->username);
                         // So that we don't conflict with the default Alfresco admin account.
-                        $username = $USER->username == 'admin' ? $CFG->repository_alfresco_admin_username : $USER->username;
+                        $username = $username == 'admin' ? $CFG->repository_alfresco_admin_username : $username;
 
                         $hastenant = false;
 

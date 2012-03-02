@@ -1,32 +1,25 @@
 diff --git a/lib/editor/htmlarea/popups/insert_image.php b/lib/editor/htmlarea/popups/insert_image.php
-index 5822ef3..3c53072 100644
+index 5822ef3..6868723 100644
 --- a/lib/editor/htmlarea/popups/insert_image.php
 +++ b/lib/editor/htmlarea/popups/insert_image.php
-@@ -1,18 +1,88 @@
+@@ -1,18 +1,108 @@
  <?php // $Id$
  
      require("../../../../config.php");
 +    require_once $CFG->dirroot . '/file/repository/repository.class.php';
-+
-+/// Remote Learner Edit -- BEGIN
  
      $id = optional_param('id', SITEID, PARAM_INT);
      $httpsrequired = optional_param('httpsrequired', 0, PARAM_BOOL);
 +    $shared = optional_param('shared', '', PARAM_ALPHA);
 +    $userid = optional_param('userid', 0, PARAM_INT);
 +    $uuid   = optional_param('uuid', '', PARAM_TEXT);
-+    $ouuid  = optional_param('ouuid', '', PARAM_TEXT);
++    $oid    = optional_param('oid', '', PARAM_TEXT);
 +    $alf    = optional_param('alf', 0, PARAM_INT);
 +    $dd     = optional_param('dd', 0, PARAM_INT);
-+
-+    // If ouuid is set, set uuid to ouuid
-+    if (!empty($ouuid)) {
-+        $uuid = $ouuid;
-+    }
-+
-+/// Remote Learner Edit -- END
  
      require_login($id);
++
++    $canedit = false;
 +
 +    if (empty($alf)) {
      require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
@@ -40,37 +33,64 @@ index 5822ef3..3c53072 100644
 +
 +        // If we didn't get here from the drop-down...
 +        if (empty($uuid) && empty($dd)) {
-+            if ($uuid = $repo->get_repository_location($id, $userid, $shared, false)) {
++            if ($uuid = $repo->get_repository_location($id, $userid, $shared, $oid)) {
 +                redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?id=' . $id .
-+                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid . '&amp;alf=1' .
 +                         '&amp;choose=', '', 0);
 +            }
 +
-+            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared, false)) {
++            if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared)) {
 +               redirect($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?id=' . $id .
-+                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid . '&amp;alf=1' .
++                         '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid . '&amp;alf=1' .
 +                         '&amp;choose=', '', 0);
 +            }
 +        }
 +
 +        if (!empty($alf)) {
 +            global $USER;
-+            $canaccessorganization = false;
-+            $canmanageorganization = false;
 +
-+            if (!empty($USER->access['rdef'])) {
-+                foreach ($USER->access['rdef'] as $rdef) {
-+                    if ($canaccessorganization && $canmanageorganization) {
-+                        continue;
-+                    }
++        /// Get the context instance for where we originated viewing this browser from.
++            if (!empty($oid)) {
++                $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
++            }
++            if ($id == SITEID) {
++                $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
++            } else {
++                $context = get_context_instance(CONTEXT_COURSE, $id);
++            }
 +
-+                    if (isset($rdef['block/repository:vieworganizationcontent']) &&
-+                              $rdef['block/repository:vieworganizationcontent'] == CAP_ALLOW) {
-+                        $canaccessorganization = true;
++        /// Determine whether the current user has editing permissions.
++            $canedit = false;
++
++            if (empty($userid) && empty($shared)) {
++                if (($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
++                    ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id)) ||
++                    (!empty($oid) && has_capability('block/repository:createorganizationcontent', $cluster_context, $USER->id))) {
++
++                    $canedit = true;
++                }
++            } else if (empty($userid) && $shared == 'true') {
++                if (!empty($USER->access['rdef'])) {
++                    foreach ($USER->access['rdef'] as $rdef) {
++                        if (isset($rdef['block/repository:createsharedcontent']) &&
++                            $rdef['block/repository:createsharedcontent'] == CAP_ALLOW) {
++
++                            $canedit = true;
++                        }
 +                    }
-+                    if (isset($rdef['block/repository:createorganizationcontent']) &&
-+                              $rdef['block/repository:createorganizationcontent'] == CAP_ALLOW) {
-+                        $canmanageorganization = true;
++                }
++            } else {
++                if ($USER->id == $userid) {
++                    if (!empty($USER->access['rdef'])) {
++                        foreach ($USER->access['rdef'] as $rdef) {
++                            if (isset($rdef['block/repository:createowncontent']) && $rdef['block/repository:createowncontent'] == CAP_ALLOW) {
++                                $canedit = true;
++                            }
++                        }
++                    }
++                } else {
++                    if (has_capability('block/repository:createsitecontent', $context, $USER->id)) {
++                        $canedit = true;
 +                    }
 +                }
 +            }
@@ -92,7 +112,7 @@ index 5822ef3..3c53072 100644
          $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
      } else {
          $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
-@@ -268,11 +338,53 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -268,11 +358,53 @@ form { margin-bottom: 0px; margin-top: 0px; }
      </tr>
    </table></form>
    <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -105,7 +125,7 @@ index 5822ef3..3c53072 100644
 +    // Make sure the plug-in is enabled and setup correctly.
 +    if (isset($CFG->repository_plugins_enabled) && strstr($CFG->repository_plugins_enabled, 'alfresco') && !empty($repo)) {
 +        $default = '';
-+        $opts = $repo->file_browse_options($id, $userid, $ouuid, $shared, '',
++        $opts = $repo->file_browse_options($id, $userid, $oid, $shared, '',
 +                                           'lib/editor/htmlarea/popups/insert_image.php?alf=' . $alf,
 +                                           'lib/editor/htmlarea/popups/insert_image.php?alf=0',
 +                                           'lib/editor/htmlarea/popups/insert_image.php?alf=1', $default);
@@ -137,7 +157,7 @@ index 5822ef3..3c53072 100644
 +            $ref = urlencode($CFG->wwwroot . '/lib/editor/htmlarea/popups/insert_image.php?alf=1&amp;');
 +
 +            echo '<iframe id="ibrowser" name="ibrowser" src="' . $CFG->wwwroot . '/file/repository/alfresco/' .
-+                 'coursefiles.php?usecheckboxes=1&amp;id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' .
++                 'coursefiles.php?usecheckboxes='.$canedit.'&amp;id=' . $id . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;userid=' .
 +                 $userid . '&amp;uuid=' . $uuid . '&amp;ref=' . $ref . '" style="width: 100%; height: 200px;">' .
 +                 '</iframe>';
 +        }
@@ -147,7 +167,19 @@ index 5822ef3..3c53072 100644
        ?>
        </td>
        <td width="45%" valign="top"><?php print_string("preview","editor");?>:<br />
-@@ -288,10 +400,13 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -283,15 +415,24 @@ form { margin-bottom: 0px; margin-top: 0px; }
+     <table width="100%" border="0" cellspacing="0" cellpadding="0">
+       <tr>
+         <td width="55%"><div class="space"></div>
+-        <?php if(has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id))) { ?>
++        <?php
++
++/// Remote Learner Edit -- BEGIN
++    // If we are in the repository, we do need to check permissions before displaying file management options
++        if (($alf && $canedit) ||
++            (!$alf && has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id)))) {
++        ?>
+         <table border="0" cellpadding="2" cellspacing="0">
            <tr><td><?php print_string("selection","editor");?>: </td>
            <td><form id="idelete">
            <input name="btnDelete" type="submit" id="btnDelete" value="<?php print_string("delete","editor");?>" onclick="return submit_form('delete');" /></form></td>
@@ -161,7 +193,7 @@ index 5822ef3..3c53072 100644
            <td><form method="post" action="../coursefiles.php" target="ibrowser">
            <input type="hidden" name="id" value="<?php print($id);?>" />
            <input type="hidden" name="wdir" value="" />
-@@ -299,6 +414,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -299,6 +440,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
            <input type="hidden" name="action" value="rename" />
            <input type="hidden" name="sesskey" value="<?php p($USER->sesskey) ?>" />
            <input name="btnRename" type="submit" id="btnRename" value="<?php print_string("rename","editor");?>" /></form></td>
@@ -169,14 +201,16 @@ index 5822ef3..3c53072 100644
            <tr></table>
            <br />
            <?php
-@@ -319,7 +435,15 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -319,7 +461,17 @@ form { margin-bottom: 0px; margin-top: 0px; }
      </tr>
      <tr>
        <td height="22">
-+<?php if (empty($alf)) { ?>
++<?php   if (($alf && $canedit) || (!$alf && has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id)))) {
++        if (empty($alf)) { ?>
            <form id="cfolder" action="../coursefiles.php" method="post" target="ibrowser">
 +<?php } else { ?>
 +          <form id="cfolder" action="<?php echo $CFG->wwwroot . '/file/repository/alfresco/'; ?>coursefiles.php" method="post" target="ibrowser">
++          <input type="hidden" name="oid" value="<?php print($oid); ?>" />
 +          <input type="hidden" name="shared" value="<?php print($shared); ?>" />
 +          <input type="hidden" name="userid" value="<?php print($userid); ?>" />
 +          <input type="hidden" name="uuid" value="<?php print($uuid); ?>" />
@@ -185,7 +219,7 @@ index 5822ef3..3c53072 100644
            <input type="hidden" name="id" value="<?php print($id);?>" />
            <input type="hidden" name="wdir" value="" />
            <input type="hidden" name="action" value="mkdir" />
-@@ -328,6 +452,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -328,6 +480,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
            <input name="btnCfolder" type="submit" id="btnCfolder" value="<?php print_string("createfolder","editor");?>" onclick="return checkvalue('foldername','cfolder');" />
            </form>
            <div class="space"></div>
@@ -193,7 +227,7 @@ index 5822ef3..3c53072 100644
            <form action="../coursefiles.php?id=<?php print($id);?>" method="post" enctype="multipart/form-data" target="ibrowser" id="uploader">
            <input type="hidden" name="MAX_FILE_SIZE" value="<?php print($upload_max_filesize);?>" />
            <input type="hidden" name="id" VALUE="<?php print($id);?>" />
-@@ -336,6 +461,47 @@ form { margin-bottom: 0px; margin-top: 0px; }
+@@ -336,7 +489,50 @@ form { margin-bottom: 0px; margin-top: 0px; }
            <input type="hidden" name="sesskey" value="<?php p($USER->sesskey) ?>" />
            <input type="file" name="userfile" id="userfile" size="35" />
            <input name="save" type="submit" id="save" onclick="return checkvalue('userfile','uploader');" value="<?php print_string("upload","editor");?>" />
@@ -205,6 +239,7 @@ index 5822ef3..3c53072 100644
 +        // Build up the URL used in the upload form.
 +        $vars = array(
 +            'id'      => $id,
++            'oid'     => $oid,
 +            'shared'  => $shared,
 +            'userid'  => $userid,
 +            'uuid'    => $uuid,
@@ -239,5 +274,7 @@ index 5822ef3..3c53072 100644
 +
 +?>
            </form>
++          <?php } ?>
        </td>
      </tr>
+   </table>

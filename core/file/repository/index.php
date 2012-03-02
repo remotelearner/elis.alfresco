@@ -67,7 +67,7 @@
     $shared   = optional_param('shared', '', PARAM_ALPHA);
     $userid   = optional_param('userid', 0, PARAM_INT);
     $uuid     = optional_param('uuid', '', PARAM_TEXT);
-    $ouuid    = optional_param('ouuid', '', PARAM_TEXT);
+    $oid      = optional_param('oid', '', PARAM_TEXT);
     $oname    = optional_param('oname', '', PARAM_TEXT);
     $dd       = optional_param('dd', 0, PARAM_INT);
     $file     = optional_param('file', '', PARAM_PATH);
@@ -82,31 +82,29 @@
     $text     = optional_param('text', '', PARAM_RAW);
     $confirm  = optional_param('confirm', 0, PARAM_BOOL);
 
-    // If ouuid is set, set uuid to ouuid
-    if (!empty($ouuid)) {
-        $uuid = $ouuid;
-    }
-
     if (empty($CFG->repository)) {
         print_error('nodefaultrepositoryplugin', 'repository');
     }
 
     if (!isset($CFG->repository_plugins_enabled) || (strstr($CFG->repository_plugins_enabled, 'alfresco') === false) ||
         (($repo = repository_factory::factory($CFG->repository)) === false)) {
-
         print_error('couldnotcreaterepositoryobject', 'repository');
     }
 
+    if(!alfresco_user_request()) {
+      print_error('nopermissions');
+    }
+
     // If we don't have something explicitly to load and we didn't get here from the drop-down...
-    if (empty($dd) && empty($uuid) && empty($ouuid)) {
-        if ($uuid = $repo->get_repository_location($id, $userid, $shared)) {
+    if (empty($dd) && empty($uuid)) {
+        if ($uuid = $repo->get_repository_location($id, $userid, $shared, $oid)) {
             redirect($CFG->wwwroot . '/file/repository/index.php?id=' . $id . '&amp;choose=' . $choose .
-                     '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
+                     '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid, '', 0);
         }
 
         if ($uuid = $repo->get_default_browsing_location($id, $userid, $shared)) {
             redirect($CFG->wwwroot . '/file/repository/index.php?id=' . $id . '&amp;choose=' . $choose .
-                     '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;uuid=' . $uuid, '', 0);
+                     '&amp;userid=' . $userid . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;uuid=' . $uuid, '', 0);
         }
     }
 
@@ -122,6 +120,14 @@
 
     require_login($course->id);
 
+    if (!empty($oid)) {
+        if (!file_exists($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php')) {
+            return false;
+        }
+        require_once($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php');
+        // Get cluster context
+        $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+    }
     if ($course->id === SITEID) {
         $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
     } else {
@@ -138,10 +144,9 @@
     $canedit = false;
 
     if (empty($userid) && empty($shared)) {
-        if (($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
-            ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id)) ||
-            ($id != SITEID && has_capability('block/repository:createorganizationcontent', $context, $USER->id))) {
-
+        if ((!empty($oid) && has_capability('block/repository:createorganizationcontent', $cluster_context, $USER->id)) ||
+            ($id == SITEID && has_capability('block/repository:createsitecontent', $context, $USER->id)) ||
+            ($id != SITEID && has_capability('block/repository:createcoursecontent', $context, $USER->id))) {
             $canedit = true;
         }
     } else if (empty($userid) && $shared == 'true') {
@@ -163,12 +168,8 @@
                     }
                 }
             }
-        } else {
-            if (has_capability('block/repository:createsitecontent', $context, $USER->id)) {
-                $canedit = true;
-            } else if (has_capability('block/repository:createorganizationcontent', $context, $USER->id)) {
-                $canedit = true;
-            }
+        } else if (has_capability('block/repository:createsitecontent', $context, $USER->id)) {
+            $canedit = true;
         }
     }
 
@@ -182,36 +183,42 @@
     }
 
     function html_header($course, $wdir, $formfield=""){
-        global $CFG, $ME, $USER, $id, $shared, $userid, $uuid, $ouuid, $oname, $repo, $choose;
+        global $CFG, $ME, $USER, $id, $shared, $userid, $uuid, $oid, $repo, $choose;
 
         if (! $site = get_site()) {
             print_error('invalidsite', 'repository_alfresco');
         }
 
-        if (empty($userid) && empty($shared) && !empty($course->id) && $course->id == $site->id) {
+        // Get strfiles title and related uuid
+        if (empty($userid) && empty($oid) && empty($shared) && !empty($course->id) && $course->id == $site->id) {
             $strfiles = get_string('repositorysitefiles', 'repository');
+            $buuid = $repo->root->uuid;
         } else if (empty($userid) && empty($shared) && !empty($course->id)) {
-            if (!empty($ouuid)) {
-                $strfiles = $oname;
+            if (!empty($oid)) {
+                $strfiles = get_field('crlm_cluster','name','id',$oid) . get_string('repositoryclusterfiles', 'repository');
+                $buuid = $repo->get_organization_store($oid);
             } else {
                 $strfiles = get_string('repositorycoursefiles', 'repository');
+                $buuid = $repo->get_course_store($course->id);
             }
         } else if (empty($userid) && $shared == 'true') {
             $strfiles = get_string('repositorysharedfiles', 'repository');
+            $buuid = $repo->suuid;
         } else if (!empty($userid)) {
             $strfiles = get_string('repositoryuserfiles', 'repository');
+            $buuid = $repo->uuuid;
         }
 
         if ($wdir == '/') {
             $navlinks[] = array('name' => $strfiles, 'link' => null, 'type' => 'misc');
         } else {
-            $dirs    = $repo->get_nav_breadcrumbs($uuid, $course->id, $userid, $shared);
+            $dirs    = $repo->get_nav_breadcrumbs($uuid, $course->id, $userid, $shared, $oid);
             $numdirs = count($dirs);
             $link    = '';
 
             $navlinks[] = array(
                 'name' => $strfiles,
-                'link' => "$ME?id=$course->id&amp;shared=$shared&amp;userid=$userid&amp;" .
+                'link' => "$ME?id=$course->id&amp;shared=$shared&amp;oid=$oid&amp;uuid=$buuid&amp;userid=$userid&amp;" .
                           "wdir=/&amp;choose=$choose&amp;dd=1",
                 'type' => 'misc'
             );
@@ -223,7 +230,7 @@
                     $link .= '/' . urlencode($name);
                     $navlinks[] = array(
                         'name' => $name,
-                        'link' => "$ME?id=$course->id&amp;shared=$shared&amp;userid=$userid&amp;" .
+                        'link' => "$ME?id=$course->id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;" .
                                   "wdir=$link&amp;uuid=$duuid&amp;choose=$choose&amp;dd=1",
                         'type' => 'misc'
                     );
@@ -295,7 +302,7 @@
         if (!empty($repo)) {
             $default = '';
 
-            $opts = $repo->file_browse_options($course->id, $userid, $ouuid, $shared, $choose, 'file/repository/index.php',
+            $opts = $repo->file_browse_options($course->id, $userid, $oid, $shared, $choose, 'file/repository/index.php',
                                                'files/index.php', 'file/repository/index.php', $default);
 
             if (!empty($opts)) {
@@ -330,13 +337,20 @@
     }
 
 
-/// Get the appropriate context for the site or a course.
+/// Get the appropriate context for the site, course or cluster.
+    if (!empty($oid)) {
+        if (!file_exists($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php')) {
+            return false;
+        }
+        require_once($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php');
+        // Get cluster context
+        $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+    }
     if ($id == SITEID) {
         $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
     } else {
         $context = get_context_instance(CONTEXT_COURSE, $id);
     }
-
 
 /// Make sure that we have the correct 'base' UUID for a course or user storage area as well
 /// as checking for correct permissions.
@@ -349,8 +363,8 @@
                     continue;
                 }
 
-                if (isset($ucontext['block/repository:createowncontent']) &&
-                          $ucontext['block/repository:createowncontent'] == CAP_ALLOW) {
+                if (isset($ucontext['block/repository:viewowncontent']) &&
+                          $ucontext['block/repository:viewowncontent'] == CAP_ALLOW) {
 
                     $personalfiles = true;
                 }
@@ -358,7 +372,7 @@
         }
 
         if (!$personalfiles) {
-            $capabilityname = get_capability_string('block/repository:createowncontent');
+            $capabilityname = get_capability_string('block/repository:viewowncontent');
             print_error('nopermissions', '', '', $capabilityname);
             exit;
         }
@@ -395,6 +409,11 @@
             $uuid = $repo->suuid;
         }
 
+    } else if (!empty($oid)) {
+        require_capability('block/repository:vieworganizationcontent', $cluster_context, $USER->id);
+        if (empty($uuid)) {
+            $uuid = $repo->get_organization_store($oid);
+        }
     } else if (!empty($id) && $id != SITEID) {
         require_capability('block/repository:viewcoursecontent', $context, $USER->id);
 
@@ -507,6 +526,7 @@
                 // Build up the URL used in the upload form.
                 $vars = array(
                     'id'      => $id,
+                    'oid'     => $oid,
                     'shared'  => $shared,
                     'userid'  => $userid,
                     'uuid'    => $uuid,
@@ -544,6 +564,7 @@
                 echo "<div>";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -563,6 +584,7 @@
             if (!empty($userid)) {
                 $puuid = $repo->get_user_store($userid);
             } else if ((($uuid == '') || (!$parent = $repo->get_parent($uuid))) ||
+                       (!empty($oid) && ($uuid == '' || (!$parent = $repo->get_parent($uuid)))) ||
                        (($id != SITEID) && ($uuid == '' || $uuid == $repo->get_course_store($id)))) {
 
             } else {
@@ -577,14 +599,14 @@
                             $puuid = $repo->get_parent($uuid)->uuid;
                         }
 
-                        if (!alfresco_delete($uuid)) {
-                            $node = alfresco_node_properties($uuid);
+                        if (!$repo->delete($uuid)) {
+                            $node = $repo->get_info($uuid);
                             debugging(get_string('couldnotdeletefile', 'repository_alfresco', $node->title));
                         }
                     }
                 }
                 clearfilelist();
-                redirect('index.php?id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' . $userid . '&amp;uuid=' .
+                redirect('index.php?id=' . $id . '&amp;oid=' . $oid . '&amp;shared=' . $shared . '&amp;userid=' . $userid . '&amp;uuid=' .
                          $puuid . '&amp;choose=' . $choose, '', 0);
                 html_footer();
 
@@ -621,10 +643,10 @@
                     }
 
                     notice_yesno(get_string("deletecheckfiles"),
-                                "index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;uuid=$uuid&amp;wdir=$wdir&amp;action=delete&amp;confirm=1&amp;sesskey=$USER->sesskey&amp;choose=$choose",
-                                "index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;uuid=$uuid&amp;wdir=$wdir&amp;action=cancel&amp;choose=$choose");
+                                "index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;uuid=$uuid&amp;wdir=$wdir&amp;action=delete&amp;confirm=1&amp;sesskey=$USER->sesskey&amp;choose=$choose",
+                                "index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;uuid=$uuid&amp;wdir=$wdir&amp;action=cancel&amp;choose=$choose");
                 } else {
-                    redirect("index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;uuid=$puuid&amp;choose=$choose");
+                    redirect("index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;uuid=$puuid&amp;choose=$choose");
                 }
                 html_footer();
             }
@@ -762,7 +784,7 @@
 
                 if ($repo->dir_exists($name, $uuid)) {
                     debugging(get_string('errordirectorynameexists', 'repository_alfresco', $name));
-                } else if ($repo->create_dir($name, $uuid) === false) {
+                } else if ($repo->create_dir($name, $uuid) == false) {
                     debugging(get_string('errorcouldnotcreatedirectory', 'repository_alfresco', $name));
                 }
 
@@ -783,6 +805,7 @@
                 echo "<form action=\"index.php\" method=\"post\" name=\"form\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
@@ -796,6 +819,7 @@
                 echo "<form action=\"index.php\" method=\"get\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
@@ -885,7 +909,7 @@
                 foreach ($USER->filelist as $fuuid) {
                     $file = $repo->get_info($fuuid);
 
-                    if (alfresco_get_type($file->uuid) == 'folder') {
+                    if ($repo->is_dir($file->uuid)) {
                         $dirfiles = $repo->download_dir($destpath, $fuuid);
 
                         if ($dirfiles !== false) {
@@ -926,6 +950,7 @@
                     echo "<form action=\"index.php\" method=\"post\" name=\"form\">";
                     echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                     echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                    echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                     echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                     echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                     echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -939,6 +964,7 @@
                     echo "<form action=\"index.php\" method=\"get\">";
                     echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                     echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                    echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                     echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                     echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                     echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -1002,8 +1028,7 @@
                     error(get_string('unzipfileserror', 'error'));
                 }
 
-
-                if (($duuid = $repo->create_dir(basename($filename, '.zip'), $puuid)) === false) {
+                if (($duuid = $repo->create_dir(basename($filename, '.zip'), $puuid)) == false) {
                     if (isset($fp)) {
                         fclose($fp);
                     }
@@ -1035,6 +1060,7 @@
                 echo "<center><form action=\"index.php\" method=\"get\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"uuid\" value=\"$puuid\" />";
@@ -1105,6 +1131,7 @@
                 echo "<br /><center><form action=\"index.php\" method=\"get\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"uuid\" value=\"$puuid\" />";
@@ -1130,7 +1157,7 @@
                 $restore_path = "$CFG->wwwroot/backup/restore.php";
                 notice_yesno (get_string("areyousuretorestorethis"),
                                 $restore_path."?id=".$id."&amp;file=".cleardoubleslashes($id.$wdir."/".$file)."&amp;method=manual",
-                                "index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;wdir=$wdir&amp;action=cancel");
+                                "index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;wdir=$wdir&amp;action=cancel");
             } else {
                 displaydir($wdir);
             }
@@ -1142,7 +1169,6 @@
 
         default:
             html_header($course, $wdir);
-
             if ($id != SITEID) {
                 displaydir($uuid, $wdir, $id);
             } else {
@@ -1240,6 +1266,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
     global $CFG;
     global $basedir;
     global $id;
+    global $oid;
     global $shared;
     global $userid;
     global $choose;
@@ -1253,6 +1280,9 @@ function displaydir($uuid, $wdir, $courseid = 0) {
 
 
 /// Get the context instance for where we originated viewing this browser from.
+    if (!empty($oid)) {
+        $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+    }
     if ($id == SITEID) {
         $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
     } else {
@@ -1311,6 +1341,15 @@ function displaydir($uuid, $wdir, $courseid = 0) {
         $parentdir->title = '';
         $parentdir->url   = '';
 
+    } else if (!empty($oid) && ($uuid == '' || $uuid == $repo->get_organization_store($oid))) {
+
+        if (empty($uuid)) {
+            $uuid = $repo->get_organization_store($oid);
+        }
+
+        $parentdir->title = '';
+        $parentdir->url   = '';
+
     } else if ($id != SITEID && ($uuid == '' || !($parent = $repo->get_parent($uuid)) ||
                ($uuid == '' || $uuid == $repo->get_course_store($id)))) {
 
@@ -1355,7 +1394,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
     }
 
     // Store the UUID value that we are currently browsing.
-    $repo->set_repository_location($uuid, $id, $userid, $shared);
+    $repo->set_repository_location($uuid, $id, $userid, $shared, $oid);
 
     if (!empty($repodir->folders)) {
         foreach ($repodir->folders as $folder) {
@@ -1371,6 +1410,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
     echo '<form action="index.php" method="post" name="reposearch">';
     echo '<input type="hidden" name="choose" value="' . $choose . '" />';
     echo "<input type=\"hidden\" name=\"id\" value=\"$id\" />";
+    echo "<input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
     echo "<input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
     echo "<input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
     echo "<input type=\"hidden\" name=\"uuid\" value=\"$uuid\" /> ";
@@ -1382,13 +1422,13 @@ function displaydir($uuid, $wdir, $courseid = 0) {
     echo '<input type="text" name="search" size="40" value="' . s($search) . '" /> ';
     echo '<input type="submit" value="' . get_string('search') . '" />';
 
-    helpbutton('search', get_string('alfrescosearch', 'repository_alfresco'), 'repository/alfresco');
+    helpbutton('search', get_string('alfrescosearch', 'repository_alfresco'), 'block_repository');
 
     echo '</center><br />';
 
     if ($cats = $repo->category_get_children(0)) {
         $baseurl = $CFG->wwwroot . '/file/repository/index.php?choose='. $choose . '&amp;id=' .
-                   $id . '&amp;shared=' . $shared . '&amp;userid=' . $userid . '&amp;wdir=' .
+                   $id . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;userid=' . $userid . '&amp;wdir=' .
                    $wdir . '&amp;uuid=' . $uuid;
 
         $catfilter = repository_alfresco_get_category_filter();
@@ -1408,7 +1448,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
 
         }
 
-        $treemenu = &new HTML_TreeMenu_DHTML($menu, array(
+        $treemenu = new HTML_TreeMenu_DHTML($menu, array(
             'images' => $CFG->wwwroot . '/lib/HTML_TreeMenu-1.2.0/images'
         ));
 
@@ -1425,7 +1465,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
         print_simple_box_start('center', '75%');
         //looks for search.html file and gets text alfrescosearch from repository_alfresco lang file which I guess we use too...
         // now hmmm, so where does search.html go? or in our case, categoryfilter.html, I guess repository/alfresco
-        print_heading(helpbutton('categoryfilter', get_string('alfrescocategoryfilter', 'repository_alfresco'), 'repository/alfresco',true,false,null,true).get_string('categoryfilter', 'repository_alfresco') . ':', 'center', '3');
+        print_heading(helpbutton('categoryfilter', get_string('alfrescocategoryfilter', 'block_repository'), 'block_repository', true, false, null, true) . get_string('categoryfilter', 'block_repository') . ':', 'center', '3');
         $treemenu->printMenu();
         echo '<br />';
         print_simple_box_end();
@@ -1433,7 +1473,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
     echo '</form>';
 
     echo '<center>';
-    print_single_button('index.php', array('id' => $id, 'shared' => $shared, 'userid' => $userid, 'uuid' => $uuid),
+    print_single_button('index.php', array('id' => $id, 'shared' => $shared, 'oid' => $oid, 'userid' => $userid, 'uuid' => $uuid),
                         get_string('showall'), 'get');
 
     echo '</center>';
@@ -1480,7 +1520,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
                     $fileurl = $dir->uuid;
 
                     print_cell();
-                    print_cell('left', '<a href="index.php?id='.$id.'&amp;shared='.$shared.'&amp;userid='.$userid.'&amp;wdir='.$pdir.'&amp;uuid='.$fileurl.'&amp;choose='.$choose.'"><img src="'.$CFG->pixpath.'/f/parent.gif" height="16" width="16" alt="'.get_string('parentfolder').'" /></a> <a href="index.php?id='.$id.'&amp;shared='.$shared.'&amp;userid='.$userid.'&amp;wdir='.$pdir.'&amp;uuid='.$fileurl.'&amp;choose='.$choose.'">'.get_string('parentfolder').'</a>', 'name');
+                    print_cell('left', '<a href="index.php?id='.$id.'&amp;shared='.$shared.'&amp;oid='.$oid.'&amp;userid='.$userid.'&amp;wdir='.$pdir.'&amp;uuid='.$fileurl.'&amp;choose='.$choose.'"><img src="'.$CFG->pixpath.'/f/parent.gif" height="16" width="16" alt="'.get_string('parentfolder').'" /></a> <a href="index.php?id='.$id.'&amp;shared='.$shared.'&amp;oid='.$oid.'&amp;userid='.$userid.'&amp;wdir='.$pdir.'&amp;uuid='.$fileurl.'&amp;choose='.$choose.'">'.get_string('parentfolder').'</a>', 'name');
                     print_cell();
                     print_cell();
                     print_cell();
@@ -1501,7 +1541,7 @@ function displaydir($uuid, $wdir, $courseid = 0) {
                     print_cell();
                 }
 
-                print_cell("left", "<a href=\"index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> <a href=\"index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\">".htmlspecialchars($dir->title)."</a>", 'name');
+                print_cell("left", "<a href=\"index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> <a href=\"index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\">".htmlspecialchars($dir->title)."</a>", 'name');
                 print_cell("right", $filesize, 'size');
                 print_cell("right", $filedate, 'date');
                 print_cell('right', '-', 'commands');
@@ -1531,7 +1571,8 @@ echo '
 ';
 
         foreach ($filelist as $file) {
-            $icon = $file->icon;
+//            $icon = $file->icon;
+            $icon = mimeinfo('icon', $file->title);
 
             $count++;
 
@@ -1564,7 +1605,7 @@ echo '
             $name     = '_blank';
             $url      = $fileurl;
             $title    = 'Popup window';
-            $linkname = "<img src=\"$icon\" height=\"16\" width=\"16\" border=\"0\" alt=\"File\" />";
+            $linkname = "<img src=\"$CFG->pixpath/f/$icon\" class=\"icon\" alt=\"{$file->title}\" />";
             $options  = 'menubar=0,location=0,scrollbars,resizable,width='. $width .',height='. $height;
 
             if (!empty($search) && !empty($file->parent)) {
@@ -1572,7 +1613,7 @@ echo '
                 $fileurl  = $file->parent->uuid;
                 $motext   = get_string('parentfolder', 'repository', $file->parent->name);
 
-                echo "<a href=\"index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\" title=\"$motext\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> ";
+                echo "<a href=\"index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;wdir=$pdir&amp;uuid=$fileurl&amp;choose=$choose\" title=\"$motext\"><img src=\"$CFG->pixpath/f/folder.gif\" height=\"16\" width=\"16\" border=\"0\" alt=\"Folder\" /></a> ";
             }
 
             echo '<a target="'. $name .'" title="'. $title .'" href="'. $url .'" '.">$linkname</a>";
@@ -1585,7 +1626,7 @@ echo '
 
             echo "</td>";
 
-            print_cell("right", display_size($file->filesize), 'size');
+            print_cell("right", display_size(isset($file->filesize)? $file->filesize:'-'), 'size');
             print_cell("right", $filedate, 'date');
 
             if ($choose) {
@@ -1595,13 +1636,13 @@ echo '
             }
 
             if (strstr($icon, 'zip.gif') !== false) {
-                $edittext .= "<a href=\"index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;uuid=$file->uuid&amp;action=unzip&amp;sesskey=$USER->sesskey&amp;choose=$choose\">$strunzip</a>&nbsp;";
-                $edittext .= "<a href=\"index.php?id=$id&amp;shared=$shared&amp;userid=$userid&amp;uuid=$file->uuid&amp;action=listzip&amp;sesskey=$USER->sesskey&amp;choose=$choose\">$strlist</a> ";
+                $edittext .= "<a href=\"index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;uuid=$file->uuid&amp;action=unzip&amp;sesskey=$USER->sesskey&amp;choose=$choose\">$strunzip</a>&nbsp;";
+                $edittext .= "<a href=\"index.php?id=$id&amp;shared=$shared&amp;oid=$oid&amp;userid=$userid&amp;uuid=$file->uuid&amp;action=listzip&amp;sesskey=$USER->sesskey&amp;choose=$choose\">$strlist</a> ";
             }
 
         /// User's cannot download files locally if they cannot access the local file storage.
             if (has_capability('moodle/course:managefiles', $context)) {
-                $popupurl = '/files/index.php?id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' . $userid .
+                $popupurl = '/files/index.php?id=' . $id . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;userid=' . $userid .
                             '&amp;repouuid=' . $file->uuid . '&amp;repofile=' . $filesafe . '&amp;dd=1';
 
                 $edittext .= link_to_popup_window($popupurl, 'coursefiles', $strdownloadlocal, 500, 750,
@@ -1624,6 +1665,7 @@ echo '
 
         if ($canedit) {
             echo "<input type=\"hidden\" name=\"id\" value=\"$id\" />";
+            echo "<input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
             echo "<input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
             echo "<input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
             echo '<input type="hidden" name="choose" value="'.$choose.'" />';
@@ -1647,6 +1689,7 @@ echo '
             echo "<form action=\"index.php\" method=\"get\">";
             echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
             echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+            echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
             echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
             echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
             echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -1662,6 +1705,7 @@ echo '
                 echo "<form action=\"index.php\" method=\"get\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -1679,6 +1723,7 @@ echo '
                 echo "<form action=\"index.php\" method=\"get\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
+                echo " <input type=\"hidden\" name=\"oid\" value=\"$oid\" />";
                 echo " <input type=\"hidden\" name=\"shared\" value=\"$shared\" />";
                 echo " <input type=\"hidden\" name=\"userid\" value=\"$userid\" />";
                 echo " <input type=\"hidden\" name=\"uuid\" value=\"$uuid\" />";
@@ -1691,7 +1736,7 @@ echo '
         echo '</tr>';
         echo "</table>";
     } else {
-        $url = 'index.php?id=' . $id . '&amp;shared=' . $shared . '&amp;userid=' . $userid . '&amp;uuid=' . $uuid;
+        $url = 'index.php?id=' . $id . '&amp;shared=' . $shared . '&amp;oid=' . $oid . '&amp;userid=' . $userid . '&amp;uuid=' . $uuid;
         echo '<h3><a href="' . $url . '">' . get_string('returntofilelist', 'repository') . '</a></h3>';
     }
 

@@ -160,6 +160,7 @@ function checkvalue(elm,formname) {
         el.focus();
         return false;
     }
+    return true;
 }
 
 function submit_form(dothis) {

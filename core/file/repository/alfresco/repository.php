@@ -58,10 +58,11 @@
 
 /// Alfresco API v3.0
 require_once($CFG->libdir . '/alfresco30/lib.php');
+require_once($CFG->libdir . '/cmis-php/cmis_repository_wrapper.php');
 
 
 define('ALFRESCO_CRON_VALUE',  HOURSECS); // Run the cron job every hour.
-define('ALFRESCO_LOGIN_RESET', 5 * MINSECS);      // Reset a login after 5 minutes.
+define('ALFRESCO_LOGIN_RESET', 5 * MINSECS); // Reset a login after 5 minutes.
 
 define('ALFRESCO_DEBUG_TIME',  false);
 define('ALFRESCO_DEBUG_TRACE', false);
@@ -87,23 +88,68 @@ define('ALFRESCO_BROWSE_ALFRESCO_USER_FILES',   50);
 
 class repository_plugin_alfresco {
 
-    var $errormsg = '';  // Standard error message varible.
-    var $log      = '';  // Cron task log messages.
-    var $muuid    = '';  // Moodle root folder UUID
-    var $suuid    = '';  // Shared folder UUID
-    var $cuuid    = '';  // Course folder UUID
-    var $uuuid    = '';  // User folder UUID
-    var $ouuid    = '';  // Organizations folder UUID
-    var $root     = '';  // Root folder UUID
+    static $plugin_name = 'repository/alfresco'; // TBD
+    static $init        = false; // Prevent recursion
+
+    var $errormsg  = '';  // Standard error message varible.
+    var $log       = '';  // Cron task log messages.
+    var $cmis      = null;  // CMIS service connection object.
+    var $muuid     = '';  // Moodle root folder UUID
+    var $suuid     = '';  // Shared folder UUID
+    var $cuuid     = '';  // Course folder UUID
+    var $uuuid     = '';  // User folder UUID
+    var $ouuid     = '';  // Organizations folder UUID
+    var $root      = '';  // Root folder UUID
+    var $isrunning = null;
+    public static $version   = null; // Alfresco version
+
+    static $username_map = array('@'=>'_AT_'); // Map of characters to replace in username
 
     function repository_plugin_alfresco() {
+        global $CFG, $USER;
+
         if (ALFRESCO_DEBUG_TRACE) mtrace('repository_plugin_alfresco()');
 
         if (!$this->is_configured()) {
             return false;
         }
 
-        return $this->verify_setup();
+        if (!$this->is_running()) {
+            return false;
+        }
+
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
+        $result = $this->verify_setup();
+
+        // Check if we need to initialize non-password users (openid, cas, ...)
+        if ($result && !self::$init && is_siteadmin($USER->id) && !get_config(self::$plugin_name, 'initialized')) {
+            require_once($CFG->dirroot .'/blocks/repository/lib.php');
+            error_log('repository_plugin_alfresco() - INFO: initializing users ...');
+            self::$init = true;
+            $errors = 0;
+            $auths = block_repository_nopasswd_auths();
+            $authlist = "'". implode("', '", $auths) ."'";
+            $users = get_records_select('user', "auth IN ({$authlist})", '', 'id, auth');
+            if (!empty($users)) {
+                foreach ($users as $user) {
+                    $user = get_complete_user_data('id', $user->id);
+                    $migrate_ok = block_repository_user_created($user);
+                    if (!$migrate_ok) {
+                        $errors++;
+                        error_log("repository_plugin_alfresco() - failed migrating user ({$user->id}) to Alfresco.");
+                    }
+                }
+            }
+            error_log("repository_plugin_alfresco() - INFO: initialization complete ({$errors} errors)");
+            if (!$errors) {
+                set_config('initialized', 1, self::$plugin_name);
+            }
+        }
+
+        return $result;
     }
 
 
@@ -123,6 +169,74 @@ class repository_plugin_alfresco {
     }
 
 
+    /**
+    * Detect whether or not the remove Alfreco repository is currently running.
+    *
+    * @param none
+    * @return bool True if the remote system is running, False otherwise.
+    */
+    function is_running() {
+        global $CFG;
+
+        // TODO: This means that if Alfresco comes up during a user's login session, this won't be refelcted until they
+        // log back into Moodle again. We probably want to add somethign here that will check after a certain amount of
+        // time since the last check for an individual user.
+
+        // Don't check if Alfresco is running if we have already checked once.
+        if ($this->isrunning !== null) {
+            return $this->isrunning;
+        }
+
+        if (empty($CFG->repository_alfresco_server_host)) {
+            $this->isrunning = false;
+            return false;
+        }
+
+        $repourl = $CFG->repository_alfresco_server_host;
+
+        if ($repourl[strlen($repourl) - 1] == '/') {
+            $repourl = substr($repourl, 0, strlen($repourl) - 1);
+        }
+
+        if (!empty($CFG->repository_alfresco_server_port)) {
+            $repourl .= ':'.$CFG->repository_alfresco_server_port;
+        }
+
+        $repourl .= '/alfresco';
+
+        // A list of valid HTTP response codes
+        $validresponse = array(
+            200,
+            201,
+            204,
+            302,
+            401,
+            505
+        );
+
+        // Initialize the cURL session
+        $session = curl_init($repourl);
+        curl_setopt($session, CURLOPT_CONNECTTIMEOUT, 3); // Use a 3 section connection timeout in case the server has crashed
+
+        // Execute the cURL call
+        curl_exec($session);
+
+        // Get the HTTP response code from our request
+        $httpcode = curl_getinfo($session, CURLINFO_HTTP_CODE);
+
+        curl_close($session);
+
+        // Make sure the code is in the list of valid, acceptible codes
+        if (array_search($httpcode, $validresponse)) {
+            $this->isrunning = true;
+            return true;
+        }
+
+        $this->isrunning = false;
+        return false;
+    }
+
+
 /**
  * Verify that the Alfresco repository is currently setup and ready to be
  * used with Moodle (i.e. the needed directory structure is in place).
@@ -136,34 +250,46 @@ class repository_plugin_alfresco {
 
         if (ALFRESCO_DEBUG_TRACE) mtrace('verify_setup()');
 
-        if (!alfresco_get_services()) {
+        if (!$this->get_defaults()) {
             return false;
         }
 
-        // Ensure that the current user is already setup on the
-/*
-        if (isloggedin()) {
-            if (!$this->alfresco_userdir($USER->username)) {
-                if (!$this->migrate_user($USER->username)) {
+        if (self::is_version('3.2')) {
+            if (!alfresco_get_services()) {
+                return false;
+            }
+
+            // Set up the root node
+            $response = alfresco_request(alfresco_get_uri('', 'sites'));
+
+            $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
+
+            $dom = new DOMDocument();
+            $dom->preserveWhiteSpace = false;
+            $dom->loadXML($response);
+
+            $nodes = $dom->getElementsByTagName('entry');
+            $type  = '';
+
+            $this->root = alfresco_process_node($dom, $nodes->item(0), $type);
+        } else if (self::is_version('3.4')) {
+            if (empty($this->cmis)) {
+                $this->cmis = new CMISService(alfresco_base_url() . '/api/cmis',
+                $CFG->repository_alfresco_server_username,
+                $CFG->repository_alfresco_server_password);
+
+                if (empty($this->cmis->authenticated)) {
                     return false;
                 }
+
+                if (!$root = $this->cmis->getObjectByPath('/')) {
+                    return false;
+                }
+
+                $type = '';
+                $this->root = alfresco_process_node_new($root, $type);
             }
         }
-*/
-
-        // Set up the root node
-        $response = alfresco_request(alfresco_get_uri('', 'sites'));
-
-        $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
-
-        $dom = new DOMDocument();
-        $dom->preserveWhiteSpace = false;
-        $dom->loadXML($response);
-
-        $nodes = $dom->getElementsByTagName('entry');
-        $type  = '';
-
-        $this->root = alfresco_process_node($dom, $nodes->item(0), $type);
 
         // If there is no root folder saved or it's set to default,
         // make sure there is a default '/moodle' folder.
@@ -171,8 +297,7 @@ class repository_plugin_alfresco {
             ($CFG->repository_alfresco_root_folder == '/moodle')) {
 
             $root = $this->get_root();
-
-            if (empty($root->uuid)) {
+            if ($root == false || !isset($root->uuid)) {
                 return false;
             }
 
@@ -280,6 +405,17 @@ class repository_plugin_alfresco {
 
 
 /**
+ * Get information about the root node in the repository.
+ *
+ * @param none
+ * @return object|bool Processed node data or, False on error.
+ */
+    function get_root() {
+        return $this->root;
+    }
+
+
+/**
  * Processes and stored configuration data for the repository plugin.
  *
  * @param object $config All the configuration data as entered by the admin.
@@ -334,7 +470,7 @@ class repository_plugin_alfresco {
  *
  * @uses $CFG
  * @param bool $gotologin Set to False to not give a URL directly to the login form.
- * @return string A URL for accessing the Alfrecso web application.
+ * @return string A URL for accessing the Alfresco web application.
  */
     function get_webapp_url($gotologin = true) {
         global $CFG;
@@ -385,6 +521,9 @@ class repository_plugin_alfresco {
             return false;
         }
 
+    /// Fix username
+        $username = $this->fix_username($username);
+
     /// Create the session
         $repository = new Repository($this->get_repourl());
         $ticket     = null;
@@ -407,7 +546,23 @@ class repository_plugin_alfresco {
     function get_info($uuid) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('get_info(' . $uuid . ')');
 
-        return alfresco_node_properties($uuid);
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
+        if (self::is_version('3.2')) {
+            return alfresco_node_properties($uuid);
+        } else if (self::is_version('3.4')) {
+            if (!$node = $this->cmis->getObject('workspace://SpacesStore/' . $uuid)) {
+                return false;
+            }
+
+            $type = '';
+            $node = alfresco_process_node_new($node, $type);
+            $node->type = $type;
+
+            return $node;
+        }
     }
 
 
@@ -420,7 +575,18 @@ class repository_plugin_alfresco {
     function is_dir($uuid) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('is_dir(' . $uuid . ')');
 
-        return (alfresco_get_type($uuid) == 'folder');
+        // Set the file and folder type
+        if (!defined('ALFRESCO_TYPE_FOLDER')) {
+            if (self::is_version('3.2')) {
+                define('ALFRESCO_TYPE_FOLDER',   'folder');
+                define('ALFRESCO_TYPE_DOCUMENT', 'document');
+            } else if (self::is_version('3.4')) {
+                define('ALFRESCO_TYPE_FOLDER',   'cmis:folder');
+                define('ALFRESCO_TYPE_DOCUMENT', 'cmis:document');
+            }
+        }
+
+        return (alfresco_get_type($uuid) == ALFRESCO_TYPE_FOLDER);
     }
 
 
@@ -490,7 +656,7 @@ class repository_plugin_alfresco {
     function category_filter($node, $categories) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('category_filter(' . $node . ', ' . $categories . ')');
 
-        if (!$nodecats = alfresco_get_node_categories($node->noderef)) {
+        if (!isset($node->noderef) || !($nodecats = alfresco_get_node_categories($node->noderef))) {
             return false;
         }
 
@@ -517,7 +683,43 @@ class repository_plugin_alfresco {
  */
     function read_dir($uuid = '', $useadmin = true) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('read_dir(' . $uuid . ', ' . ($useadmin !== true ? 'false' : 'true') . ')');
-        return alfresco_read_dir($uuid, $useadmin);
+
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
+        if (self::is_version('3.2')) {
+            return alfresco_read_dir($uuid, $useadmin);
+        } else if (self::is_version('3.4')) {
+            if (empty($uuid)) {
+                if ($root = $this->get_root()) {
+                    $uuid = $root->uuid;
+                }
+            }
+
+            if (!($result = $this->cmis->getChildren('workspace://SpacesStore/' . $uuid))) {
+                return false;
+            }
+
+            $return = new stdClass;
+            $return->folders = array();
+            $return->files   = array();
+
+            foreach ($result->objectsById as $child) {
+                $type = '';
+
+                $node = alfresco_process_node_new($child, $type);
+
+                if ($type == ALFRESCO_TYPE_FOLDER) {
+                    $return->folders[] = $node;
+                // Only include a file in the list if it's title does not start with a period '.'
+                } else if ($type == ALFRESCO_TYPE_DOCUMENT && !empty($node->title) && $node->title[0] !== '.') {
+                    $return->files[] = $node;
+                }
+            }
+
+            return $return;
+        }
     }
 
 
@@ -603,7 +805,7 @@ class repository_plugin_alfresco {
                 /// this handles the default (not set), as well as selecting "No"
                     $age = 0;
                 }
-                
+
                 header('Cache-Control: max-age=' . $age);
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $age) . ' GMT');
                 header('Pragma: ');
@@ -611,10 +813,10 @@ class repository_plugin_alfresco {
                 header('Content-Disposition: filename="' . $node->filename . '"');
             }
 
-            /// Close session - not needed anymore.
-                if (!$return) {
-                    @session_write_close();
-                }
+        /// Close session - not needed anymore.
+            if (!$return) {
+                @session_write_close();
+            }
 
         /// Read the file contents in chunks and output directly.
             if ($fh = fopen($url, 'rb')) {
@@ -836,6 +1038,8 @@ class repository_plugin_alfresco {
 /**
  * Process an uploaded file and send it into the repository.
  *
+ * @uses $CFG
+ * @uses $USER
  * @param string $upload   The array index for the uploaded file in the $_FILES superglobal.
  * @param string $uuid     The parent folder UUID value.
  * @param bool   $useadmin Set to false to make sure that the administrative user configured in
@@ -843,20 +1047,241 @@ class repository_plugin_alfresco {
  * @return string|bool The new node's UUID value or, False on error.
  */
     function upload_file($upload = '', $path = '', $uuid = '', $useadmin = true) {
+        global $CFG, $USER;
+
         if (ALFRESCO_DEBUG_TRACE) mtrace('upload_file(' . $upload . ', ' . $path . ', ' . $uuid . ')');
         if (ALFRESCO_DEBUG_TIME) $start = microtime(true);
 
-        if ($node = alfresco_upload_file($upload, $path, $uuid)) {
-            if (ALFRESCO_DEBUG_TIME) {
-                $end  = microtime(true);
-                $time = $end - $start;
-                mtrace("upload_file('$upload', '$path', '$uuid'): $time");
+        require_once($CFG->libdir . '/filelib.php');
+
+        if (self::is_version('3.2')) {
+            if ($node = alfresco_upload_file($upload, $path, $uuid)) {
+                if (ALFRESCO_DEBUG_TIME) {
+                    $end  = microtime(true);
+                    $time = $end - $start;
+                    mtrace("upload_file('$upload', '$path', '$uuid'): $time");
+                }
+                return $node->uuid;
             }
 
-            return $node->uuid;
-        }
+            return false;
+        } else if (self::is_version('3.4')) {
+            if (!empty($upload)) {
+                if (!isset($_FILES[$upload]) || !empty($_FILES[$upload]->error)) {
+                    return false;
+                }
 
-        return false;
+                $filename = $_FILES[$upload]['name'];
+                $filepath = $_FILES[$upload]['tmp_name'];
+                $filemime = $_FILES[$upload]['type'];
+                $filesize = $_FILES[$upload]['size'];
+
+            } else if (!empty($path)) {
+                if (!is_file($path)) {
+                    return false;
+                }
+
+                $filename = basename($path);
+                $filepath = $path;
+                $filemime = mimeinfo('type', $filename);
+                $filesize = filesize($path);
+            } else {
+                return false;
+            }
+
+            $chunksize = 8192;
+
+            $data1 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <atom:entry xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/"
+                xmlns:cmism="http://docs.oasis-open.org/ns/cmis/messaging/200908/"
+                xmlns:atom="http://www.w3.org/2005/Atom"
+                xmlns:app="http://www.w3.org/2007/app"
+                xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
+        <atom:title>' . $filename . '</atom:title>
+        <atom:summary>' . get_string('uploadedbymoodle', 'repository_alfresco') . '</atom:summary>
+        <cmisra:content>
+            <cmisra:mediatype>' . $filemime . '</cmisra:mediatype>
+            <cmisra:base64>';
+
+            $data2 = '</cmisra:base64>
+        </cmisra:content>
+
+        <cmisra:object>
+            <cmis:properties>
+                <cmis:propertyId propertyDefinitionId="cmis:objectTypeId">
+                    <cmis:value>cmis:document</cmis:value>
+                </cmis:propertyId>
+            </cmis:properties>
+        </cmisra:object>
+    </atom:entry>';
+
+            $encodedbytes = 0;
+
+            // Use a stream filter to base64 encode the file contents to a temporary file.
+            if ($fi = fopen($filepath, 'r')) {
+                if ($fo = tmpfile()) {
+                    stream_filter_append($fi, 'convert.base64-encode');
+
+                    // Write the beginning of the XML document to the temporary file.
+                    $encodedbytes += fwrite($fo, $data1, strlen($data1));
+
+                    // Copy the uploaded file into the temporary file (usng the base64 encode stream filter)
+                    // in 8K chunks to conserve memory.
+                    while(($encbytes = stream_copy_to_stream($fi, $fo, $chunksize)) !== 0) {
+                        $encodedbytes += $encbytes;
+                    }
+                    fclose($fi);
+
+                    // Write the end of the XML document to the temporary file.
+                    $encodedbytes += fwrite($fo, $data2, strlen($data2));
+                }
+            }
+
+            rewind($fo);
+
+            // Force the usage of the configured Alfresco admin account, if requested.
+            if ($useadmin) {
+                $username = '';
+            } else {
+                $username = $USER->username;
+            }
+            // Fix username
+            $username = $this->fix_username($username);
+
+            $serviceuri = '/cmis/s/workspace://SpacesStore/i/' . $uuid . '/children';
+            $url        = alfresco_utils_get_wc_url($serviceuri, 'refresh', $username);
+
+            $uri        = parse_url($url);
+
+            switch ($uri['scheme']) {
+                case 'http':
+                    $port = isset($uri['port']) ? $uri['port'] : 80;
+                    $host = $uri['host'] . ($port != 80 ? ':'. $port : '');
+                    $fp = @fsockopen($uri['host'], $port, $errno, $errstr, 15);
+                    break;
+
+                case 'https':
+                /// Note: Only works for PHP 4.3 compiled with OpenSSL.
+                    $port = isset($uri['port']) ? $uri['port'] : 443;
+                    $host = $uri['host'] . ($port != 443 ? ':'. $port : '');
+                    $fp = @fsockopen('ssl://'. $uri['host'], $port, $errno, $errstr, 20);
+                    break;
+
+                default:
+                    $result->error = 'invalid schema '. $uri['scheme'];
+                    return $result;
+            }
+
+            // Make sure the socket opened properly.
+            if (!$fp) {
+                $result->error = trim($errno .' '. $errstr);
+                return $result;
+            }
+
+            // Construct the path to act on.
+            $path = isset($uri['path']) ? $uri['path'] : '/';
+            if (isset($uri['query'])) {
+                $path .= '?'. $uri['query'];
+            }
+
+            // Create HTTP request.
+            $headers = array(
+                // RFC 2616: "non-standard ports MUST, default ports MAY be included".
+                // We don't add the port to prevent from breaking rewrite rules checking
+                // the host that do not take into account the port number.
+                'Host'           => "Host: $host",
+                'Content-type'   => 'Content-type: application/atom+xml;type=entry',
+                'User-Agent'     => 'User-Agent: Moodle (+http://moodle.org/)',
+                'Content-Length' => 'Content-Length: ' . $encodedbytes,
+                'MIME-Version'   => 'MIME-Version: 1.0'
+            );
+
+            $request = 'POST  '. $path . " HTTP/1.0\r\n";
+            $request .= implode("\r\n", $headers);
+            $request .= "\r\n\r\n";
+
+            fwrite($fp, $request);
+
+            // Write the XML request (which contains the base64-encoded uploaded file contents) into the socket.
+            stream_copy_to_stream($fo, $fp);
+
+            fclose($fo);
+
+            fwrite($fp, "\r\n");
+
+            // Fetch response.
+            $response = '';
+            while (!feof($fp) && $chunk = fread($fp, 1024)) {
+                $response .= $chunk;
+            }
+            fclose($fp);
+
+            // Parse response.
+            list($split, $result->data) = explode("\r\n\r\n", $response, 2);
+            $split = preg_split("/\r\n|\n|\r/", $split);
+
+            list($protocol, $code, $text) = explode(' ', trim(array_shift($split)), 3);
+            $result->headers = array();
+
+            // Parse headers.
+            while ($line = trim(array_shift($split))) {
+                list($header, $value) = explode(':', $line, 2);
+                if (isset($result->headers[$header]) && $header == 'Set-Cookie') {
+                    // RFC 2109: the Set-Cookie response header comprises the token Set-
+                    // Cookie:, followed by a comma-separated list of one or more cookies.
+                    $result->headers[$header] .= ','. trim($value);
+                } else {
+                    $result->headers[$header] = trim($value);
+                }
+            }
+
+            $responses = array(
+                100 => 'Continue', 101 => 'Switching Protocols',
+                200 => 'OK', 201 => 'Created', 202 => 'Accepted', 203 => 'Non-Authoritative Information', 204 => 'No Content', 205 => 'Reset Content', 206 => 'Partial Content',
+                300 => 'Multiple Choices', 301 => 'Moved Permanently', 302 => 'Found', 303 => 'See Other', 304 => 'Not Modified', 305 => 'Use Proxy', 307 => 'Temporary Redirect',
+                400 => 'Bad Request', 401 => 'Unauthorized', 402 => 'Payment Required', 403 => 'Forbidden', 404 => 'Not Found', 405 => 'Method Not Allowed', 406 => 'Not Acceptable', 407 => 'Proxy Authentication Required', 408 => 'Request Time-out', 409 => 'Conflict', 410 => 'Gone', 411 => 'Length Required', 412 => 'Precondition Failed', 413 => 'Request Entity Too Large', 414 => 'Request-URI Too Large', 415 => 'Unsupported Media Type', 416 => 'Requested range not satisfiable', 417 => 'Expectation Failed',
+                500 => 'Internal Server Error', 501 => 'Not Implemented', 502 => 'Bad Gateway', 503 => 'Service Unavailable', 504 => 'Gateway Time-out', 505 => 'HTTP Version not supported'
+            );
+
+            // RFC 2616 states that all unknown HTTP codes must be treated the same as
+            // the base code in their class.
+            if (!isset($responses[$code])) {
+                $code = floor($code / 100) * 100;
+            }
+        //TODO: check for $code 500 and add menu to replace copy or cancel the uploaded file with the same name as an existing file
+        //        if($code == 500) {
+        //
+        //        } else
+            if ($code != 200 && $code != 201 && $code != 304) {
+                debugging(get_string('couldnotaccessserviceat', 'repository_alfresco', $serviceuri), DEBUG_DEVELOPER);
+                return false;
+            }
+
+            $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
+
+            $dom = new DOMDocument();
+            $dom->preserveWhiteSpace = false;
+            $dom->loadXML($result->data);
+
+            $nodes = $dom->getElementsByTagName('entry');
+
+            if (!$nodes->length) {
+                return false;
+            }
+
+            $type       = '';
+            $properties = alfresco_process_node($dom, $nodes->item(0), $type);
+
+            // Ensure that we set the current user to be the owner of the newly created directory.
+            if (!empty($properties->uuid)) {
+                $username = alfresco_transform_username($USER->username);
+
+                // We're not going to check the response for this right now.
+                alfresco_request('/moodle/nodeowner/' . $properties->uuid . '?username=' . $username);
+            }
+
+            return $properties;
+        }
     }
 
 
@@ -876,9 +1301,13 @@ class repository_plugin_alfresco {
         if (ALFRESCO_DEBUG_TRACE) mtrace('upload_dir(' . $path . ', ' . $uuid . ', ' . $recurse . ')');
         if (ALFRESCO_DEBUG_TIME) $start = microtime(true);
 
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
     /// Make sure the location we are meant to upload files and create new
     /// directories actually exists and is a folder, not a content node.
-        if (alfresco_get_type($uuid) != 'folder') {
+        if (!$this->is_dir($uuid)) {
             return false;
         }
 
@@ -949,7 +1378,7 @@ class repository_plugin_alfresco {
         $node = $this->get_info($uuid);
 
     /// Make sure we've been pointed to a directory
-        if (alfresco_get_type($node->uuid) != 'folder') {
+        if (!$this->is_dir($node->uuid)) {
             return false;
         }
 
@@ -1012,9 +1441,9 @@ class repository_plugin_alfresco {
 
         $this->errormsg = '';
 
-        $node = alfresco_node_properties($uuid);
+        $node = $this->get_info($uuid);
 
-        if (alfresco_get_type($uuid) == 'folder') {
+        if ($this->is_dir($uuid)) {
             return $this->download_dir($location, $uuid, true);
         }
 
@@ -1045,7 +1474,7 @@ class repository_plugin_alfresco {
             if (!empty($repodir->folders)) {
                 foreach ($repodir->folders as $folder) {
                     if ($folder->title == $name) {
-                        return false;
+                        return true;
                     }
                 }
             }
@@ -1072,17 +1501,63 @@ class repository_plugin_alfresco {
 
         $this->errormsg = '';
 
-        if ($node = alfresco_create_dir($name, $uuid, $description, $useadmin)) {
-            if (ALFRESCO_DEBUG_TIME) {
-                $end  = microtime(true);
-                $time = $end - $start;
-                mtrace("create_dir('$name', '$uuid', '$description'): $time");
+        if (self::is_version('3.2')) {
+            if ($node = alfresco_create_dir($name, $uuid, $description, $useadmin)) {
+                if (ALFRESCO_DEBUG_TIME) {
+                    $end  = microtime(true);
+                    $time = $end - $start;
+                    mtrace("create_dir('$name', '$uuid', '$description'): $time");
+                }
+                return $node->uuid;
+            }
+        } else if (self::is_version('3.4')) {
+            if ($return = $this->cmis->createFolder('workspace://SpacesStore/' . $uuid, $name)) {
+                $type = '';
+                $node = alfresco_process_node_new($return, $type);
+
+                return $node->uuid;
+            }
+            return false;
+        }
+    }
+
+
+/**
+ * Delete a node from the repository, optionally recursing into sub-directories (only
+ * relevant when the node being deleted is a folder).
+ *
+ * @uses $CFG
+ * @uses $USER
+ * @param string $uuid      The node UUID.
+ * @param bool   $recursive Whether to recursively delete child content.
+ * @return mixed
+ */
+    function delete($uuid, $recursive = false) {
+        global $CFG, $USER;
+
+        if (ALFRESCO_DEBUG_TRACE)  print_object('repo alfresco_delete(' . $uuid . ', ' . $recursive . ')');
+
+        // Ensure that we set the configured admin user to be the owner of the deleted file before deleting.
+        // This is to prevent the user's Alfresco account from having space incorrectly attributed to it.
+        // ELIS-1102
+        // Ensure that we set the configured admin user to be the owner of the deleted file before deleting.
+        alfresco_request('/moodle/nodeowner/' . $uuid . '?username=' . $CFG->repository_alfresco_server_username);
+
+        if (self::is_version('3.2')) {
+            return (true === alfresco_send(alfresco_get_uri($uuid, 'delete'), array(), 'DELETE'));
+        } else if (self::is_version('3.4')) {
+            if ($this->is_dir($uuid)) {
+                if (alfresco_send('/cmis/i/' . $uuid.'/descendants', array(), 'DELETE') === false) {
+                    return false;
+                }
+            } else {
+                if ($this->cmis->deleteObject('workspace://SpacesStore/' . $uuid) === false) {
+                    return false;
+                }
             }
 
-            return $node->uuid;
+            return true;
         }
-
-        return false;
     }
 
 
@@ -1098,16 +1573,26 @@ class repository_plugin_alfresco {
 
         $uuid = '';
 
-        if (!isset($this->cuuid)) {
+        if (empty($this->cuuid)) {
             return false;
         }
 
         // Attempt to get the store UUID value
         if (($uuid = get_field('alfresco_course_store', 'uuid', 'courseid', $cid)) !== false) {
-            return $uuid;
+            // Verify that the folder still exists and if not, delete the DB record so we can create a new one below.
+            if ($this->get_info($uuid) === false) {
+                delete_records('alfresco_course_store', 'courseid', $cid);
+                $uuid = FALSE;
+            } else {
+                return $uuid;
+            }
         }
 
         $dir = $this->read_dir($this->cuuid);
+
+        if (!$course = get_record('course', 'id', $cid, '', '', '', '', 'shortname, fullname')) {
+            return false;
+        }
 
         // Look at all of the course directories that exist for our course ID.
         if (!empty($dir->folders)) {
@@ -1116,24 +1601,14 @@ class repository_plugin_alfresco {
                     continue;
                 }
 
-                if ($folder->title == $cid) {
+                if ($folder->title == $course->shortname) {
                     $uuid = $folder->uuid;
                 }
             }
         }
 
-        // If we've forced it off, don't automatically create a course storage directory at this point.
-        if (!$create) {
-            return false;
-        }
-
-        if (!$course = get_record('course', 'id', $cid, '', '', '', '', 'shortname, fullname')) {
-            return false;
-        }
-
-        if ($node = alfresco_create_dir($course->shortname, $this->cuuid, $course->fullname)) {
-            $uuid = $node->uuid;
-
+        // If we're allowed to create a course store, do so now.
+        if ($create && empty($uuid) && ($uuid = $this->create_dir($course->shortname, $this->cuuid, $course->fullname))) {
             // Disable inheriting parent space permissions.  This can be disabled in Alfresco without being
             // reset by the code elsewhere.
             $this->node_inherit($uuid, false);
@@ -1159,7 +1634,7 @@ class repository_plugin_alfresco {
  * Get the UUID of a specific orgnanization shared storage area.
  *
  * @param int  $oid    The organization ID.
- * @param bool $create Set to false to not automatically create an organization storage area.
+ * @param bool $create Set to true to automatically create an organization storage area.
  * @return string|bool The course store UUID value or, False on error.
  */
     function get_organization_store($oid, $create = true) {
@@ -1173,26 +1648,14 @@ class repository_plugin_alfresco {
 
         // Attempt to get the store UUID value
         if (($uuid = get_field('alfresco_organization_store', 'uuid', 'organizationid', $oid)) !== false) {
-            return $uuid;
-        }
-
-        $dir = $this->read_dir($this->ouuid);
-
-        // Look at all of the organization directories that exist for our organization ID.
-        if (!empty($dir->folders)) {
-            foreach ($dir->folders as $folder) {
-                if (!empty($uuid)) {
-                    continue;
-                }
-
-                if ($folder->title == $oid) {
-                    $uuid = $folder->uuid;
-                }
+            // Verify that the folder still exists and if not, delete the DB record so we can create a new one below.
+            if ($this->get_info($uuid) === false) {
+                delete_records('alfresco_organization_store', 'organizationid', $oid);
+                $uuid = false;
+            } else {
+                return $uuid;
             }
-        }
-
-        // If we've forced it off, don't automatically create a course storage directory at this point.
-        if (!$create) {
+        } else if (!$create) {
             return false;
         }
 
@@ -1206,6 +1669,27 @@ class repository_plugin_alfresco {
         if (!$organization = get_record('crlm_cluster', 'id', $oid)) {
             return false;
         }
+
+        $dir = $this->read_dir($this->ouuid);
+
+        // Look at all of the organization directories that exist for our organization ID.
+        if (!empty($dir->folders)) {
+            foreach ($dir->folders as $folder) {
+                if (!empty($uuid)) {
+                    continue;
+                }
+
+                if ($folder->title == $organization->name) {
+                    $uuid = $folder->uuid;
+                }
+            }
+        }
+
+        // If we've forced it off, don't automatically create a course storage directory at this point.
+        if (!$create) {
+            return false;
+        }
+
 
         if ($node = alfresco_create_dir($organization->name, $this->ouuid, $organization->display)) {
             $uuid = $node->uuid;
@@ -1239,6 +1723,10 @@ class repository_plugin_alfresco {
  */
     function has_old_user_store($uid) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('has_user_store(' . $uid . ')');
+
+        if (empty($this->uuuid)) {
+            return false;
+        }
 
         $dir = $this->read_dir($this->uuuid, true);
 
@@ -1287,10 +1775,9 @@ class repository_plugin_alfresco {
                 return false;
             }
 
-            $uuid = false;
-
             if (($uuid = $this->has_old_user_store($uid)) !== false) {
-                if (!$this->migrate_user($username)) {
+                $fixed_username = $this->fix_username($username);
+                if (!$this->migrate_user($fixed_username)) {
                     return false;
                 }
             }
@@ -1318,15 +1805,6 @@ class repository_plugin_alfresco {
         return ($this->get_root()->uuid == $uuid);
     }
 
-/**
- * Get the root node of the repository.
- *
- * @param none
- * @return object The processed root node properties.
- */
-function get_root() {
-    return $this->root;
-}
 
 /**
  * Get the parent of a specific node.
@@ -1337,7 +1815,20 @@ function get_root() {
     function get_parent($uuid) {
         if (ALFRESCO_DEBUG_TRACE) mtrace('get_parent(' . $uuid . ')');
 
-        return alfresco_get_parent($uuid);
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
+        if (self::is_version('3.2')) {
+            return alfresco_get_parent($uuid);
+        } else if (self::is_version('3.4')) {
+             if (!$node = $this->cmis->getFolderParent('workspace://SpacesStore/' . $uuid)) {
+                return false;
+            }
+
+            $type = '';
+            return alfresco_process_node_new($node, $type);
+        }
     }
 
 
@@ -1348,34 +1839,38 @@ function get_root() {
  * @param int    $courseid The course ID (optional).
  * @param int    $userid   The user ID (optional).
  * @param string $shared   Set to 'true' if this is for the shared storage area (optional).
+ * @param string $oid      The cluster ID (optional).
  * @return array|bool An array of navigation link information or, False on error.
  */
-    function get_nav_breadcrumbs($uuid, $courseid = 0, $userid = 0, $shared = '') {
-        if (ALFRESCO_DEBUG_TRACE) mtrace('get_nav_breadcrumbs(' . $uuid . ', ' . $courseid . ', ' . $userid . ', ' . $shared . ')');
+    function get_nav_breadcrumbs($uuid, $courseid = 0, $userid = 0, $shared = '', $oid = '') {
+        if (ALFRESCO_DEBUG_TRACE) mtrace('get_nav_breadcrumbs(' . $uuid . ', ' . $courseid . ', ' . $userid . ', ' . $shared . ', ' . $oid . ')');
 
     /// Get the "ending" UUID for the 'root' of navigation.
-        if ((empty($courseid) || $courseid == SITEID) && empty($userid) && empty($shared)) {
-            $end   = $this->get_root()->uuid;
+        if ((empty($courseid) || $courseid == SITEID) && empty($userid) && empty($shared) && empty($oid)) {
+            $end = $this->get_root()->uuid;
         } else if (empty($userid) && $shared == 'true') {
             $end = $this->suuid;
-        } else if (empty($userid) && empty($shared) && !empty($courseid) && $courseid != SITEID) {
+        } else if (empty($userid) && empty($oid) && empty($shared) && !empty($courseid) && $courseid != SITEID) {
             $end = $this->get_course_store($courseid);
         } else if (!empty($userid)) {
             $end = $this->get_user_store($userid);
+        } else if (empty($userid) && !empty($oid)) {
+            $end = $this->get_organization_store($oid);
         }
 
         $stack = array();
-        $node  = alfresco_node_properties($uuid);
 
-        if (alfresco_get_type($uuid) == 'folder') {
+        $node  = $this->get_info($uuid);
+
+        if (alfresco_get_type($uuid) == ALFRESCO_TYPE_FOLDER) {
             $nav = array(
                 'name' => $node->title,
-                'uuid' => $node->uuid
+                'path' => $node->uuid
             );
 
             array_push($stack, $nav);
 
-        } else if (alfresco_get_type($uuid) != 'content') {
+        } else if (alfresco_get_type($uuid) != ALFRESCO_TYPE_DOCUMENT) {
             return false;
         }
 
@@ -1387,7 +1882,7 @@ function get_root() {
             return false;
         }
 
-        while ($parent->uuid != $end) {
+        while (!empty($parent->uuid) && $parent->uuid != $end) {
             $nav = array(
                 'name' => $parent->title,
                 'uuid' => $parent->uuid
@@ -1415,21 +1910,20 @@ function get_root() {
 
         $this->errormsg = '';
 
+        if (!$this->get_defaults()) {
+            return false;
+        }
+
         $stack = array();
 
-        if (($node = alfresco_node_properties($uuid)) === false) {
+        if (($node = $this->get_info($uuid)) === false) {
             print_error('couldnotgetnodeproperties', 'repository_alfresco', '', $uuid);
             return false;
         }
 
-        if (($type = alfresco_get_type($uuid)) === false) {
-            print_error('couldnotgetnodeproperties', 'repository_alfresco', '', $uuid);
-            return false;
-        }
-
-        if ($type == 'folder') {
+        if ($node->type == ALFRESCO_TYPE_FOLDER) {
             array_push($stack, $node->title);
-        } else if ($type !== 'document') {
+        } else if ($node->type !== ALFRESCO_TYPE_DOCUMENT) {
             return false;
         }
 
@@ -1464,7 +1958,7 @@ function get_root() {
 
         $this->errormsg = '';
 
-        $node  =$this->get_root();
+        $node  = $this->get_root();
         $parts = explode('/', $path);
         $uuid  = $node->uuid;
 
@@ -1546,6 +2040,7 @@ function get_root() {
 
         $sfile  = false;
         $cfile  = false;
+        $ofile  = false;
         $shfile = false;
         $ufile  = false;
 
@@ -1553,12 +2048,12 @@ function get_root() {
         if (($path = $this->get_file_path($uuid)) === false) {
             return false;
         }
-
-        preg_match('/\\' . $moodleroot . '\/course\/([0-9]+)\//', $path, $matches);
+        preg_match('/\\' . $moodleroot . '\/course\/([-a-zA-Z0-9\s]+)\//', $path, $matches);
 
     /// Determine, from the node path which area this file is stored in.
         if (count($matches) == 2) {
-            $cid     = $matches[1];
+            $cshortname     = $matches[1];
+            $cid = get_field('course','id','shortname',$cshortname);
 
         /// This is a server file.
             if ($cid == SITEID) {
@@ -1566,9 +2061,11 @@ function get_root() {
                 $sfile   = true;
 
         /// This is a course file.
-            } else {
+            } else if (!empty($cid)) {
                 $context = get_context_instance(CONTEXT_COURSE, $cid);
                 $cfile   = true;
+            } else { // TBD
+                return false;
             }
         }
 
@@ -1584,12 +2081,33 @@ function get_root() {
 
     /// This is a user file.
         if (empty($sfile) && empty($cfile) && empty($shfile)) {
-            preg_match('/\\' . $moodleroot . '\/user\/([0-9]+)\//', $path, $matches);
+            preg_match('/\/User\sHomes\/([-a-zA-Z0-9\s]+)\//', $path, $matches);
 
             if (count($matches) == 2) {
-                $userid  = $matches[1];
+                $username  = $matches[1];
+                // Fix retrieved, safe, Alfresco username back to Moodle name
+                $username = str_replace(array_values(repository_plugin_alfresco::$username_map),array_keys(repository_plugin_alfresco::$username_map), $username);
+
                 $context = get_context_instance(CONTEXT_SYSTEM);
                 $ufile   = true;
+            }
+        }
+
+        /// This is a cluster file.
+        if (empty($sfile) && empty($cfile) && empty($shfile) && empty($ufile)) {
+            preg_match('/\\' . $moodleroot . '\/organization\/([-a-zA-Z0-9\s]+)\//', $path, $matches);
+
+            if (count($matches) == 2) {
+                $oname  = $matches[1];
+
+                // Get cluster id
+                $oid = get_field('crlm_cluster','id','name',$oname);
+                if (empty($oid)) { // TBD
+                    return false;
+                }
+                $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+
+                $ofile   = true;
             }
         }
 
@@ -1651,7 +2169,7 @@ function get_root() {
             if ($ufile) {
             /// If the current user is not the user who owns this file and we can't access anyting in the
             /// repository, don't allow access.
-                if ($USER->id != $userid && !has_capability('block/repository:viewsitecontent', $context)) {
+                if ($USER->username != $username && !has_capability('block/repository:viewsitecontent', $context)) {
                     return false;
                 }
 
@@ -1676,6 +2194,13 @@ function get_root() {
             /// This file belongs to a course, make sure the current user can access that course's repository
             /// content.
                 if (!has_capability('block/repository:viewcoursecontent', $context)) {
+                    return false;
+                }
+
+            } else if ($ofile) {
+            /// This file belongs to a cluster, make sure the current user can access that cluster's repository
+            /// content.
+                if (!has_capability('block/repository:vieworganizationcontent', $cluster_context)) {
                     return false;
                 }
 
@@ -1882,7 +2407,7 @@ function get_root() {
  * @uses $USER
  * @param int    $cid         A course record ID.
  * @param int    $uid         A user record ID.
- * @param int    $ouuid       The Alfresco uuid of an organizational cluster.
+ * @param int    $oid         A cluster record ID.
  * @param bool   $shared      A flag to indicate whether the user is currently located in the shared repository area.
  * @param string $choose      File browser 'choose' parameter.
  * @param string $origurl     The originating URL from where this function was called.
@@ -1891,7 +2416,7 @@ function get_root() {
  * @param string $default     The default option to be selected in the form.
  * @return array An array of options meant to be used in a popup_form() function call.
  */
-    function file_browse_options($cid, $uid, $ouuid, $shared, $choose, $origurl, $moodleurl, $alfrescourl, &$default) {
+    function file_browse_options($cid, $uid, $oid, $shared, $choose, $origurl, $moodleurl, $alfrescourl, &$default) {
         global $USER;
 
         $opts = array();
@@ -1901,7 +2426,7 @@ function get_root() {
         $moodleurl   .= ((strpos($moodleurl, '?') !== false) ? '&amp;' : '?') . 'dd=1&amp;';
         $alfrescourl .= ((strpos($alfrescourl, '?') !== false) ? '&amp;' : '?') . 'dd=1&amp;';
 
-        if ($cid === SITEID) {
+        if ($cid == SITEID) {
             $context = get_context_instance(CONTEXT_SYSTEM);
         } else {
             $context = get_context_instance(CONTEXT_COURSE, $cid);
@@ -1910,20 +2435,25 @@ function get_root() {
         // Determine if the user has access to their own personal file storage area.
         $editalfshared   = false;
         $viewalfshared   = false;
+        $viewalfpersonal = false;
         $editalfpersonal = false;
         $viewalforganization = false;
         $editalforganization = false;
 
         if (!empty($USER->access['rdef'])) {
             foreach ($USER->access['rdef'] as $rdef) {
-                if ($viewalfshared && $editalfshared &&
-                    $viewalforganization && $editalforganization) {
+                if ($viewalfshared) {
                     continue;
                 }
 
                 if (isset($rdef['block/repository:createowncontent']) &&
                           $rdef['block/repository:createowncontent'] == CAP_ALLOW) {
                     $editalfpersonal = true;
+                }
+
+                if (isset($rdef['block/repository:viewowncontent']) &&
+                          $rdef['block/repository:viewowncontent'] == CAP_ALLOW) {
+                    $viewalfpersonal = true;
                 }
 
                 if (isset($rdef['block/repository:viewsharedcontent']) &&
@@ -1933,14 +2463,6 @@ function get_root() {
                 if (isset($rdef['block/repository:createsharedcontent']) &&
                           $rdef['block/repository:createsharedcontent'] == CAP_ALLOW) {
                     $editalfshared = true;
-                }
-                if (isset($rdef['block/repository:vieworganizationcontent']) &&
-                          $rdef['block/repository:vieworganizationcontent'] == CAP_ALLOW) {
-                    $viewalforganization = true;
-                }
-                if (isset($rdef['block/repository:createorganizationcontent']) &&
-                          $rdef['block/repository:createorganizationcontent'] == CAP_ALLOW) {
-                    $editalforganization = true;
                 }
             }
         }
@@ -1957,9 +2479,11 @@ function get_root() {
             $surl        = $moodleurl . 'id=' . $cid . '&amp;userid=' . $uid . '&amp;choose=' . $choose;
             $opts[$surl] = ($cid == SITEID) ? get_string('sitefiles') : get_string('coursefiles');
         }
+        // Fix username
+        $username = $this->fix_username($USER->username);
 
-        // Build the option for browsing from the repository organization / course / site files.
-        if ($cid === SITEID && $viewalfsite) {
+        // Build the option for browsing from the repository course / site / cluster files.
+        if ($cid == SITEID && $viewalfsite) {
             $curl        = $alfrescourl . 'id=' . $cid . '&amp;userid=0&amp;choose=' . $choose;
             $opts[$curl] = get_string('repositorysitefiles', 'repository');
 
@@ -1967,40 +2491,28 @@ function get_root() {
 
             if (!empty($alfroot->uuid)) {
                 $uuid = $alfroot->uuid;
-
                 // Make sure this user actually has the correct permissions assigned here.
-                if ($editalfsite) {
-                    if (!alfresco_has_permission($uuid, $USER->username, true)) {
-                        $this->allow_edit($USER->username, $uuid);
-                    }
-                } else {
-                    if (!alfresco_has_permission($uuid, $USER->username)) {
-                        $this->allow_read($USER->username, $uuid);
-                   }
+                if (!alfresco_has_permission($uuid, $username)) {
+                    $this->allow_read($username, $uuid);
                 }
             }
 
         } else if ($cid != SITEID && $viewalfcourse) {
             $curl        = $alfrescourl . 'id=' . $cid . '&amp;userid=0&amp;choose=' . $choose;
             $opts[$curl] = get_string('repositorycoursefiles', 'repository');
-            if (!alfresco_has_permission($this->muuid, $USER->username)) {
-                $this->allow_read($USER->username, $this->muuid);
+
+            if (!alfresco_has_permission($this->muuid, $username)) {
+                $this->allow_read($username, $this->muuid);
             }
 
-            if (!alfresco_has_permission($this->cuuid, $USER->username)) {
-                $this->allow_read($USER->username, $this->cuuid);
+            if (!alfresco_has_permission($this->cuuid, $username)) {
+                $this->allow_read($username, $this->cuuid);
             }
 
             if (($uuid = $this->get_course_store($cid)) !== false) {
                 // Make sure this user actually has the correct permissions assigned here.
-                if ($editalfcourse) {
-                    if (!alfresco_has_permission($uuid, $USER->username, true)) {
-                        $this->allow_edit($USER->username, $uuid);
-                    }
-                } else {
-                    if (!alfresco_has_permission($uuid, $USER->username)) {
-                        $this->allow_read($USER->username, $uuid);
-                    }
+                if (!alfresco_has_permission($uuid, $username)) {
+                    $this->allow_read($username, $uuid);
                 }
             }
         }
@@ -2010,62 +2522,48 @@ function get_root() {
             $shurl        = $alfrescourl . 'id=' . $cid . '&amp;shared=true&amp;userid=0&amp;choose=' . $choose;
             $opts[$shurl] = get_string('repositorysharedfiles', 'repository');
 
-            if (!alfresco_has_permission($this->muuid, $USER->username)) {
-                $this->allow_read($USER->username, $this->muuid);
+            if (!alfresco_has_permission($this->muuid, $username)) {
+                $this->allow_read($username, $this->muuid);
             }
 
-            if (!alfresco_has_permission($this->suuid, $USER->username)) {
-                $this->allow_read($USER->username, $this->suuid);
-            }
-
-            if ($editalfshared) {
-                if (!alfresco_has_permission($this->suuid, $USER->username, true)) {
-                    $this->allow_edit($USER->username, $this->suuid);
-                }
-            } else {
-                if (!alfresco_has_permission($this->suuid, $USER->username)) {
-                    $this->allow_read($USER->username, $this->suuid);
-                }
+            if (!alfresco_has_permission($this->suuid, $username)) {
+                $this->allow_read($username, $this->suuid);
             }
         }
 
         // Build the option for browsing from the repository personal / user files.
-        if ($editalfpersonal) {
+        if ($viewalfpersonal) {
             $uurl        = $alfrescourl . 'id=' . $cid . '&amp;userid=' . $USER->id . '&amp;choose=' . $choose;
             $opts[$uurl] = get_string('repositoryuserfiles', 'repository');
         }
 
+        // Build the option for browsing from the repository organization files.
+        if ($organization_folders = $this->find_organization_folders($USER->id, $username)) {
+            foreach ($organization_folders as $name => $cluster) {
+                $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $cluster['id']);
+                $viewalforganization = has_capability('block/repository:vieworganizationcontent', $cluster_context);
+                $ourl        = $alfrescourl . 'id=' . $cid . '&amp;oid='.$cluster['id']. '&amp;userid=0&amp;choose=' . $choose;
 
-        // Only allow organizational views/edits to those users who have the capability
-        if ($viewalforganization  || $editalforganization) {
-            // Get organizations folders to which the users belongs
-            if ($organization_folders = $this->find_organization_folders($USER->id, $USER->username)) {
-                foreach ($organization_folders as $name => $uuid) {
-                    // Include organization name and uuid in the url
-                    $ourl        = $alfrescourl . 'id=' . $cid . '&amp;ouuid='.$uuid.'&amp;oname='.$name. '&amp;userid=0&amp;choose=' . $choose;
-                    $opts[$ourl] = $name;
-                    if ($editalforganization) {
-                        if (!alfresco_has_permission($uuid, $USER->username, true)) {
-                            $this->allow_edit($USER->username, $uuid);
-                        }
-                    } else { // viewalforganization
-                        if (!alfresco_has_permission($uuid, $USER->username)) {
-                            $this->allow_read($USER->username, $uuid);
-                        }
+                if ($viewalforganization) { // viewalforganization
+                    // Give the user read access to the folder moodle
+                    if (!alfresco_has_permission($this->muuid, $username)) {
+                        $this->allow_read($username, $this->muuid);
                     }
+                    // Give the read access to the parent folder organization
+                    if (!alfresco_has_permission($this->ouuid, $username)) {
+                        $this->allow_read($username, $this->ouuid);
+                    }
+                    if (!alfresco_has_permission($cluster['uuid'], $username)) {
+                        $this->allow_read($username, $cluster['uuid']);
+                    }
+                    $opts[$ourl] = $name;
                 }
             }
         }
 
-        // If ouuid is passed to this function, include it and the organization name in the default url
-        if (!empty($ouuid)) {
-            // Get the organization folder name from Moodle
-            $oname = array_search($ouuid,$this->find_organization_folders($USER->id,$USER->username));
-        }
-
         // Assemble the default menu selection based on the information given to this method.
-        $default = $origurl . 'id=' . $cid . (!empty($ouuid) ? '&amp;ouuid='.$ouuid : '') . (!empty($oname) ? '&amp;oname='.$oname : '') . (!empty($shared) ? '&amp;shared=true' : '') . '&amp;userid=' .
-                   ($editalfpersonal ? $uid : '0') . '&amp;choose=' . $choose;
+        $default = $origurl . 'id=' . $cid . (!empty($oid) ? '&amp;oid='.$oid : '') . (!empty($shared) ? '&amp;shared=true' : '') . '&amp;userid=' .
+                   (($editalfpersonal || $viewalfpersonal) ? $uid : '0') . '&amp;choose=' . $choose;
 
         return $opts;
     }
@@ -2076,10 +2574,11 @@ function get_root() {
  * @param $CFG
  * @param int $muserid     The Moodle user id.
  * @param string $username The Moodle user name.
+ * @param int $oid         The organization id.
  * @return array Alfresco repository folder names.
  */
     function find_organization_folders($muserid,$username) {
-        global $CFG;
+        global $CFG, $CURMAN, $USER;
 
         require_once($CFG->libdir . '/ddllib.php');
 
@@ -2089,23 +2588,65 @@ function get_root() {
             return false;
         }
 
-        if (!$cluster = get_record('crlm_cluster', 'id', $muserid)) {
+        if (!file_exists($CFG->dirroot.'/curriculum/plugins/cluster_classification/clusterclassification.class.php')) {
             return false;
         }
 
-        if (!file_exists($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php')) {
-            return false;
-        }
+        require_once($CFG->dirroot.'/curriculum/plugins/cluster_classification/clusterclassification.class.php');
 
-        require_once($CFG->dirroot . '/curriculum/plugins/cluster_classification/clusterclassification.class.php');
-        require_once($CFG->dirroot . '/curriculum/lib/cluster.class.php');
+        // Convert moodle userid to CM userid
+        $cmuserid = cm_get_crlmuserid($muserid);
 
-        // Get user clusters
-        if ($clusters = cluster_get_user_clusters($muserid)) {
-           if (!$cluster_info = $this->load_cluster_info($clusters, $muserid)) {
-               return false;
-           }
+        $obj = new cm_context_set();
+        $timenow = time();
+        $contextlevelnum = context_level_base::get_custom_context_level('cluster', 'block_curr_admin');
+        $capability = "'block/repository:vieworganizationcontent'";
+
+        $like = sql_ilike();
+        $child_path = sql_concat('c_parent.path', "'/%'");
+
+        // Select clusters and sub-clusters for the current user
+        // to which they have the vieworganization capability
+        // TODO: Add this capability to the user when they are first assigned to a cluster
+        $sql = "SELECT DISTINCT clst.id AS clusterid
+            FROM {$CURMAN->db->prefix_table(CLSTTABLE)} clst
+            WHERE EXISTS ( SELECT 'x'
+                FROM {$CURMAN->db->prefix_table('context')} c
+                JOIN {$CURMAN->db->prefix_table('context')} c_parent
+                  ON c.path {$like} {$child_path}
+                  OR c.path = c_parent.path
+                JOIN {$CURMAN->db->prefix_table('role_assignments')} ra
+                  ON ra.contextid = c_parent.id
+                  AND ra.userid = $muserid
+                  AND (ra.timeend = 0 OR ra.timeend >= $timenow)
+                JOIN {$CURMAN->db->prefix_table('role_capabilities')} rc
+                  ON ra.roleid = rc.roleid
+                WHERE c_parent.instanceid = clst.id
+                  AND c.contextlevel = {$contextlevelnum}
+                  AND c_parent.contextlevel = {$contextlevelnum}
+                  AND rc.capability = $capability
+                )
+             OR EXISTS ( SELECT 'x'
+                 FROM {$CURMAN->db->prefix_table(CLSTASSTABLE)} ca
+                WHERE ca.clusterid = clst.id
+                  AND ca.userid = $cmuserid)
+              ";
+
+        $viewable_clusters = $CURMAN->db->get_records_sql($sql);
+
+        $cluster_info = array();
+        if ($viewable_clusters) {
+            foreach ($viewable_clusters as $cluster) {
+                if (!$new_cluster_info = $this->load_cluster_info($cluster->clusterid)) {
+                    continue;
+                } else {
+                    $cluster_info[$cluster->clusterid] = $new_cluster_info;
+                }
+            }
         } else {
+            return false;
+        }
+        if (empty($cluster_info)) {
             return false;
         }
 
@@ -2116,27 +2657,26 @@ function get_root() {
             $clusterdata = clusterclassification::get_for_cluster($cluster);
 
             if (empty($clusterdata->params)) {
-                return false;
+                continue;
             }
 
             $clusterparams = unserialize($clusterdata->params);
 
             // Make sure this cluster has the Alfresco shared folder property defined
             if (empty($clusterparams['alfresco_shared_folder'])) {
-                return false;
+                continue;
             }
 
             // Make sure we can get the storage space from Alfresco for this organization.
             if (!$uuid = $this->get_organization_store($cluster->id)) {
-                return false;
+                continue;
             }
 
-            $org_folders[$cluster->name] = $uuid;
+            $org_folders[$cluster->name] = array('uuid'=>$uuid, 'id'=> $cluster->id);
         }
 
         return $org_folders;
     }
-
 
  /**
   * Function to load assigned cluster information into the user object.
@@ -2144,21 +2684,18 @@ function get_root() {
   * @param int The Moodle userid
   * #return array cluster data
  */
-    function load_cluster_info($clusterinfo, $muserid) {
+    function load_cluster_info($clusterinfo) {
         if (is_int($clusterinfo) || is_numeric($clusterinfo)) {
             if (!isset($cluster_data)) {
                 $cluster_data = array();
             }
-            if (!($ucid = get_field(CLSTUSERTABLE, 'id', 'userid', $muserid, 'clusterid', $clusterinfo))) {
-                $ucid = 0;
-            }
-            $cluster_data[$ucid] = new cluster($clusterinfo);
+            $cluster_data = new cluster($clusterinfo);
         } else if (is_array($clusterinfo)) {
             foreach ($clusterinfo as $ucid => $usercluster) {
                 if (!isset($cluster_data)) {
                     $cluster_data = array();
                 }
-                $cluster_data[$ucid] = new cluster($usercluster->clusterid);
+                $cluster_data = new cluster($usercluster->clusterid);
             }
         }
         return $cluster_data;
@@ -2176,13 +2713,7 @@ function get_root() {
 
         if (ALFRESCO_DEBUG_TRACE) mtrace('update_user_password(' . $user->username . ', ' . $password . ')');
 
-        // If the user has an old-style user directory, migrate it's contents and delete the directory.
-        $username = $user->username == 'admin' ? $CFG->repository_alfresco_admin_username : $user->username;
-
-        // We must include the tenant portion of the username here.
-        if (($tenantname = strpos($CFG->repository_alfresco_server_username, '@')) > 0) {
-            $username .= substr($CFG->repository_alfresco_server_username, $tenantname);
-        }
+        $username = alfresco_transform_username($user->username);
 
         // We need to create a new account now.
         $userdata = array(
@@ -2240,12 +2771,15 @@ function get_root() {
             return false;
         }
 
+        // Fix username
+        $username = $this->fix_username($user->username);
+
         // If the user has an old-style user directory, migrate it's contents and delete the directory.
         if ($this->has_old_user_store($user->id)) {
             $uuid = $this->get_user_store($user->id, true);
 
-            if (($touuid = alfresco_get_home_directory($user->username)) === false) {
-                debugging(get_string('couldnotgetalfrescouserdirectory', 'repository_alfresco', $user->username));
+            if (($touuid = alfresco_get_home_directory($username)) === false) {
+                debugging(get_string('couldnotgetalfrescouserdirectory', 'repository_alfresco', $username));
                 return false;
             }
 
@@ -2335,6 +2869,19 @@ function get_root() {
         }
     }
 
+/**
+ * Correct Moodle username so it can be used for Alfresco
+ *
+ * @param string $username The Moodle user's username.
+ * @return string|bool The UUID of the home directory or, False.
+ */
+    function fix_username($username) {
+        if (ALFRESCO_DEBUG_TRACE) mtrace('alfresco_name(' . $username . ')');
+
+        $username = str_replace(array_keys(repository_plugin_alfresco::$username_map),array_values(repository_plugin_alfresco::$username_map), $username);
+
+        return $username;
+    }
 
 /**
  * Get an Alfresco user's home directory UUID.
@@ -2343,6 +2890,8 @@ function get_root() {
  * @return string|bool The UUID of the home directory or, False.
  */
     function alfresco_userdir($username) {
+        global $CFG;
+
         if (ALFRESCO_DEBUG_TRACE) mtrace('alfresco_userdir(' . $username . ')');
 
         if (($uuid = alfresco_get_home_directory($username)) === false) {
@@ -2456,41 +3005,42 @@ function get_root() {
         global $CFG;
 
         // Presently, we are only checking for site-wide and shared repository space capabilities.
-        $capabilities = array(
-            'block/repository:createsitecontent',
+        $capabilities = "'block/repository:createsitecontent',
             'block/repository:viewsitecontent',
             'block/repository:createsharedcontent',
-            'block/repository:viewsharedcontent'
-        );
-
+            'block/repository:viewsharedcontent'";
         $sitecap  = false;
         $sharecap = false;
 
         $root = $this->get_root();
 
-        foreach ($capabilities as $capability) {
-            $sql = "SELECT ra.id
-                    FROM {$CFG->prefix}role_assignments ra
-                    INNER JOIN {$CFG->prefix}role_capabilities rc ON rc.roleid = ra.roleid
-                    WHERE ra.userid = {$user->id}
-                    AND rc.capability = '$capability'
-                    AND rc.permission = " . CAP_ALLOW;
+        // Fix username
+        $username = $this->fix_username($user->username);
 
-            if (record_exists_sql($sql)) {
+        $sql = "SELECT DISTINCT rc.capability
+                FROM {$CFG->prefix}role_assignments ra
+                INNER JOIN {$CFG->prefix}role_capabilities rc ON rc.roleid = ra.roleid
+                WHERE ra.userid = {$user->id}
+                AND rc.capability IN ($capabilities)
+                AND rc.permission = " . CAP_ALLOW;
+
+        $user_capabilities = get_records_sql($sql);
+        if ($user_capabilities) {
+            foreach ($user_capabilities as $capability=>$value) {
                 if ($capability == 'block/repository:createsitecontent') {
-                    $this->allow_edit($user->username, $root->uuid);
+                    $this->allow_edit($username, $root->uuid);
                     $sitecap = true;
 
-                } else if (!$sitecap && $capability == 'lock/repository:viewsitecontent') {
-                    $this->allow_read($user->username, $root->uuid);
+                } else if (!$sitecap && $capability == 'block/repository:viewsitecontent') {
+                    $this->allow_read($username, $root->uuid);
                     $sitecap = true;
 
                 } else if ($capability == 'block/repository:viewsitecontent') {
-                    $this->allow_edit($user->username, $this->suuid);
+                    $this->allow_edit($username, $this->suuid);
                     $sharecap = true;
 
                 } else if (!$sharecap && $capability == 'block/repository:createsharedcontent') {
-                    $this->allow_read($user->username, $this->suuid);
+                    $this->allow_read($username, $this->suuid);
                     $sharecap = true;
                 }
             }
@@ -2505,10 +3055,11 @@ function get_root() {
  * @param int    $cid    A course record ID.
  * @param int    $uid    A user record ID.
  * @param bool   $shared A flag to indicate whether the user is currently located in the shared repository area.
+ * @param int    $oid    A cluster record ID.
  * @param bool   $clear  Set to true to clear out the previous location settings.
  * @return none
  */
-    function set_repository_location($uuid, $cid, $uid, $shared, $clear = false) {
+    function set_repository_location($uuid, $cid, $uid, $shared, $oid, $clear = false) {
         global $USER;
 
         if ($clear) {
@@ -2519,6 +3070,7 @@ function get_root() {
         $location->uuid   = $uuid;
         $location->cid    = $cid;
         $location->uid    = $uid;
+        $location->oid    = $oid;
         $location->shared = $shared;
 
         $USER->alfresco_repository_location = $location;
@@ -2533,30 +3085,41 @@ function get_root() {
  * @param int  $cid      A course record ID.
  * @param int  $uid      A user record ID.
  * @param bool $shared   A flag to indicate whether the user is currently located in the shared repository area.
+ * @param int  $oid      A cluster record ID.
  * @return string The UUID of the last location the user was browsing files in.
  */
-    function get_repository_location(&$cid, &$uid, &$shared) {
+    function get_repository_location(&$cid, &$uid, &$shared, &$oid) {
         global $USER;
-//print_object('$cid:    ' . $cid);
-//print_object('$uid:    ' . $uid);
-//print_object('$shared: ' . $shared);
+
         // If there was no previous location stored we have nothing to return.
         if (!isset($USER->alfresco_repository_location)) {
             return '';
         }
 
         $location = $USER->alfresco_repository_location;
-//print_object($location);
+
+        // If the previous value comes from within a cluster that is not the current cluster, return the root
+        // storage value for the current cluster directory.
+
+        if (!empty($location->uuid) && !empty($oid) &&  !empty($location->oid) && ($location->oid != $oid) &&
+            ($location->uid === 0) && ($location->shared == $shared) && ($location->uid == $uid)) {
+
+            $cluster_context = get_context_instance(context_level_base::get_custom_context_level('cluster', 'block_curr_admin'), $oid);
+
+            if (has_capability('block/repository:vieworganizationcontent', $cluster_context)) {
+                return $this->get_organization_store($oid);
+            }
+        }
         // If the previous value comes from within a course that is not the current course, return the root
         // storage value for the current course directory.
         if (!empty($location->uuid) && isset($location->cid) && ($location->cid != $cid) &&
             ($location->uid === 0) && ($location->shared == $shared) && ($location->uid == $uid)) {
 
-            if ($cid === SITEID) {
+            if ($cid == SITEID) {
                 $context = get_context_instance(CONTEXT_SYSTEM);
 
                 if (has_capability('block/repository:viewsitecontent', $context)) {
-                    $root = $this->get_root;
+                    $root = $this->get_root();
 
                     if (!empty($root->uuid)) {
                         return $root->uuid;
@@ -2573,7 +3136,8 @@ function get_root() {
 
         if (empty($location->uuid)) {
             // If we have explicity requested a user's home directory, make sure we return that
-            if ((isset($location->cid) && $location->cid == $cid) &&
+            if ((isset($location->oid) && $location->oid == $oid) &&
+                (isset($location->cid) && $location->cid == $cid) &&
                 (isset($location->uid) && ($location->uid != $uid) && ($uid === $USER->id)) &&
                 empty($location->uuid)) {
 
@@ -2593,7 +3157,8 @@ function get_root() {
             }
 
             // If we requested the shared repository location
-            if ((isset($location->cid) && $location->cid == $cid) &&
+            if ((isset($location->oid) && $location->oid == $oid) &&
+                (isset($location->cid) && $location->cid == $cid) &&
                 (isset($location->uid) && $location->uid == $uid) &&
                 ((isset($location->shared) && ($location->shared != $shared) && ($shared == 'true')) ||
                 (!isset($location->shared) && $shared == 'true'))) {
@@ -2616,6 +3181,7 @@ function get_root() {
         if (empty($uid)) {
             $cid = (isset($location->cid) && $location->cid == $cid ? $location->cid : $cid);
         }
+        $oid    = ((!empty($location->uuid) && isset($location->oid)) ? $location->oid : $oid);
         $uid    = ((!empty($location->uuid) && isset($location->uid)) ? $location->uid : $uid);
         $shared = ((!empty($location->uuid) && isset($location->shared)) ? $location->shared : $shared);
 
@@ -2709,6 +3275,43 @@ function get_root() {
         }
 
         return '';
+    }
+
+    /*
+     * This function sets version and folder_type as required
+     * @return  bool false if we cannot connect to Alfresco
+     */
+    function get_defaults() {
+        // Initialize the alfresco version
+        if (!($this->version = self::$version = alfresco_get_repository_version())) {
+            return false;
+        }
+
+        // Set the file and folder type
+        if (!defined('ALFRESCO_TYPE_FOLDER')) {
+            if (self::is_version('3.2')) {
+                define('ALFRESCO_TYPE_FOLDER',   'folder');
+                define('ALFRESCO_TYPE_DOCUMENT', 'document');
+            } else if (self::is_version('3.4')) {
+                define('ALFRESCO_TYPE_FOLDER',   'cmis:folder');
+                define('ALFRESCO_TYPE_DOCUMENT', 'cmis:document');
+            }
+        }
+        return true;
+
+    }
+
+
+    /**
+     * Check if a given version of Alfresco is running with as much specificity to the version as required.
+     *
+     * Example: $vcomp = "3.2" will return true if the version is 3.2.1 and false if the version is 3.4.6.
+     *
+     * @param string $vcomp The partial or full version string to check for.
+     * @return bool True if the version matches the request, False otherwise.
+     */
+    public static function is_version($vcomp) {
+        return (strpos(self::$version, $vcomp) === 0) ? true : false;
     }
 
 

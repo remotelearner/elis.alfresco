@@ -48,6 +48,12 @@ $handlers = array (
          'handlerfile'     => '/blocks/repository/lib.php',
          'handlerfunction' => 'block_repository_cluster_deassigned',
          'schedule'        => 'instant'
+     ),
+
+    'user_created' => array (
+         'handlerfile'     => '/blocks/repository/lib.php',
+         'handlerfunction' => 'block_repository_user_created',
+         'schedule'        => 'instant'
      )
 );
 

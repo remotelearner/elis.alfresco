@@ -1,6 +1,12 @@
 <?php
 
+$string['alfrescocategoryfilter'] = 'Alfresco category filter';
+$string['badqueryresponse'] = 'Bad query response!<br/>Your query has returned bad XML due to a Repository Server Error.';
+
 $string['blockname'] = 'Alfresco Repository';
+$string['categoryfilter'] = 'Category filter';
+
+$string['details'] = 'Details';
 
 $string['repository:createsitecontent'] = 'Create site-level content';
 $string['repository:viewsitecontent'] = 'View site-level content';
@@ -22,6 +28,7 @@ $string['configwebdavclient'] = 'If not empty, this link will be displayed in th
 $string['embeddedwebdavlink'] = 'To access Alfresco via an embedded WebDAV client, click <a href=\"$a\">this link</a>.';
 $string['helpfileslink'] = '<a href=\"$a\">Alfresco documentation</a>';
 $string['helplink'] = 'Link to help documents';
+$string['incompletequeryresponse'] = 'Incomplete query response!<br/>Your query failed to complete successfully due to a Repository Server Error.';
 $string['norepositorypluginsystem'] = 'Your system is missing the repository plug-in system. This block requires that ' .
                                       'to be present with the Alfresco plug-in enabled in order to work.';
 $string['usernameinfo'] = 'Use the same username and password that you use to access Moodle to login to Alfresco.';

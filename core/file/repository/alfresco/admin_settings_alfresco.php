@@ -44,8 +44,8 @@ class admin_setting_alfresco_root_folder extends admin_setting_configdirectory {
         if ($repo = repository_factory::factory('alfresco')) {
             if ($repo->is_configured() && $repo->verify_setup()) {
                 if (alfresco_validate_path($data)) {
-                    $newuuid = alfresco_uuid_from_path($data);
-
+//                    $newuuid = alfresco_uuid_from_path($data);
+                    $newuuid = $repo->get_uuid_from_path($data);
                     if (($newuuid != $repo->muuid) && !alfresco_root_move($repo->muuid, $newuuid)) {
                         return get_string('couldnotmoveroot', 'repository_alfresco');
                     } else {
@@ -74,9 +74,14 @@ class admin_setting_alfresco_root_folder extends admin_setting_configdirectory {
     /// Validate the path, if we can.
         if ($repo = repository_factory::factory('alfresco')) {
             $repoisup = $repo->is_configured() && $repo->verify_setup();
-
             if ($repoisup) {
-                if (alfresco_validate_path($data)) {
+                if (empty($CFG->repository_alfresco_root_folder)) {
+                    // if alfresco root folder is currently empty, set it to moodle (the default)
+                    $root_folder = '/moodle';
+                } else {
+                    $root_folder = $CFG->repository_alfresco_root_folder;
+                }
+                if ($root_folder == s($data) && !empty($repo->muuid)) {
                     $valid = '<span class="pathok">&#x2714;</span>';
                 } else {
                     $valid = '<span class="patherror">&#x2718;</span>';
@@ -114,11 +119,10 @@ class admin_setting_alfresco_category_select extends admin_setting {
     }
 
     function output_html($data, $query='') {
-        $default = $this->get_defaultsetting();
+        $buttonname = get_string('configurecategoryfilter', 'repository_alfresco');
 
-        $button = button_to_popup_window('/file/repository/alfresco/config-categories.php',
-                                         'config-categories', get_string('configurecategoryfilter', 'repository_alfresco'),
-                                         480, 640, '', '', true);
+        $button = button_to_popup_window('/file/repository/alfresco/config-categories.php', 'alfrescoconfigcategories',
+                                         $buttonname, 480, 640, $buttonname, 'scrollbars=yes,resizable=yes', true);
 
         return format_admin_setting($this, $this->visiblename, $button, $this->description, true, '', NULL, $query);
     }
