@@ -22,7 +22,7 @@ index 5822ef3..6868723 100644
 +    $canedit = false;
 +
 +    if (empty($alf)) {
-     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
+         require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
 +    }
 +
 +    // Make sure the plug-in is enabled and setup correctly.
@@ -143,8 +143,8 @@ index 5822ef3..6868723 100644
 +?>
      <tr>
        <td width="55%" valign="top"><?php
-           print_string("filebrowser","editor");
-           echo "<br />";
+         print_string("filebrowser","editor");
+         echo "<br />";
 -          echo "<iframe id=\"ibrowser\" name=\"ibrowser\" src=\"{$CFG->wwwroot}/lib/editor/htmlarea/coursefiles.php?usecheckboxes=1&id=$id\" style=\"width: 100%; height: 200px;\"></iframe>";
 +
 +/// Remote Learner Edit -- BEGIN

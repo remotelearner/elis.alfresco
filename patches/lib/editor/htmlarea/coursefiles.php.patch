@@ -1,5 +1,5 @@
 diff --git a/lib/editor/htmlarea/coursefiles.php b/lib/editor/htmlarea/coursefiles.php
-index 19a4058..c120b28 100644
+index f488598..78a230b 100644
 --- a/lib/editor/htmlarea/coursefiles.php
 +++ b/lib/editor/htmlarea/coursefiles.php
 @@ -134,7 +134,8 @@

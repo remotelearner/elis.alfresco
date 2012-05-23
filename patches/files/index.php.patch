@@ -1,5 +1,5 @@
 diff --git a/files/index.php b/files/index.php
-index 6438418..2749cde 100644
+index 4df3097..82c890e 100644
 --- a/files/index.php
 +++ b/files/index.php
 @@ -10,10 +10,12 @@
@@ -240,13 +240,13 @@ index 6438418..2749cde 100644
 +                            }
 +                        }
 +                    } else {
-                     $shortfile = basename($file);
-                     $oldfile = $basedir.'/'.$file;
-                     $newfile = $basedir.$wdir."/".$shortfile;
+                         $shortfile = basename($file);
+                         $oldfile = $basedir.'/'.$file;
+                         $newfile = $basedir.$wdir."/".$shortfile;
 @@ -313,6 +422,7 @@
+                         }
                      }
                  }
-             }
 +            }
              clearfilelist();
              displaydir($wdir);
@@ -445,7 +445,7 @@ index 6438418..2749cde 100644
 +
                  if ($wdir.$dir === '/moddata') {
                      print_cell();
-                 } else { 
+                 } else {
 -                    print_cell("right", "<a href=\"index.php?id=$id&amp;wdir=$wdir&amp;file=$filesafe&amp;action=rename&amp;choose=$choose\">$strrename</a>", 'commands');
 +                    print_cell("right", "<a href=\"index.php?id=$id&amp;oid=$oid&amp;wdir=$wdir&amp;file=$filesafe&amp;action=rename&amp;choose=$choose\">$strrename</a>", 'commands');
                  }
