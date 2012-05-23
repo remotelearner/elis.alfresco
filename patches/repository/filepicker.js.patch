@@ -1,0 +1,1390 @@
+diff --git a/repository/filepicker.js b/repository/filepicker.js
+index 25adcab..2c958ce 100644
+--- a/repository/filepicker.js
++++ b/repository/filepicker.js
+@@ -34,8 +34,11 @@
+  * this.filelist, cached filelist
+  * this.pages
+  * this.page
+- * this.filepath, current path
++ * this.filepath, current path can possibly be an array
++ * this.detailcols, optional columns to display in details view, cached
++ * this.locations, optional shortcut links, cached
+  * this.logindata, cached login form
++ * this.thisuuid, current node
+  */
+ 
+ M.core_filepicker = M.core_filepicker || {};
+@@ -79,7 +82,23 @@ M.core_filepicker.init = function(Y, options) {
+                 this.options.savepath = '/';
+             }
+         },
+-
++/* TEMPORARY FOR TESTING!!!! */
++        printme: function (obj, maxDepth, prefix){
++        	   var result = '';
++        	   if (!prefix) prefix='';
++        	   for(var key in obj){
++        	       if (typeof obj[key] == 'object'){
++        	           if (maxDepth !== undefined && maxDepth <= 1){
++        	               result += (prefix + key + '=object [max depth reached]\n');
++        	           } else {
++        	               result += this.printme(obj[key], (maxDepth) ? maxDepth - 1: maxDepth, prefix + key + '.');
++        	           }
++        	       } else {
++        	           result += (prefix + key + '=' + obj[key] + '\n');
++        	       }
++        	   }
++        	   return result;
++    	},
+         destructor: function() {
+         },
+ 
+@@ -95,6 +114,7 @@ M.core_filepicker.init = function(Y, options) {
+             if (args['scope']) {
+                 scope = args['scope'];
+             }
++
+             params['repo_id']=args.repository_id;
+             params['p'] = args.path?args.path:'';
+             params['page'] = args.page?args.page:'';
+@@ -113,6 +133,7 @@ M.core_filepicker.init = function(Y, options) {
+                     params[i] = args['params'][i];
+                 }
+             }
++
+             if (args.action == 'upload') {
+                 var list = [];
+                 for(var k in params) {
+@@ -195,7 +216,7 @@ M.core_filepicker.init = function(Y, options) {
+             var handleOverwrite = function() {
+                 // overwrite
+                 var dialog = this;
+-                var params = {}
++                var params = {};
+                 params['existingfilename'] = data.existingfile.filename;
+                 params['existingfilepath'] = data.existingfile.filepath;
+                 params['newfilename'] = data.newfile.filename;
+@@ -267,7 +288,7 @@ M.core_filepicker.init = function(Y, options) {
+                 close: false,
+                 icon: YAHOO.widget.SimpleDialog.ICON_HELP,
+                 visible: true,
+-                zIndex: 9999993,
++                zindex: 9999999,
+                 draggable: true,
+                 buttons: [{ text: M.str.repository.overwrite, handler: handleOverwrite },
+                           { text: M.str.repository.renameto + ' "' + data.newfile.filename + '"', handler: handleRename },
+@@ -290,8 +311,10 @@ M.core_filepicker.init = function(Y, options) {
+                 this.hide();
+             }
+             var icon = YAHOO.widget.SimpleDialog.ICON_INFO;
++            var zindexlevel = 9999992;
+             if (type=='error') {
+                 icon = YAHOO.widget.SimpleDialog.ICON_ALARM;
++                zindexlevel++;
+             }
+             if (!this.msg_dlg) {
+                 this.msg_dlg = new YAHOO.widget.SimpleDialog(dlg_id,
+@@ -301,9 +324,9 @@ M.core_filepicker.init = function(Y, options) {
+                        draggable: true,
+                        close: true,
+                        text: msg,
+-                       modal: false,
++                       modal: true,
+                        icon: icon,
+-                       zindex: 9999992,
++                       zindex: zindexlevel,
+                        constraintoviewport: true,
+                        buttons: [{ text:M.str.moodle.ok, handler:handleYes, isDefault:true }]
+                      });
+@@ -321,6 +344,9 @@ M.core_filepicker.init = function(Y, options) {
+         build_tree: function(node, level) {
+             var client_id = this.options.client_id;
+             var dynload = this.active_repo.dynload;
++            if(node.children) {
++                node.title = node.title;
++            }
+             var info = {
+                 label:node.title,
+                 //title:fp_lang.date+' '+node.date+fp_lang.size+' '+node.size,
+@@ -330,6 +356,7 @@ M.core_filepicker.init = function(Y, options) {
+                 path:node.path?node.path:[]
+             };
+             var tmpNode = new YAHOO.widget.TextNode(info, level, false);
++
+             if(node.repo_id) {
+                 tmpNode.repo_id=node.repo_id;
+             }else{
+@@ -356,18 +383,62 @@ M.core_filepicker.init = function(Y, options) {
+                 tmpNode.isLeaf = true;
+             }
+         },
++        build_folder_tree: function(node, level) {
++            if(node.children) {
++                var client_id = this.options.client_id;
++                var dynload = this.active_repo.dynload;
++                node.title = node.title;
++	            var info = {
++	                label:node.title,
++	                //title:fp_lang.date+' '+node.date+fp_lang.size+' '+node.size,
++	                filename:node.title,
++	                source:node.source?node.source:'',
++	                thumbnail:node.thumbnail,
++	                path:node.path?node.path:[]
++	            };
++	            var tmpNode = new YAHOO.widget.TextNode(info, level, false);
++
++	            if(node.repo_id) {
++	                tmpNode.repo_id=node.repo_id;
++	            }else{
++	                tmpNode.repo_id=this.active_repo.id;
++	            }
++                if(node.expanded) {
++                    tmpNode.expand();
++                }
++                if (dynload) {
++                    tmpNode.scope = this;
++                }
++                tmpNode.isLeaf = false;
++                tmpNode.client_id = client_id;
++                if (node.path) {
++                    tmpNode.path = node.path;
++                } else {
++                    tmpNode.path = '';
++                }
++                for(var c in node.children) {
++                    this.build_folder_tree(node.children[c], tmpNode);
++                }
++            }
++        },
+         view_files: function(page) {
+             var p= page?page:null;
+             if (this.active_repo.issearchresult) {
+                 // list view is desiged to display treeview
+                 // it is not working well with search result
++                if (this.viewmode == 3) {
++                    this.view_as_details();
++                } else {
+                     this.view_as_icons();
++                }
+             } else {
+                 this.viewbar.set('disabled', false);
+                 if (this.viewmode == 1) {
+                     this.view_as_icons();
+                 } else if (this.viewmode == 2) {
+                     this.view_as_list(p);
++                } else if (this.viewmode ==3) {
++                    this.view_as_details();
+                 } else {
+                     this.view_as_icons();
+                 }
+@@ -395,6 +466,28 @@ M.core_filepicker.init = function(Y, options) {
+                 }
+             }, false);
+         },
++        treeview_folder_dynload: function(node, cb) {
++            var scope = node.scope;
++            var client_id = scope.options.client_id;
++            var repository_id = scope.active_repo.id;
++            scope.request({
++                action:'list',
++                client_id: client_id,
++                repository_id: repository_id,
++                path:node.path?node.path:'',
++                page:node.page?args.page:'',
++                callback: function(id, obj, args) {
++                    obj.issearchresult = false;
++                    var list = obj.list;
++                    scope.viewbar.set('disabled', false);
++                    scope.parse_repository_options(obj);
++                    for(k in list) {
++                        scope.build_folder_tree(list[k], node);
++                    }
++                    cb();
++                }
++            }, false);
++        },
+         view_as_list: function(p) {
+             var scope = this;
+             var page = null;
+@@ -447,15 +540,23 @@ M.core_filepicker.init = function(Y, options) {
+                     for(k in list) {
+                         scope.build_tree(list[k], scope.treeview.getRoot());
+                     }
++
+                     scope.treeview.subscribe('clickEvent', function(e){
+                         if(e.node.isLeaf){
++                            if (scope.isfilemanager) {
++                                // open the file in a new window
++                                window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+e.node.data.source);
++                            } else {
++                                // show the file details, allow select
+                                 var fileinfo = {};
+                                 fileinfo['title'] = e.node.data.filename;
+                                 fileinfo['source'] = e.node.data.source;
+                                 fileinfo['thumbnail'] = e.node.data.thumbnail;
+                                 scope.select_file(fileinfo);
+                             }
++                        }
+                     });
++
+                     scope.treeview.draw();
+                 }
+             }, true);
+@@ -464,6 +565,7 @@ M.core_filepicker.init = function(Y, options) {
+             var scope = this;
+             var client_id = this.options.client_id;
+             var list = this.filelist;
++            var cols = this.displaycols;
+             var panel_id = '#panel-'+client_id;
+             this.viewmode = 1;
+             Y.one(panel_id).set('innerHTML', '');
+@@ -553,6 +655,16 @@ M.core_filepicker.init = function(Y, options) {
+                     fileinfo['thumbnail'] = list[k].thumbnail;
+                     fileinfo['haslicense'] = list[k].haslicense?true:false;
+                     fileinfo['hasauthor'] = list[k].hasauthor?true:false;
++                    if (scope.isfilemanager) {
++                        // open the file in a new window
++                        y_title.on('click', function(e, args) {
++                            window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+args['source']);
++                        }, this, fileinfo);
++                        y_file.on('click', function(e, args) {
++                            window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+args['source']);
++                        }, this, fileinfo);
++                    } else {
++                        // show the file details, allow select
+                         y_title.on('click', function(e, args) {
+                             this.select_file(args);
+                         }, this, fileinfo);
+@@ -560,9 +672,160 @@ M.core_filepicker.init = function(Y, options) {
+                             this.select_file(args);
+                         }, this, fileinfo);
+                     }
++                }
++                count++;
++            }
++        },
++        view_as_details: function() {
++            var scope = this;
++            var client_id = this.options.client_id;
++            var list = this.filelist;
++            var detailcols = this.detailcols;
++            var panel_id = '#panel-'+client_id;
++            this.viewmode = 3;
++            Y.one(panel_id).set('innerHTML', '');
++
++            this.print_header();
++
++            var html = '<div class="fp-table-panel" id="fp-table-panel-'+client_id+'">';
++            if (list.length==0) {
++                html += '<div class="fp-emptylist mdl-align">' +M.str.repository.nofilesavailable+'</div>';
++            }
++            html += '</div>';
++
++            var gridpanel = Y.Node.create(html);
++            Y.one('#panel-'+client_id).appendChild(gridpanel);
++
++            // Create table base
++            if (list.length>0) {
++                var form = document.createElement('FORM');
++                var table = document.createElement('TABLE');
++                var tbody = document.createElement('TBODY');
++
++                // Close table and form
++                table.appendChild(tbody);
++                table.className = "display";
++                form.appendChild(table);
++                form.id = 'detailslistform';
++                gridpanel.appendChild(form);
++
++                var title_row = document.createElement('TR');
++
++                var title_row_filename = document.createElement('TH');
++                title_row_filename.innerHTML += 'Filename';
++                title_row.appendChild(title_row_filename);
++
++                // Optional columns
++                for(var l in detailcols) {
++                    var column = detailcols[l];
++                    var column_header = document.createElement('TH');
++                    column_header.innerHTML += column.title;
++                    title_row.appendChild(column_header);
++                }
++                if (scope.canedit == 'true' || scope.canedit == '1') {
++	                var title_row_select_all = document.createElement('TH');
++	                title_row_select_all.style.textAlign = 'right';
++	                if (scope.active_repo.showselectedactions) { // For now, lets just allow selected actions for ELIS_files
++	                    title_row_select_all.innerHTML += 'Select&nbsp;&nbsp;<input type="checkbox" class="chkbxSelectAll" value="chkbx-group" />';
++	                }
++	                title_row.appendChild(title_row_select_all);
++                }
++                tbody.appendChild(title_row);
++
++                var count = 0;
++                for(var k in list) {
++                    var node = list[k];
++
++                    var table_row = document.createElement('TR');
++
++                    table_row.className='fp-item';
++
++                    // the file name
++                    var title = document.createElement('TD');
++                    title.id = 'item-title-'+client_id+'-'+String(count);
++                    title.className = 'label';
++                    var filename = node.title;
++                    if (node.shorttitle) {
++                        filename = node.shorttitle;
++                    }
++                    var filename_id = 'filname-link-'+client_id+'-'+String(count);
++                    //prepend thumbnail to filename...
++                    title.innerHTML += '<img src="'+node.thumbnail+'" width="16" height="16" />&nbsp;<a href="###" id="'+filename_id+'" title="'+node.title+'"><span>'+filename+"</span></a>";
++
++                    table_row.appendChild(title);
++                    // Optional columns - loop through and display if not icon/filename
++                    for(var l in detailcols) {
++                        var column = detailcols[l];
++
++                        var new_column = document.createElement('TD');
++                        var field_name = column.field;
++                        var txt_column_data = document.createTextNode(node[field_name]);
++                        new_column.appendChild(txt_column_data);
++                        new_column.style.width = '90px';
++                        table_row.appendChild(new_column);
++                    }
++
++                    if (scope.canedit == 'true' || scope.canedit == '1') {    	                
++	                    var checkbox = document.createElement('TD');
++	                    checkbox.style.textAlign = 'right';
++	                    //checkbox.innerHTML += '<input type="checkbox" name="chkbxSelected[]" class="chkbx-group" value="'+k+'"/>';
++	                    if (scope.active_repo.showselectedactions) { // For now, lets just allow selected actions for ELIS_files
++	                    	checkbox.innerHTML += '<input type="checkbox" name="chkbxSelected" class="chkbx-group" value="'+node.path+'" />';
++	                    }
++	                    checkbox.style.width = '90px';
++	                    table_row.appendChild(checkbox);
++                    }
++
++                    table_row.style.width = title.style.width = '90px';
++
++                    tbody.appendChild(table_row);
++
++                    var y_title = Y.one('#'+title.id);
++                    var dynload = this.active_repo.dynload;
++                    if(node.children) {
++                        y_title.on('click', function(e, p) {
++                            if(dynload) {
++                                var params = {'path':p.path};
++                                scope.list(params);
++                            }else{
++                                this.filelist = p.children;
++                                this.view_files();
++                            }
++                        }, this, node);
++                    } else {
++                        var fileinfo = {};
++                        fileinfo['title'] = list[k].title;
++                        fileinfo['source'] = list[k].source;
++                        fileinfo['thumbnail'] = list[k].thumbnail;
++                        fileinfo['haslicense'] = list[k].haslicense?true:false;
++                        fileinfo['hasauthor'] = list[k].hasauthor?true:false;
++                        if (scope.isfilemanager) {
++                            // open the file in a new window
++                            y_title.on('click', function(e, args) {
++                                window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+args['source']);
++                            }, this, fileinfo);
++                        } else {
++                            // show the file details, allow select
++                            y_title.on('click', function(e, args) {
++                                this.select_file(args);
++                            }, this, fileinfo);
++                        }
++                    }
+                     count++;
+                 }
++                YUI().use('event-delegate', 'node', function(Y) {
++                    Y.delegate('click', function(e) {
++                        Y.all('input.' + e.currentTarget.get('value')).set('checked', e.currentTarget.get('checked'));
++                    }, 'table.display', 'input.chkbxSelectAll');
++                });
++            }
++            YUI().use('event-delegate', 'node', function(Y) {
++                Y.delegate('click', function(e) {
++                    Y.all('input.' + e.currentTarget.get('value')).set('checked', e.currentTarget.get('checked'));
++                }, 'table.display', 'input.chkbxSelectAll');
++            });
+         },
++
+         select_file: function(args) {
+             var client_id = this.options.client_id;
+             var thumbnail = Y.one('#fp-grid-panel-'+client_id);
+@@ -581,6 +844,11 @@ M.core_filepicker.init = function(Y, options) {
+             if(path){
+                 path.setStyle('display', 'none');
+             }
++            // Check for details table and hide it
++            var details = Y.one('#fp-table-panel-'+client_id);
++            if (details) {
++                details.setStyle('display', 'none');
++            }
+             var panel = Y.one('#panel-'+client_id);
+             var form_id = 'fp-rename-form-'+client_id;
+             var html = '<div class="fp-rename-form" id="'+form_id+'">';
+@@ -792,14 +1060,25 @@ M.core_filepicker.init = function(Y, options) {
+                     }
+                 }
+             };
++            var view_details = {label: M.str.repository_elis_files.detailview, value: 'd',
++                onclick: {
++                    fn: function(){
++                        scope.view_as_details();
++                    }
++                }
++            };
+             this.viewbar = new YAHOO.widget.ButtonGroup({
++
+                 id: 'btngroup-'+client_id,
+                 name: 'buttons',
+                 disabled: true,
+                 container: 'fp-viewbar-'+client_id
+             });
+-            this.viewbar.addButtons([view_icons, view_listing]);
+-            // processing repository listing
++
++            this.viewbar.addButtons([view_icons, view_listing, view_details]);
++            // processing repository listing;
++
++
+             var r = this.options.repositories;
+             Y.on('contentready', function(el) {
+                 var list = Y.one(el);
+@@ -831,9 +1110,109 @@ M.core_filepicker.init = function(Y, options) {
+                 }
+             }, '#fp-list-'+client_id, this /* handler running scope */, '#fp-list-'+client_id /*first argument of handler*/);
+         },
++        on_location_item_click: function(p_sType, p_aArgs, p_extra){
++            var location = p_extra[0];
++            var scope = p_extra[1];
++            var path = p_extra[2];
++            // this is link_path per item uuid
++            this.list({'path':location});
++        },
++        on_menu_item_click: function(p_sType, p_aArgs, p_extra){
++            var action = p_extra[0];
++            var scope = p_extra[1];
++            var path = p_extra[2];
++            var parentuuid = scope.parentuuid;
++            var selected_files = [];
++            if (document.getElementById('detailslistform') != null) {
++                chkForm = document.getElementById('detailslistform');
++                var length = chkForm.chkbxSelected.length;
++                if (length !== undefined) {
++                    for(var i=0; i < length; i++){
++                        if(chkForm.chkbxSelected[i].checked) {
++                            selected_files.push(chkForm.chkbxSelected[i].value);
++                        }
++                    }
++                } else {
++                    selected_files.push(chkForm.chkbxSelected.value);
++                }
++            }
++            var checked_item = this.parent.checkedItem;
++            if (checked_item != this) {
++            	
++            	// Set empty string to -1 so it can be trapped
++            	
++                switch (action) {
++                    case 'move':
++                        if (selected_files.length == 0) {
++                            alert(M.str.repository_elis_files.pleaseselectfilesfirst);
++                        } else {
++                            scope.request({
++                                scope: scope,
++                                action:'movepopup',
++                                params: {parentuuid: parentuuid['path'], shared: parentuuid['shared'], oid: parentuuid['oid'], cid: parentuuid['cid'], uid: parentuuid['uid'], files: selected_files},
++                                repository_id: scope.active_repo.id,
++                                path: path,
++                                callback: function(id, obj, args){
++                                    scope.move_select_popup(id, obj, args);
++                                }
++                            });
++                        }
++                        break;
++                    case 'delete':
++                        if (selected_files.length == 0) {
++                            alert(M.str.repository_elis_files.pleaseselectfilesfirst);
++                        } else {
++                            scope.request({
++                                scope: scope,
++                                action:'deletepopup',
++                                params: {parentuuid: parentuuid['encodedpath'], files: selected_files},
++                                repository_id: scope.active_repo.id,
++                                path: path,
++                                callback: function(id, obj, args){
++                                    scope.confirm_delete_popup(id, obj, args);
++                                }
++                            });
++                        }
++                        break;
++                    case 'create':
++                        // popup with ok/cancel
++                        scope.request({
++                            scope: scope,
++                            action:'newfolderpopup',
++                            params: {parentuuid: parentuuid['encodedpath']},
++                            repository_id: scope.active_repo.id,
++                            path: path,
++                            callback: function(id, obj, args){
++                                scope.create_newdir_popup(id, obj, args);
++                            }
++                        });
++                        break;
++                    case 'upload':
++                        scope.request({
++                            scope: scope,
++                            action:'uploadpopup',
++                            params: {parentuuid: parentuuid['encodedpath']},
++                            repository_id: scope.active_repo.id,
++                            path: path,
++                            callback: function(id, obj, args){
++                                scope.create_upload_popup(id, obj, args);
++                            }
++                        });
++                        break;
++                    default:
++                        // We should never get here
++                        alert('Unknown action: '+action);
++                        break;
++                }
++             }
++        },
+         parse_repository_options: function(data) {
+             this.filelist = data.list?data.list:null;
+             this.filepath = data.path?data.path:null;
++            this.detailcols = data.detailcols?data.detailcols:null;
++            this.locations = data.locations?data.locations:null;
++            this.parentuuid = data.thisuuid?data.thisuuid:'';
++            this.canedit = data.canedit?data.canedit:false;
+             this.active_repo = {};
+             this.active_repo.issearchresult = Boolean(data.issearchresult);
+             this.active_repo.dynload = data.dynload?data.dynload:false;
+@@ -846,6 +1225,8 @@ M.core_filepicker.init = function(Y, options) {
+             this.active_repo.logouttext = data.logouttext?data.logouttext:null;
+             this.active_repo.help = data.help?data.help:null;
+             this.active_repo.manage = data.manage?data.manage:null;
++            this.active_repo.showselectedactions = data.showselectedactions?true:false;
++            this.active_repo.showcurrentactions = data.showcurrentactions?true:false;
+         },
+         print_login: function(data) {
+             this.parse_repository_options(data);
+@@ -1100,6 +1481,7 @@ M.core_filepicker.init = function(Y, options) {
+             if (!args.repo_id) {
+                 args.repo_id = scope.active_repo.id;
+             }
++            // TESTING adding context here... does it help?
+             scope.request({
+                 action:'list',
+                 client_id: scope.options.client_id,
+@@ -1122,6 +1504,11 @@ M.core_filepicker.init = function(Y, options) {
+ 
+                     } else if (obj.iframe) {
+ 
++                    } else if (obj.newdir) { //what to do?
++                        scope.viewbar.set('disabled', true);
++                        scope.parse_repository_options(obj);
++                        scope.create_newdir_form(obj);
++
+                     } else if (obj.list) {
+                         obj.issearchresult = false;
+                         scope.viewbar.set('disabled', false);
+@@ -1131,28 +1518,120 @@ M.core_filepicker.init = function(Y, options) {
+                 }
+             }, true);
+         },
+-        create_upload_form: function(data) {
+-            var client_id = this.options.client_id;
+-            Y.one('#panel-'+client_id).set('innerHTML', '');
+-            var types = this.options.accepted_types;
++        create_newdir_popup: function(id, obj, args) {
++            var scope = args.scope;
++            var client_id = scope.options.client_id;
++            //var parentuuid = scope.parentuuid;
++            var repository_id = scope.active_repo.id;
++            var container = document.getElementById('fp-newdir-dlg');
++            if(container) {
++                container.innerHTML = '';
++                container.parentNode.removeChild(container);
++            }
++            var container = document.createElement('DIV');
++            container.id = 'fp-newdir-dlg';
+ 
+-            this.print_header();
+-            var id = data.upload.id+'_'+client_id;
+-            var str = '<div id="'+id+'_div" class="fp-upload-form mdl-align">';
+-            str += '<form id="'+id+'" enctype="multipart/form-data" method="POST">';
+-            str += '<table width="100%">';
+-            str += '<tr><td class="mdl-right">';
+-            str += '<label for="'+id+'_file">'+data.upload.label+': </label></td>';
+-            str += '<td class="mdl-left"><input type="file" id="'+id+'_file" name="repo_upload_file" />';
+-            str += '<tr><td class="mdl-right"><label for="newname-'+client_id+'">'+M.str.repository.saveas+':</label></td>';
+-            str += '<td class="mdl-left"><input type="text" name="title" id="newname-'+client_id+'" value="" /></td></tr>';
+-            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" />';
+-            for (var i in types) {
+-                str += '<input type="hidden" name="accepted_types[]" value="'+types[i]+'" />';
++            var dlg_title = document.createElement('DIV');
++            dlg_title.className = 'hd';
++            dlg_title.innerHTML = M.str.repository.entername;
++
++            var dlg_body = document.createElement('DIV');
++            dlg_body.className = 'bd';
++
++            var sform = document.createElement('FORM');
++            sform.method = 'POST';
++            sform.id = "fp-newdir-form";
++            sform.innerHTML = obj.form;
++            dlg_body.appendChild(sform);
++            container.appendChild(dlg_title);
++            container.appendChild(dlg_body);
++
++            Y.one(document.body).appendChild(container);
++
++            // a function used to perform an ajax request
++            function dialog_handler() {
++                var foldername = Y.one('#newdirname').get('value');
++                if (!foldername) {
++                    alert(M.str.repository_elis_files.pleaseenterfoldername);
++                    return;
+                 }
+-            str += '</td></tr><tr>';
+-            str += '<td class="mdl-right"><label>'+M.str.repository.author+': </label></td>';
+-            str += '<td class="mdl-left"><input type="text" name="author" value="'+this.options.author+'" /></td>';
++                var parentuuid = Y.one('#parentuuid').get('value');
++                var params = {};
++                params['newdirname']=foldername;
++                params['parentuuid']=parentuuid;
++                params['repo_id']=repository_id;
++
++                scope.request({
++                    action:'createnewfolder',
++                    params: params,
++                    callback: function(id, obj, args) {
++                        if (!obj.error) {
++                        	var args = {path:parentuuid};
++                            scope.list(args);
++                            Y.one('#newdirname').set('value', '');
++                            newdir_dialog.hideEvent.subscribe(function(e) {
++                                setTimeout(function() {newdir_dialog.destroy();}, 0);
++                            });
++                            newdir_dialog.hide();
++                        }
++                    }
++                });
++            };
++
++            var newdir_dialog= null;
++            newdir_dialog = new YAHOO.widget.Dialog("fp-newdir-dlg", {
++                postmethod: 'async',
++                draggable: true,
++                modal: true,
++                width : "25em",
++                fixedcenter : true,
++                zindex: 9999991,
++                visible : false,
++                constraintoviewport : true,
++                buttons: [
++        	    {
++                    text:M.str.moodle.ok,
++                    handler:dialog_handler,
++                    isDefault:true
++        	    }, {
++                    text:M.str.moodle.cancel,
++                    handler:function(){
++                        newdir_dialog.hideEvent.subscribe(function(e) {
++                            setTimeout(function() {newdir_dialog.destroy();}, 0);
++                        }),
++                        newdir_dialog.hide();
++                    }
++        	    }]
++            });
++
++            newdir_dialog.render();
++            newdir_dialog.show();
++
++            YAHOO.util.Event.addListener("fp-newdir-form", "submit", dialog_handler, newdir_dialog, true);
++            document.getElementById('newdirname').focus();
++        },
++        create_upload_form: function(data) {
++            var client_id = this.options.client_id;
++            Y.one('#panel-'+client_id).set('innerHTML', '');
++            var types = this.options.accepted_types;
++
++            this.print_header();
++            var id = data.upload.id+'_'+client_id;
++            var str = '<div id="'+id+'_div" class="fp-upload-form mdl-align">';
++            str += '<form id="'+id+'" enctype="multipart/form-data" method="POST">';
++            str += '<table width="100%">';
++            str += '<tr><td class="mdl-right">';
++            str += '<label for="'+id+'_file">'+data.upload.label+': </label></td>';
++            str += '<td class="mdl-left"><input type="file" id="'+id+'_file" name="repo_upload_file" />';
++            str += '<tr><td class="mdl-right"><label for="newname-'+client_id+'">'+M.str.repository.saveas+':</label></td>';
++            str += '<td class="mdl-left"><input type="text" name="title" id="newname-'+client_id+'" value="" /></td></tr>';
++            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" />';
++            for (var i in types) {
++                str += '<input type="hidden" name="accepted_types[]" value="'+types[i]+'" />';
++            }
++            str += '</td></tr><tr>';
++            str += '<td class="mdl-right"><label>'+M.str.repository.author+': </label></td>';
++            str += '<td class="mdl-left"><input type="text" name="author" value="'+this.options.author+'" /></td>';
+             str += '</tr>';
+             str += '<tr>';
+             str += '<td class="mdl-right">'+M.str.repository.chooselicense+': </td>';
+@@ -1196,9 +1675,6 @@ M.core_filepicker.init = function(Y, options) {
+                         params: {'savepath':scope.options.savepath},
+                         repository_id: scope.active_repo.id,
+                         form: {id: id, upload:true},
+-                            onerror: function(id, o, args) {
+-                                scope.create_upload_form(data);
+-                            },
+                         callback: function(id, o, args) {
+                             if (scope.options.editor_target&&scope.options.env=='editor') {
+                                 scope.options.editor_target.value=o.url;
+@@ -1218,11 +1694,394 @@ M.core_filepicker.init = function(Y, options) {
+                 });
+             }, this);
+         },
++        create_upload_popup: function(id, obj, args) {
++            var scope = args.scope;
++            var client_id = scope.options.client_id;
++            var parentuuid = scope.parentuuid;
++            var repository_id = scope.active_repo.id;
++            var dialogid = 'fp-upload-dlg-'+client_id;
++            var fileCount = 0;
++            var msg = '';
++
++            var container = document.getElementById(dialogid);
++            if(container) {
++                container.innerHTML = '';
++                container.parentNode.removeChild(container);
++            }
++            var container = document.createElement('DIV');
++            container.id = dialogid;
++
++            var dlg_title = document.createElement('DIV');
++            dlg_title.className = 'hd';
++            dlg_title.innerHTML = M.str.repository_elis_files.uploadpopuptitle;
++
++            var dlg_body = document.createElement('DIV');
++            dlg_body.className = 'bd';
++
++            var sform = document.createElement('FORM');
++            sform.method = 'POST';
++            sform.id = "fp-upload-form";
++            sform.innerHTML = obj.form;
++
++            dlg_body.appendChild(sform);
++            container.appendChild(dlg_title);
++            container.appendChild(dlg_body);
++
++            Y.one(document.body).appendChild(container);
++            var upload_dialog= null;
++
++            upload_dialog = new YAHOO.widget.Dialog(dialogid, {
++               draggable: true,
++               width: "30em",
++               fixedcenter: true,
++               zindex: 9999991,
++               visible: false,
++               draggable: true,
++               modal: true,
++               constraintoviewport: true
++            });
++            upload_dialog.render();
++            upload_dialog.show();
++
++            $(function() {
++                // Initialize the jQueryUI Progressbar
++                $("#progressbar").progressbar({
++                    value: 0
++                });
++
++                // Initialize the uploader
++                uploader = new qq.FileUploaderBasic({
++                    debug: false,
++                    element: document.getElementById('file-uploader'),
++                    button: $('#uploadButton')[0],
++                    action: M.cfg.wwwroot+'/repository/elis_files/upload.php?uuid='+parentuuid['path'],
++                    multiple: true,
++
++                    // Update the progress bar
++                    onProgress: function(id, fileName, loaded, total){
++                        var percentLoaded = (loaded / total) * 100;
++                        $( "#progressbar" ).progressbar({
++                            value: percentLoaded
++                        });
++                    },
++
++                    onSubmit: function() {
++                        fileCount++;
++                    },
++
++                    onComplete: function (id, fileName, responseJSON) {
++                        if (responseJSON.success) {
++                            msg = M.str.repository_elis_files.filesuploaded;
++                            fileCount--;
++                        } else {
++                            msg = M.str.repository_elis_files.errorupload;
++                            fileCount = 0;
++                        }
++
++                        if (fileCount == 0) {
++                            //ELIS-3682 Prevent error with element properties
++                            var uploadButton = document.getElementById('uploadButton');
++                            if (uploadButton != null) {
++                                uploadButton.innerHTML = '';
++                            }
++                            var fileUploader = document.getElementById('file-uploader');
++                            if (fileUploader != null) {
++                                fileUploader.innerHTML = msg;
++                            }
++                            setTimeout(function () {
++                                var args = {path:parentuuid['encodedpath']};
++                                scope.list(args);
++                                upload_dialog.hide();
++                            }, 1000);
++                        }
++                    }
++                });
++            });
++
++            // Make sure widget gets destroyed on close
++            upload_dialog.hideEvent.subscribe(function(e) {
++                setTimeout(function() {upload_dialog.destroy();}, 0);
++            });
++
++            YAHOO.util.Event.addListener("uploadCloseButton", "click", upload_dialog.hide, upload_dialog, true);
++            document.getElementById('uploadCloseButton').focus();
++        },
++        confirm_delete_popup: function(id, obj, args) {
++        	var scope = args.scope;
++            var client_id = scope.options.client_id;
++            var repository_id = scope.active_repo.id;
++            // Prevent delete form from being submitted more than once
++            var submitted = 0;
++            var container = document.getElementById('fp-delete-dlg');
++            if(container) {
++                container.innerHTML = '';
++                container.parentNode.removeChild(container);
++            }
++            var container = document.createElement('DIV');
++            container.id = 'fp-delete-dlg';
++
++            var dlg_title = document.createElement('DIV');
++            dlg_title.className = 'hd';
++            dlg_title.innerHTML = M.str.repository_elis_files.deletecheckwarning;
++
++            var dlg_body = document.createElement('DIV');
++            dlg_body.className = 'bd';
++
++            var sform = document.createElement('FORM');
++            sform.method = 'POST';
++            sform.id = "fp-delete-form";
++            sform.innerHTML = obj.form;
++            dlg_body.appendChild(sform);
++            container.appendChild(dlg_title);
++            container.appendChild(dlg_body);
++
++            Y.one(document.body).appendChild(container);
++            // a function used to perform an ajax request
++            function dialog_handler() {
++                if (!submitted) {
++	                var parentuuid = Y.one('#parentuuid').get('value');
++	                var fileslist = Y.one('#fileslist').get('value');
++	                var params = {};
++	                // Disable form from further submissions
++                    submitted = 1;
++                    delete_dialog.getButtons()[0].set('disabled', true); // disable delete button
++	                params['fileslist']=fileslist;
++	                params['parentuuid']=parentuuid;
++	                params['repo_id']=repository_id;
++	                scope.request({
++	                    action:'deletefiles',
++	                    params: params,
++	                    callback: function(id, obj, args) {
++	                        if (!obj.error) {
++                                var args = {path:parentuuid['encodedpath'], files: fileslist};
++	                            scope.list(args);
++	                            Y.one('#fileslist').set('value', '');
++	                            delete_dialog.hideEvent.subscribe(function(e) {
++	                                setTimeout(function() {delete_dialog.destroy();}, 0);
++	                            });
++	                            delete_dialog.hide();
++	                        }
++	                    }
++                    });
++                };
++            };
++            var delete_dialog = null;
++	        delete_dialog = new YAHOO.widget.Dialog("fp-delete-dlg", {
++                postmethod: 'async',
++                draggable: true,
++                width: "25em",
++                fixedcenter: true,
++                modal: true,
++                zindex: 9999991,
++                visible: false,
++                constraintoviewport: true,
++                buttons: [
++                {
++                    text:M.str.repository_elis_files.strdelete,
++                    handler:dialog_handler,
++                    isDefault:true
++                }, {
++                    text:M.str.moodle.cancel,
++                    handler:function(){
++                        delete_dialog.hideEvent.subscribe(function(e) {
++                           setTimeout(function() {delete_dialog.destroy();}, 0);
++                        }),
++                        delete_dialog.hide();
++                    }
++                }]
++	        });
++
++            delete_dialog.render();
++            delete_dialog.show();
++
++            YAHOO.util.Event.addListener("fp-delete-form", "submit", dialog_handler, delete_dialog, true);
++        },
++        move_select_popup: function(id, obj, args) {
++            var scope = args.scope;
++            var client_id = scope.options.client_id;
++            var repository_id = scope.active_repo.id;
++            var locations = obj.locations;
++            var dynload = scope.active_repo.dynload;
++
++            // retrieve object items
++            if(scope.fileslist==null) {
++                scope.fileslist = obj.listing;
++            }
++            var location_uuid = obj.location_path;
++            var container = document.getElementById('fp-moveselect-dlg');
++
++            if(container) {
++                container.innerHTML = '';
++                container.parentNode.removeChild(container);
++            }
++            var container = document.createElement('DIV');
++            container.id = 'fp-moveselect-dlg';
++
++            var dlg_title = document.createElement('DIV');
++            dlg_title.className = 'hd';
++            dlg_title.innerHTML = M.str.repository_elis_files.movefiles;
++
++            var dlg_body = document.createElement('DIV');
++            dlg_body.className = 'bd';
++
++            // Create an html form with a named div in it for the tabview to append to e.g. appendTo('.inner')
++            var sform = document.createElement('FORM');
++            sform.method = 'POST';
++            sform.id = "fp-moveselect-form";
++            // Insert the form contained in the callback object
++            sform.innerHTML = obj.form;
++
++            // Set up the default treeview
++            var tabpage = new YAHOO.widget.TabView();
++
++            // Create a tab for each location
++            for(var i=0; i<locations.length; i++) {
++                var thisone = '';
++                var active = false;
++                var locations_path = locations[i].path;
++                var location_path = obj.location_path;
++               
++                if (locations_path == location_path) {
++                    active = true;
++                }
++
++                // Store the root uuid for each tab in a hidden variable
++                var tabId = document.createElement('DIV');
++                tabId.id = 'tabuuid-'+locations[i].name;
++                tabId.value = locations[i].path;
++                sform.appendChild(tabId);
++
++                tabpage.addTab( new YAHOO.widget.Tab({
++                    label: locations[i].name,
++                    content: '<div id="'+locations[i].path+'" style="height:240px; overflow:auto"></div>',
++                    active: active
++                }));
++            }
++
++            // Add a listener which sets the last clicked tab folder value in a hidden variable
++            function handleTabClick(e) {
++            	if (e.target.textContent == undefined) {
++            		// ie8 fix
++                    name = 'tabuuid-'+e.target.innerText;
++            	} else {
++                	name = 'tabuuid-'+e.target.textContent;
++                }
++                document.getElementById('targetfolder').value = document.getElementById(name).value;
++            }
++            
++            dlg_body.appendChild(sform);
++            container.appendChild(dlg_title);
++            container.appendChild(dlg_body);
++            Y.one(document.body).appendChild(container);
++
++            // Function to move selected files to the target folder
++            function dialog_handler() {
++                //YAHOO.util.Event.preventDefault(e);
++                var targetuuid = Y.one('#targetfolder').get('value');
++                var parentuuid = Y.one('#parentuuid').get('value');
++                var selected_files = Y.one('#selected_files').get('value');
++                
++                if (!targetuuid) {
++                    // If a targetuuid is not set let's warn them
++                    alert(M.str.repository_elis_files.pleaseselectfolder);
++                } else {
++                    var params = {};
++                    params['selected_files'] = selected_files;
++                    params['parentuuid'] = parentuuid;
++                    params['targetuuid'] = targetuuid;
++                    params['repo_id'] = repository_id;
++                    scope.request({
++                        action:'movefiles',
++                        params: params,
++                        callback: function(id, obj, args) {
++                            if (!obj.error) {
++                            	var args  = {path: parentuuid};
++                                scope.list(args);
++                                Y.one('#selected_files').set('value', '');
++                                moveselect_dialog.hide();
++                            }
++                        }
++                    });
++                }
++            };
++
++            var moveselect_dialog= null;
++            moveselect_dialog = new YAHOO.widget.Dialog("fp-moveselect-dlg", {
++                postmethod: 'async',
++                width: "50em",
++                fixedcenter: true,
++                modal: true,
++                zindex: 9999991,
++                visible: false,
++                draggable: true,
++                constraintoviewport: true,
++                buttons: [
++        	    {
++                    text:M.str.repository_elis_files.move,
++                    handler:dialog_handler,
++                    isDefault:true
++        	    }, {
++                    text:M.str.moodle.cancel,
++                    handler:function(){
++                        this.hide();
++                    }
++        	    }]
++            });
++            moveselect_dialog.render();
++            moveselect_dialog.show();
++
++            // Needed to apply the appendTo a bit later...
++            tabpage.appendTo('repository_tabs');
++            tabpage.addListener('click', handleTabClick);
++
++            // Generate treeview
++            obj.issearchresult = false;
++            scope.viewbar.set('disabled', false);
++
++            // Populate all the tabs
++            scope.treeview = new Array();
++            var tree = new Array();
++            var targetfolder = '';
++            // Loop through the locations to populate each tab with the tree that was
++            for(var i=0; i<locations.length; i++) {
++                var list = scope.fileslist[locations[i].path];
++	            var html = '<div class="fp-tree-panel" id="treeview-'+client_id+locations[i].path+'">';
++	            if (list && list.length==0) {
++	                html += '<div class="fp-emptylist mdl-align">' +M.str.repository.nofilesavailable+'</div>';
++	            }
++	            html += '</div>';
++
++	            tree[i] = Y.Node.create(html);
++	            Y.one(document.getElementById(locations[i].path)).appendChild(tree[i]);
++	            if (!list || list.length==0) {
++	                continue;
++	            }
++
++	            scope.treeview[i] = new YAHOO.widget.TreeView('treeview-'+client_id+locations[i].path);
++	            if (dynload) {
++	                scope.treeview[i].setDynamicLoad(scope.treeview_folder_dynload, 1);
++	            }
++
++	            for(k in list) {
++	            	scope.build_folder_tree(list[k], scope.treeview[i].getRoot());
++	            }
++
++	            scope.treeview[i].subscribe('labelClick', function(node){
++	                targetfolder = document.getElementById('targetfolder');
++	                targetfolder.value = node.data.path;
++	            });
++	            scope.treeview[i].draw();
++            }
++            moveselect_dialog.hideEvent.subscribe(function(e) {
++                setTimeout(function() {moveselect_dialog.destroy();}, 0);
++            });
++        },
+         print_header: function() {
+             var r = this.active_repo;
+             var scope = this;
+             var client_id = this.options.client_id;
+             var repository_id = this.active_repo.id;
++            var path = this.filepath;
+             var panel = Y.one('#panel-'+client_id);
+             var str = '<div id="fp-header-'+client_id+'">';
+             str += '<div class="fp-toolbar" id="repo-tb-'+client_id+'"></div>';
+@@ -1235,8 +2094,8 @@ M.core_filepicker.init = function(Y, options) {
+ 
+             var toolbar = Y.one('#repo-tb-'+client_id);
+ 
+-            if(!r.nosearch) {
+-                var html = '<a href="###"><img src="'+M.util.image_url('a/search')+'" /> '+M.str.repository.search+'</a>';
++            if(!r.nosearch && scope.viewmode != 2) {
++                var html = '<a href="javascript:void(0);"><img src="'+M.util.image_url('a/search')+'" /> '+M.str.repository.search+'</a>';
+                 var search = Y.Node.create(html);
+                 search.on('click', function() {
+                     scope.request({
+@@ -1262,15 +2121,71 @@ M.core_filepicker.init = function(Y, options) {
+                             var dlg_body = document.createElement('DIV');
+                             dlg_body.className = 'bd';
+ 
++                            // Make the search form
+                             var sform = document.createElement('FORM');
+                             sform.method = 'POST';
+                             sform.id = "fp-search-form";
+                             sform.innerHTML = obj.form;
+ 
++                            // Make the advanced options div
++                            var searchadvopt = document.createElement('DIV');
++                            searchadvopt.id = 'search-advanced-options';
++                            searchadvopt.style.display = 'none';
++
++                            // Make the category title div
++                            var cattitlediv = document.createElement('DIV');
++                            cattitlediv.id = 'category-title-div';
++                            cattitlediv.innerHTML = '<label>'+M.str.repository_elis_files.onlyincategories+'</label><br />';
++
++                            // Make a div for containing the treemenu layout
++                            var catlayoutdiv = document.createElement('DIV');
++                            catlayoutdiv.id = 'category-tree-layout';
++
++                            // Put everything together
++                            searchadvopt.appendChild(cattitlediv);
++                            searchadvopt.appendChild(catlayoutdiv);
++                            sform.appendChild(searchadvopt);
+                             dlg_body.appendChild(sform);
+                             container.appendChild(dlg_title);
+                             container.appendChild(dlg_body);
+                             Y.one(document.body).appendChild(container);
++
++                            // Generate a scrollable layout for the category treemenu
++                            var catlayout = new YAHOO.widget.Layout('category-tree-layout', {
++                                height: 140, width: 370,
++                                units: [
++                                    {
++                                        position: 'center',
++                                        body: '<div id="category-tree-div"></div>',
++                                        scroll: true,
++                                        gutter: '0 2 0 0'
++                                    }
++                                ]
++                            });
++                            catlayout.render();
++
++                            // Generate the category tree with all nodes
++                            if (obj.tree.length < 1) {
++                                Y.one('#category-tree-div').set('innerHTML', '<i>'+M.str.repository_elis_files.nocategoriesfound+'</i>');
++                            } else {
++                                var category_treeview = new YAHOO.widget.TreeView('category-tree-div');
++                                var tree_root = category_treeview.getRoot();
++                                var tree_nodes = [];
++                                for(tree_key in obj.tree) {
++                                    var item_id = obj.tree[tree_key].id;
++                                    var item_title = obj.tree[tree_key].title;
++                                    var item_parent = obj.tree[tree_key].parent;
++                                    var tree_info = '<input type="checkbox" name="categories[]" value="'+item_id+'">'+item_title;
++                                    if (item_parent == 0) {
++                                        tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_root, false);
++                                    } else {
++                                        tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_nodes[item_parent], false);
++                                    }
++                                }
++                                category_treeview.subscribe('clickEvent', category_treeview.onEventToggleHighlight);
++                                category_treeview.render();
++                            }
++
+                             var search_dialog= null;
+                             function dialog_handler() {
+                                 scope.viewbar.set('disabled', false);
+@@ -1281,6 +2196,7 @@ M.core_filepicker.init = function(Y, options) {
+                                     repository_id: repository_id,
+                                     form: {id: 'fp-search-form',upload:false,useDisabled:true},
+                                     callback: function(id, o, args) {
++                                        o.issearchresult = true;
+                                         scope.parse_repository_options(o);
+                                         scope.view_files();
+                                     }
+@@ -1297,32 +2213,46 @@ M.core_filepicker.init = function(Y, options) {
+                             search_dialog = new YAHOO.widget.Dialog("fp-search-dlg", {
+                                postmethod: 'async',
+                                draggable: true,
+-                               width : "30em",
++                               width: "30em",
+                                modal: true,
+-                               fixedcenter : true,
++                               fixedcenter: true,
+                                zindex: 9999991,
+-                               visible : false,
+-                               constraintoviewport : true,
++                               visible: false,
++                               constraintoviewport: true,
+                                buttons: [
+                                {
+-                                   text:M.str.repository.submit,
++                                   text:M.str.repository_elis_files.advanced,
++                                   handler:function(){
++                                       if (document.getElementById('search-advanced-options').style.display == 'block') {
++                                           document.getElementById('search-advanced-options').style.display = 'none';
++                                       } else {
++                                           document.getElementById('search-advanced-options').style.display = 'block';
++                                       }
++                                   }
++                               }, {
++                                   text:M.str.repository.search,
+                                    handler:dialog_handler,
+                                    isDefault:true
+                                }, {
+                                    text:M.str.moodle.cancel,
+                                    handler:function(){
+-                                       this.destroy()
++                                       search_dialog.destroy();
+                                    }
+                                }]
+                             });
+                             search_dialog.render();
+                             search_dialog.show();
++
++                            // Make sure widget gets destroyed on close
++                            search_dialog.hideEvent.subscribe(function(e) {
++                                setTimeout(function() {search_dialog.destroy();}, 0);
++                            });
+                         }
+                     });
+                 },this);
+                 toolbar.appendChild(search);
+             }
+-            // weather we use cache for this instance, this button will reload listing anyway
++            // whether we use cache for this instance, this button will reload listing anyway
+             if(!r.norefresh) {
+                 var html = '<a href="###"><img src="'+M.util.image_url('a/refresh')+'" /> '+M.str.repository.refresh+'</a>';
+                 var refresh = Y.Node.create(html);
+@@ -1365,6 +2295,46 @@ M.core_filepicker.init = function(Y, options) {
+                 toolbar.appendChild(help);
+             }
+ 
++            if((scope.canedit == 'true' || scope.canedit == '1') && r.showselectedactions && scope.viewmode == 3) { // TO-DO: until checkboxes are added to icons and list, only show on viewmode=3=details view
++                // Add container button for Selected menu
++                var html_selected = '<input type="button" id="selections_button" name="selections_button" value="'+M.str.repository_elis_files.withselectedfiles+'">';
++                var selections = Y.Node.create(html_selected);
++                
++                toolbar.appendChild(selections);
++                // Create menu items
++                var selections_menu_data = [
++                    { text: M.str.repository_elis_files.move, value: "move", onclick: { fn: this.on_menu_item_click, obj:["move",scope,path] }  },
++                    { text: M.str.repository_elis_files.strdelete, value: "delete", onclick: { fn: this.on_menu_item_click, obj:["delete",scope,path] } }
++                ];
++                // Create widget for our menu
++                var selection_button = new YAHOO.widget.Button("selections_button", {
++                     name: "selections_menu",
++                     label: "<span class=\"yui-button-label\">"+M.str.repository_elis_files.withselectedfiles+"</span>",
++                     type: "menu",
++                     menu: selections_menu_data
++                });
++                var selections_menu = selection_button.getMenu();
++            }
++
++            if((scope.canedit == 'true' || scope.canedit == '1') && r.showcurrentactions) {
++                // Add container button for Action menu
++                var html_actions = '<input type="button" id="actions_button" name="actions_button" value="'+M.str.repository_elis_files.actions+'">';
++                var actions = Y.Node.create(html_actions);
++                toolbar.appendChild(actions);
++                // Create menu items
++                var actions_menu_data = [
++                    { text: M.str.repository_elis_files.createfolder, value: "create", onclick: { fn: this.on_menu_item_click, obj:["create",scope,path] }  },
++                    { text: M.str.repository_elis_files.uploadfiles, value: "upload", onclick: { fn: this.on_menu_item_click, obj:["upload",scope,path] } }
++                ];
++                // Create widget for our menu
++                var action_button = new YAHOO.widget.Button("actions_button",  {
++                    name: "actions_menu",
++                    label: "<span class=\"yui-button-label\">"+M.str.repository_elis_files.actions+"</span>",
++                    type: "menu",
++                    menu: actions_menu_data});
++                var actions_menu = action_button.getMenu();
++            }
++
+             this.print_path();
+         },
+         get_page_button: function(page) {
+@@ -1456,7 +2426,6 @@ M.core_filepicker.init = function(Y, options) {
+                                         scope.view_files(result[1]);
+                                     }
+                                 }, true);
+-
+                             } else {
+                                 if (scope.viewmode == 2) {
+                                     scope.view_as_list(result[1]);
+@@ -1488,6 +2457,45 @@ M.core_filepicker.init = function(Y, options) {
+                         this.list({'path':path});
+                         }, this, link_path)
+                 }
++                var locations = this.locations;
++                if (locations) {
++                    // Add container button for Locations menu
++                    var html_locations = '<input type="button" id="locations_button" name="locations_button" value="'+M.str.repository_elis_files.jump+'">';
++                    var locations_button = Y.Node.create(html_locations);
++                    path.appendChild(locations_button);
++
++                    // Create menu items
++                    var locations_menu_data = [];
++                    for(var i = 0; i < locations.length; i++) {
++                        var link_path = locations[i].path;
++                        var link_name = locations[i].name;
++                        var link_style = 'display: inline';
++                        locations_menu_data[i] = { text: link_name, value: link_path, style: link_style, onclick: { fn: this.on_location_item_click, obj:[link_path,this,path], scope: this }  };
++                    }
++
++                    // Create widget for our menu
++                    var location_button = new YAHOO.widget.Button("locations_button",  {
++                        name: "locations_menu",
++                        label: "<span>"+M.str.repository_elis_files.jump+"</span>",
++                        type: "menu",
++                        menu: locations_menu_data,
++                        menualignment: ["tr", "br"]
++                    });
++
++                    // Make the jump button look not look like a button
++                    location_button.setStyle("float","right");
++                    location_button.setStyle("position", "relative");
++                    location_button.setStyle("top", "-5px");
++                    location_button.setStyle("border", "none");
++                    location_button.setStyle("background", "none");
++                    var children = YAHOO.util.Dom.getChildren('locations_button');
++                    if (children) {
++                        // Override the border-style property for the firstchild span
++                        children[0].style.borderStyle = 'none';
++                    }
++
++                    var locations_menu = location_button.getMenu();
++                }
+             }
+         },
+         hide: function() {

@@ -1,0 +1,45 @@
+diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
+index 4c08ba1..8290942 100644
+--- a/repository/repository_ajax.php
++++ b/repository/repository_ajax.php
+@@ -25,7 +25,6 @@
+  * @copyright  2009 Dongsheng Cai <dongsheng@moodle.com>
+  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+  */
+-
+ define('AJAX_SCRIPT', true);
+ 
+ require_once(dirname(dirname(__FILE__)).'/config.php');
+@@ -50,6 +49,7 @@ $accepted_types  = optional_param('accepted_types', '*', PARAM_RAW);
+ $saveas_filename = optional_param('title', '', PARAM_FILE);     // save as file name
+ $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file path
+ $search_text   = optional_param('s', '', PARAM_CLEANHTML);
++$categories    = optional_param('categories', '', PARAM_RAW);
+ $linkexternal  = optional_param('linkexternal', '', PARAM_ALPHA);
+ 
+ list($context, $course, $cm) = get_context_info_array($contextid);
+@@ -131,6 +131,11 @@ if (file_exists($CFG->dirroot.'/repository/'.$type.'/lib.php')) {
+     die(json_encode($err));
+ }
+ 
++// Include repository_ajax file if provided by the repository
++if (file_exists($CFG->dirroot.'/repository/'.$type.'/repository_ajax.php')) {
++    require_once($CFG->dirroot.'/repository/'.$type.'/repository_ajax.php');
++}
++
+ /// These actions all occur on the currently active repository instance
+ switch ($action) {
+     case 'sign':
+@@ -156,10 +161,11 @@ switch ($action) {
+         break;
+     case 'searchform':
+         $search_form['form'] = $repo->print_search();
++        $search_form['tree'] = $repo->category_tree();
+         echo json_encode($search_form);
+         break;
+     case 'search':
+-        $search_result = $repo->search($search_text, (int)$page);
++        $search_result = $repo->search($search_text, (int)$page, $categories);
+         $search_result['repo_id'] = $repo_id;
+         $search_result['issearchresult'] = true;
+         echo json_encode($search_result);

@@ -1,0 +1,21 @@
+diff --git a/lib/navigationlib.php b/lib/navigationlib.php
+index 93d822f..4bc53fe 100644
+--- a/lib/navigationlib.php
++++ b/lib/navigationlib.php
+@@ -3307,6 +3307,16 @@ class settings_navigation extends navigation_node {
+             $coursenode->add(get_string('courselegacyfiles'), $url, self::TYPE_SETTING, null, 'coursefiles', new pix_icon('i/files', ''));
+         }
+ 
++        // ELIS files
++        if (has_capability('repository/elis_files:view', $coursecontext)) {
++            require_once($CFG->dirroot.'/repository/lib.php');
++            require_once($CFG->dirroot.'/repository/elis_files/lib.php');
++            if (repository_elis_files::is_repo_visible('elis_files')) {
++                $url = new moodle_url('/repository/filemanager.php', array('course'=>$course->id, 'ctx_id'=>$coursecontext->id, 'sesskey'=>sesskey()));
++                $coursenode->add(get_string('pluginname', 'repository_elis_files'), $url, self::TYPE_SETTING, null, 'elisfiles', new pix_icon('i/files', ''));
++            }
++        }
++
+         // Switch roles
+         $roles = array();
+         $assumedrole = $this->in_alternative_role();
