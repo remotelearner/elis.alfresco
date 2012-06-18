@@ -146,6 +146,10 @@ class file_uploadTest extends elis_database_test {
             $this->markTestSkipped();
         }
 
+        if (!$repo = repository_factory::factory('elis_files')) {
+            $this->markTestSkipped('Repository not configured or enabled');
+        }
+
         $filesize = $mb * ONE_MB_BYTES;
         $filename = generate_temp_file($mb);
 

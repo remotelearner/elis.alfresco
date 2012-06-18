@@ -1,5 +1,5 @@
 diff --git a/repository/filepicker.js b/repository/filepicker.js
-index 25adcab..2c958ce 100644
+index 9c5ac40..364247f 100644
 --- a/repository/filepicker.js
 +++ b/repository/filepicker.js
 @@ -34,8 +34,11 @@
@@ -73,7 +73,7 @@ index 25adcab..2c958ce 100644
 +                zindex: 9999999,
                  draggable: true,
                  buttons: [{ text: M.str.repository.overwrite, handler: handleOverwrite },
-                           { text: M.str.repository.renameto + ' "' + data.newfile.filename + '"', handler: handleRename },
+                 { text: M.str.repository.renameto + ' "' + data.newfile.filename + '"', handler: handleRename },
 @@ -290,8 +311,10 @@ M.core_filepicker.init = function(Y, options) {
                  this.hide();
              }
@@ -97,17 +97,7 @@ index 25adcab..2c958ce 100644
                         constraintoviewport: true,
                         buttons: [{ text:M.str.moodle.ok, handler:handleYes, isDefault:true }]
                       });
-@@ -321,6 +344,9 @@ M.core_filepicker.init = function(Y, options) {
-         build_tree: function(node, level) {
-             var client_id = this.options.client_id;
-             var dynload = this.active_repo.dynload;
-+            if(node.children) {
-+                node.title = node.title;
-+            }
-             var info = {
-                 label:node.title,
-                 //title:fp_lang.date+' '+node.date+fp_lang.size+' '+node.size,
-@@ -330,6 +356,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -330,6 +353,7 @@ M.core_filepicker.init = function(Y, options) {
                  path:node.path?node.path:[]
              };
              var tmpNode = new YAHOO.widget.TextNode(info, level, false);
@@ -115,7 +105,7 @@ index 25adcab..2c958ce 100644
              if(node.repo_id) {
                  tmpNode.repo_id=node.repo_id;
              }else{
-@@ -356,18 +383,62 @@ M.core_filepicker.init = function(Y, options) {
+@@ -356,18 +380,62 @@ M.core_filepicker.init = function(Y, options) {
                  tmpNode.isLeaf = true;
              }
          },
@@ -165,7 +155,7 @@ index 25adcab..2c958ce 100644
 +                if (this.viewmode == 3) {
 +                    this.view_as_details();
 +                } else {
-                     this.view_as_icons();
+                 this.view_as_icons();
 +                }
              } else {
                  this.viewbar.set('disabled', false);
@@ -178,7 +168,7 @@ index 25adcab..2c958ce 100644
                  } else {
                      this.view_as_icons();
                  }
-@@ -395,6 +466,28 @@ M.core_filepicker.init = function(Y, options) {
+@@ -395,6 +463,28 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }, false);
          },
@@ -207,7 +197,7 @@ index 25adcab..2c958ce 100644
          view_as_list: function(p) {
              var scope = this;
              var page = null;
-@@ -447,15 +540,23 @@ M.core_filepicker.init = function(Y, options) {
+@@ -447,15 +537,23 @@ M.core_filepicker.init = function(Y, options) {
                      for(k in list) {
                          scope.build_tree(list[k], scope.treeview.getRoot());
                      }
@@ -219,19 +209,19 @@ index 25adcab..2c958ce 100644
 +                                window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+e.node.data.source);
 +                            } else {
 +                                // show the file details, allow select
-                                 var fileinfo = {};
-                                 fileinfo['title'] = e.node.data.filename;
-                                 fileinfo['source'] = e.node.data.source;
-                                 fileinfo['thumbnail'] = e.node.data.thumbnail;
-                                 scope.select_file(fileinfo);
-                             }
+                             var fileinfo = {};
+                             fileinfo['title'] = e.node.data.filename;
+                             fileinfo['source'] = e.node.data.source;
+                             fileinfo['thumbnail'] = e.node.data.thumbnail;
+                             scope.select_file(fileinfo);
+                         }
 +                        }
                      });
 +
                      scope.treeview.draw();
                  }
              }, true);
-@@ -464,6 +565,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -464,6 +562,7 @@ M.core_filepicker.init = function(Y, options) {
              var scope = this;
              var client_id = this.options.client_id;
              var list = this.filelist;
@@ -239,7 +229,7 @@ index 25adcab..2c958ce 100644
              var panel_id = '#panel-'+client_id;
              this.viewmode = 1;
              Y.one(panel_id).set('innerHTML', '');
-@@ -553,6 +655,16 @@ M.core_filepicker.init = function(Y, options) {
+@@ -553,6 +652,16 @@ M.core_filepicker.init = function(Y, options) {
                      fileinfo['thumbnail'] = list[k].thumbnail;
                      fileinfo['haslicense'] = list[k].haslicense?true:false;
                      fileinfo['hasauthor'] = list[k].hasauthor?true:false;
@@ -253,17 +243,17 @@ index 25adcab..2c958ce 100644
 +                        }, this, fileinfo);
 +                    } else {
 +                        // show the file details, allow select
-                         y_title.on('click', function(e, args) {
-                             this.select_file(args);
-                         }, this, fileinfo);
-@@ -560,9 +672,160 @@ M.core_filepicker.init = function(Y, options) {
-                             this.select_file(args);
-                         }, this, fileinfo);
-                     }
+                     y_title.on('click', function(e, args) {
+                         this.select_file(args);
+                     }, this, fileinfo);
+@@ -560,9 +669,160 @@ M.core_filepicker.init = function(Y, options) {
+                         this.select_file(args);
+                     }, this, fileinfo);
+                 }
 +                }
-+                count++;
-+            }
-+        },
+                 count++;
+             }
+         },
 +        view_as_details: function() {
 +            var scope = this;
 +            var client_id = this.options.client_id;
@@ -399,8 +389,8 @@ index 25adcab..2c958ce 100644
 +                            }, this, fileinfo);
 +                        }
 +                    }
-                     count++;
-                 }
++                    count++;
++                }
 +                YUI().use('event-delegate', 'node', function(Y) {
 +                    Y.delegate('click', function(e) {
 +                        Y.all('input.' + e.currentTarget.get('value')).set('checked', e.currentTarget.get('checked'));
@@ -412,12 +402,12 @@ index 25adcab..2c958ce 100644
 +                    Y.all('input.' + e.currentTarget.get('value')).set('checked', e.currentTarget.get('checked'));
 +                }, 'table.display', 'input.chkbxSelectAll');
 +            });
-         },
++        },
 +
          select_file: function(args) {
              var client_id = this.options.client_id;
              var thumbnail = Y.one('#fp-grid-panel-'+client_id);
-@@ -581,6 +844,11 @@ M.core_filepicker.init = function(Y, options) {
+@@ -581,6 +841,11 @@ M.core_filepicker.init = function(Y, options) {
              if(path){
                  path.setStyle('display', 'none');
              }
@@ -429,7 +419,7 @@ index 25adcab..2c958ce 100644
              var panel = Y.one('#panel-'+client_id);
              var form_id = 'fp-rename-form-'+client_id;
              var html = '<div class="fp-rename-form" id="'+form_id+'">';
-@@ -792,14 +1060,25 @@ M.core_filepicker.init = function(Y, options) {
+@@ -792,14 +1057,25 @@ M.core_filepicker.init = function(Y, options) {
                      }
                  }
              };
@@ -457,7 +447,7 @@ index 25adcab..2c958ce 100644
              var r = this.options.repositories;
              Y.on('contentready', function(el) {
                  var list = Y.one(el);
-@@ -831,9 +1110,109 @@ M.core_filepicker.init = function(Y, options) {
+@@ -831,9 +1107,109 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }, '#fp-list-'+client_id, this /* handler running scope */, '#fp-list-'+client_id /*first argument of handler*/);
          },
@@ -567,7 +557,7 @@ index 25adcab..2c958ce 100644
              this.active_repo = {};
              this.active_repo.issearchresult = Boolean(data.issearchresult);
              this.active_repo.dynload = data.dynload?data.dynload:false;
-@@ -846,6 +1225,8 @@ M.core_filepicker.init = function(Y, options) {
+@@ -846,6 +1222,8 @@ M.core_filepicker.init = function(Y, options) {
              this.active_repo.logouttext = data.logouttext?data.logouttext:null;
              this.active_repo.help = data.help?data.help:null;
              this.active_repo.manage = data.manage?data.manage:null;
@@ -576,7 +566,7 @@ index 25adcab..2c958ce 100644
          },
          print_login: function(data) {
              this.parse_repository_options(data);
-@@ -1100,6 +1481,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1100,6 +1478,7 @@ M.core_filepicker.init = function(Y, options) {
              if (!args.repo_id) {
                  args.repo_id = scope.active_repo.id;
              }
@@ -584,7 +574,7 @@ index 25adcab..2c958ce 100644
              scope.request({
                  action:'list',
                  client_id: scope.options.client_id,
-@@ -1122,6 +1504,11 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1122,6 +1501,11 @@ M.core_filepicker.init = function(Y, options) {
  
                      } else if (obj.iframe) {
  
@@ -596,14 +586,10 @@ index 25adcab..2c958ce 100644
                      } else if (obj.list) {
                          obj.issearchresult = false;
                          scope.viewbar.set('disabled', false);
-@@ -1131,28 +1518,120 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1131,6 +1515,98 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }, true);
          },
--        create_upload_form: function(data) {
--            var client_id = this.options.client_id;
--            Y.one('#panel-'+client_id).set('innerHTML', '');
--            var types = this.options.accepted_types;
 +        create_newdir_popup: function(id, obj, args) {
 +            var scope = args.scope;
 +            var client_id = scope.options.client_id;
@@ -616,20 +602,7 @@ index 25adcab..2c958ce 100644
 +            }
 +            var container = document.createElement('DIV');
 +            container.id = 'fp-newdir-dlg';
- 
--            this.print_header();
--            var id = data.upload.id+'_'+client_id;
--            var str = '<div id="'+id+'_div" class="fp-upload-form mdl-align">';
--            str += '<form id="'+id+'" enctype="multipart/form-data" method="POST">';
--            str += '<table width="100%">';
--            str += '<tr><td class="mdl-right">';
--            str += '<label for="'+id+'_file">'+data.upload.label+': </label></td>';
--            str += '<td class="mdl-left"><input type="file" id="'+id+'_file" name="repo_upload_file" />';
--            str += '<tr><td class="mdl-right"><label for="newname-'+client_id+'">'+M.str.repository.saveas+':</label></td>';
--            str += '<td class="mdl-left"><input type="text" name="title" id="newname-'+client_id+'" value="" /></td></tr>';
--            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" />';
--            for (var i in types) {
--                str += '<input type="hidden" name="accepted_types[]" value="'+types[i]+'" />';
++
 +            var dlg_title = document.createElement('DIV');
 +            dlg_title.className = 'hd';
 +            dlg_title.innerHTML = M.str.repository.entername;
@@ -653,10 +626,7 @@ index 25adcab..2c958ce 100644
 +                if (!foldername) {
 +                    alert(M.str.repository_elis_files.pleaseenterfoldername);
 +                    return;
-                 }
--            str += '</td></tr><tr>';
--            str += '<td class="mdl-right"><label>'+M.str.repository.author+': </label></td>';
--            str += '<td class="mdl-left"><input type="text" name="author" value="'+this.options.author+'" /></td>';
++                }
 +                var parentuuid = Y.one('#parentuuid').get('value');
 +                var params = {};
 +                params['newdirname']=foldername;
@@ -712,43 +682,11 @@ index 25adcab..2c958ce 100644
 +            YAHOO.util.Event.addListener("fp-newdir-form", "submit", dialog_handler, newdir_dialog, true);
 +            document.getElementById('newdirname').focus();
 +        },
-+        create_upload_form: function(data) {
-+            var client_id = this.options.client_id;
-+            Y.one('#panel-'+client_id).set('innerHTML', '');
-+            var types = this.options.accepted_types;
-+
-+            this.print_header();
-+            var id = data.upload.id+'_'+client_id;
-+            var str = '<div id="'+id+'_div" class="fp-upload-form mdl-align">';
-+            str += '<form id="'+id+'" enctype="multipart/form-data" method="POST">';
-+            str += '<table width="100%">';
-+            str += '<tr><td class="mdl-right">';
-+            str += '<label for="'+id+'_file">'+data.upload.label+': </label></td>';
-+            str += '<td class="mdl-left"><input type="file" id="'+id+'_file" name="repo_upload_file" />';
-+            str += '<tr><td class="mdl-right"><label for="newname-'+client_id+'">'+M.str.repository.saveas+':</label></td>';
-+            str += '<td class="mdl-left"><input type="text" name="title" id="newname-'+client_id+'" value="" /></td></tr>';
-+            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" />';
-+            for (var i in types) {
-+                str += '<input type="hidden" name="accepted_types[]" value="'+types[i]+'" />';
-+            }
-+            str += '</td></tr><tr>';
-+            str += '<td class="mdl-right"><label>'+M.str.repository.author+': </label></td>';
-+            str += '<td class="mdl-left"><input type="text" name="author" value="'+this.options.author+'" /></td>';
-             str += '</tr>';
-             str += '<tr>';
-             str += '<td class="mdl-right">'+M.str.repository.chooselicense+': </td>';
-@@ -1196,9 +1675,6 @@ M.core_filepicker.init = function(Y, options) {
-                         params: {'savepath':scope.options.savepath},
-                         repository_id: scope.active_repo.id,
-                         form: {id: id, upload:true},
--                            onerror: function(id, o, args) {
--                                scope.create_upload_form(data);
--                            },
-                         callback: function(id, o, args) {
-                             if (scope.options.editor_target&&scope.options.env=='editor') {
-                                 scope.options.editor_target.value=o.url;
-@@ -1218,11 +1694,394 @@ M.core_filepicker.init = function(Y, options) {
-                 });
+         create_upload_form: function(data) {
+             var client_id = this.options.client_id;
+             Y.one('#panel-'+client_id).set('innerHTML', '');
+@@ -1216,11 +1692,394 @@ M.core_filepicker.init = function(Y, options) {
+                 }, true);
              }, this);
          },
 +        create_upload_popup: function(id, obj, args) {
@@ -1142,7 +1080,7 @@ index 25adcab..2c958ce 100644
              var panel = Y.one('#panel-'+client_id);
              var str = '<div id="fp-header-'+client_id+'">';
              str += '<div class="fp-toolbar" id="repo-tb-'+client_id+'"></div>';
-@@ -1235,8 +2094,8 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1233,8 +2092,8 @@ M.core_filepicker.init = function(Y, options) {
  
              var toolbar = Y.one('#repo-tb-'+client_id);
  
@@ -1153,7 +1091,7 @@ index 25adcab..2c958ce 100644
                  var search = Y.Node.create(html);
                  search.on('click', function() {
                      scope.request({
-@@ -1262,15 +2121,71 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1260,15 +2119,71 @@ M.core_filepicker.init = function(Y, options) {
                              var dlg_body = document.createElement('DIV');
                              dlg_body.className = 'bd';
  
@@ -1225,15 +1163,15 @@ index 25adcab..2c958ce 100644
                              var search_dialog= null;
                              function dialog_handler() {
                                  scope.viewbar.set('disabled', false);
-@@ -1281,6 +2196,7 @@ M.core_filepicker.init = function(Y, options) {
-                                     repository_id: repository_id,
-                                     form: {id: 'fp-search-form',upload:false,useDisabled:true},
-                                     callback: function(id, o, args) {
+@@ -1279,6 +2194,7 @@ M.core_filepicker.init = function(Y, options) {
+                                         repository_id: repository_id,
+                                         form: {id: 'fp-search-form',upload:false,useDisabled:true},
+                                         callback: function(id, o, args) {
 +                                        o.issearchresult = true;
-                                         scope.parse_repository_options(o);
-                                         scope.view_files();
-                                     }
-@@ -1297,32 +2213,46 @@ M.core_filepicker.init = function(Y, options) {
+                                             scope.parse_repository_options(o);
+                                             scope.view_files();
+                                         }
+@@ -1295,32 +2211,46 @@ M.core_filepicker.init = function(Y, options) {
                              search_dialog = new YAHOO.widget.Dialog("fp-search-dlg", {
                                 postmethod: 'async',
                                 draggable: true,
@@ -1287,7 +1225,7 @@ index 25adcab..2c958ce 100644
              if(!r.norefresh) {
                  var html = '<a href="###"><img src="'+M.util.image_url('a/refresh')+'" /> '+M.str.repository.refresh+'</a>';
                  var refresh = Y.Node.create(html);
-@@ -1365,6 +2295,46 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1363,6 +2293,46 @@ M.core_filepicker.init = function(Y, options) {
                  toolbar.appendChild(help);
              }
  
@@ -1334,15 +1272,15 @@ index 25adcab..2c958ce 100644
              this.print_path();
          },
          get_page_button: function(page) {
-@@ -1456,7 +2426,6 @@ M.core_filepicker.init = function(Y, options) {
-                                         scope.view_files(result[1]);
-                                     }
+@@ -1454,7 +2424,6 @@ M.core_filepicker.init = function(Y, options) {
+                                             scope.view_files(result[1]);
+                                         }
                                  }, true);
 -
                              } else {
                                  if (scope.viewmode == 2) {
                                      scope.view_as_list(result[1]);
-@@ -1488,6 +2457,45 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1486,6 +2455,45 @@ M.core_filepicker.init = function(Y, options) {
                          this.list({'path':path});
                          }, this, link_path)
                  }

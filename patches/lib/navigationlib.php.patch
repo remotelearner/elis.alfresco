@@ -1,8 +1,8 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index 93d822f..4bc53fe 100644
+index bc68711..9d7ebd4 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
-@@ -3307,6 +3307,16 @@ class settings_navigation extends navigation_node {
+@@ -3295,6 +3295,16 @@ class settings_navigation extends navigation_node {
              $coursenode->add(get_string('courselegacyfiles'), $url, self::TYPE_SETTING, null, 'coursefiles', new pix_icon('i/files', ''));
          }
  

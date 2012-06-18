@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index 4c08ba1..8290942 100644
+index b7793c8..d4de70d 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -25,7 +25,6 @@
@@ -10,7 +10,7 @@ index 4c08ba1..8290942 100644
  define('AJAX_SCRIPT', true);
  
  require_once(dirname(dirname(__FILE__)).'/config.php');
-@@ -50,6 +49,7 @@ $accepted_types  = optional_param('accepted_types', '*', PARAM_RAW);
+@@ -50,6 +49,7 @@ $accepted_types  = optional_param_array('accepted_types', '*', PARAM_RAW);
  $saveas_filename = optional_param('title', '', PARAM_FILE);     // save as file name
  $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file path
  $search_text   = optional_param('s', '', PARAM_CLEANHTML);

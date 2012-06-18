@@ -1,16 +1,7 @@
 diff --git a/lib/outputrequirementslib.php b/lib/outputrequirementslib.php
-index 109bfa1..13aab02 100644
+index 834604c..6fc331c 100644
 --- a/lib/outputrequirementslib.php
 +++ b/lib/outputrequirementslib.php
-@@ -396,7 +396,7 @@ class page_requirements_manager {
-                 case 'core_filepicker':
-                     $module = array('name'     => 'core_filepicker',
-                                     'fullpath' => '/repository/filepicker.js',
--                                    'requires' => array('base', 'node', 'node-event-simulate', 'json', 'async-queue', 'io', 'yui2-button', 'yui2-container', 'yui2-layout', 'yui2-menu', 'yui2-treeview', 'yui2-dragdrop', 'yui2-cookie'),
-+                                    'requires' => array('base', 'node', 'node-event-simulate', 'json', 'async-queue', 'io', 'yui2-button', 'yui2-container', 'yui2-layout', 'yui2-menu', 'yui2-tabview', 'yui2-treeview', 'yui2-dragdrop', 'yui2-cookie'),
-                                     'strings'  => array(array('add', 'repository'), array('back', 'repository'), array('cancel', 'moodle'), array('close', 'repository'),
-                                                         array('cleancache', 'repository'), array('copying', 'repository'), array('date', 'repository'), array('downloadsucc', 'repository'),
-                                                         array('emptylist', 'repository'), array('error', 'repository'), array('federatedsearch', 'repository'),
 @@ -414,7 +414,28 @@ class page_requirements_manager {
                                                          array('nofilesavailable', 'repository'), array('overwrite', 'repository'),
                                                          array('renameto', 'repository'), array('fileexists', 'repository'),
