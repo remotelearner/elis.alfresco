@@ -1,8 +1,8 @@
 diff --git a/lib/outputrequirementslib.php b/lib/outputrequirementslib.php
-index 834604c..6fc331c 100644
+index 79da0c0..ed1fe87 100644
 --- a/lib/outputrequirementslib.php
 +++ b/lib/outputrequirementslib.php
-@@ -414,7 +414,28 @@ class page_requirements_manager {
+@@ -420,7 +420,28 @@ class page_requirements_manager {
                                                          array('nofilesavailable', 'repository'), array('overwrite', 'repository'),
                                                          array('renameto', 'repository'), array('fileexists', 'repository'),
                                                          array('fileexistsdialogheader', 'repository'), array('fileexistsdialog_editor', 'repository'),
