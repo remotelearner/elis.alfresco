@@ -1,0 +1,911 @@
+diff --git a/repository/filepicker.js b/repository/filepicker.js
+index 9654045..f53b422 100644
+--- a/repository/filepicker.js
++++ b/repository/filepicker.js
+@@ -40,6 +40,7 @@
+  * this.pages
+  * this.page
+  * this.filepath, current path
++ * this.parentuuid, current parent of the directory listing
+  * this.logindata, cached login form
+  */
+ 
+@@ -455,7 +456,7 @@ YUI.add('moodle-core_filepicker', function(Y) {
+         return Y.one('#filesskin').appendChild(Y.Node.create(node));
+     }
+ }, '@VERSION@', {
+-    requires:['base', 'node', 'yui2-treeview', 'panel', 'cookie', 'datatable', 'datatable-sort']
++    requires:['base', 'node', 'yui2-treeview', 'yui2-button', 'yui2-menu', 'yui2-cookie', 'panel', 'cookie', 'datatable', 'datatable-sort']
+ });
+ 
+ M.core_filepicker = M.core_filepicker || {};
+@@ -543,6 +544,13 @@ M.core_filepicker.init = function(Y, options) {
+             params['client_id'] = args.client_id;
+             params['itemid'] = this.options.itemid?this.options.itemid:0;
+             params['maxbytes'] = this.options.maxbytes?this.options.maxbytes:-1;
++
++            // RL edit: send along the list of categories for filtering
++            if (args.categories !== undefined && args.categories !== null) {
++                params['categories'] = args.categories;
++            }
++            // end of RL edit
++
+             if (this.options.context && this.options.context.id) {
+                 params['ctx_id'] = this.options.context.id;
+             }
+@@ -557,10 +565,16 @@ M.core_filepicker.init = function(Y, options) {
+                     var value = params[k];
+                     if(value instanceof Array) {
+                         for(var i in value) {
+-                            list.push(k+'[]='+value[i]);
++                            // RL edit - urlencode to prevent mangling of base64 encoded
++                            // serialized "paths"
++                            var encoded_value = encodeURIComponent(value[i]);
++                            list.push(k+'[]='+encoded_value);
+                         }
+                     } else {
+-                        list.push(k+'='+value);
++                        // RL edit - urlencode to prevent mangling of base64 encoded
++                        // serialized "paths"
++                        var encoded_value = encodeURIComponent(value);
++                        list.push(k+'='+encoded_value);
+                     }
+                 }
+                 params = list.join('&');
+@@ -601,6 +615,10 @@ M.core_filepicker.init = function(Y, options) {
+                             if (args.action != 'upload' && data.allowcaching) {
+                                 scope.cached_responses[params] = data;
+                             }
++                            if (data && data.parentpath) {
++                                // Set the parent path in the provider scope (i.e. the caller)
++                                scope.set_parentpath(data.parentpath);
++                            }
+                             // invoke callback
+                             args.callback(id,data,p);
+                         }
+@@ -641,6 +659,23 @@ M.core_filepicker.init = function(Y, options) {
+                 params['existingfilepath'] = data.existingfile.filepath;
+                 params['newfilename'] = data.newfile.filename;
+                 params['newfilepath'] = data.newfile.filepath;
++                // duplicate info for elis files
++                params['duplicateelisfiles'] = data.duplicateelisfiles;
++                params['duplicateuuid'] = data.duplicateuuid;
++                // duplicate info for temp file
++                params['overwrite'] = true;
++                if (data.duplicateelisfiles !== undefined) {
++                    params['duplicatefilemetapath'] = data.duplicatefilemeta.filepath;
++                    params['duplicatefilemetasize'] = data.duplicatefilemeta.size;
++                    params['duplicatefilemetatype'] = data.duplicatefilemeta.type;
++                    params['duplicatefilemetaname'] = data.duplicatefilemeta.name;
++                    // pass encoded Alfresco save path
++                    params['savepath'] = data.existingfile.filepath;
++                } else {
++                    params['duplicateelisfiles'] = false;
++                    params['duplicateuuid'] = false;
++                    data.duplicaterepo_id = this.active_repo.id;
++                }
+                 this.hide_header();
+                 this.request({
+                     'params': params,
+@@ -648,7 +683,7 @@ M.core_filepicker.init = function(Y, options) {
+                     'action':'overwrite',
+                     'path': '',
+                     'client_id': this.options.client_id,
+-                    'repository_id': this.active_repo.id,
++                    'repository_id': data.duplicaterepo_id,
+                     'callback': function(id, o, args) {
+                         scope.hide();
+                         // editor needs to update url
+@@ -663,6 +698,14 @@ M.core_filepicker.init = function(Y, options) {
+                             var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
+                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                         }
++                        // do a scope callback for elis files after overwrite
++                        if (scope.options.env !== 'filepicker' && data.duplicateelisfiles !== undefined) {
++                            var fileinfo = {'client_id':scope.options.client_id,
++                                    'url':data.existingfile.url,
++                                    'file':data.existingfile.filename};
++                            var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
++                            scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
++                        }
+                     }
+                 }, true);
+             }
+@@ -671,6 +714,38 @@ M.core_filepicker.init = function(Y, options) {
+                 e.preventDefault();
+                 var scope = this;
+                 var data = this.process_dlg.dialogdata;
++                // add elis files rename parameters and request...
++                if (data.duplicateelisfiles !== undefined) {
++                    var params = {};
++                    // pass duplicate parent folder and flag
++                    params['duplicateelisfiles'] = data.duplicateelisfiles;
++                    params['duplicateuuid'] = data.duplicateuuid;
++                    // pass duplicate temp folder info
++                    params['duplicatefilemetapath'] = data.duplicatefilemeta.filepath;
++                    params['duplicatefilemetasize'] = data.duplicatefilemeta.size;
++                    params['duplicatefilemetatype'] = data.duplicatefilemeta.type;
++                    params['duplicatefilemetaname'] = data.duplicatefilemeta.name;
++                    // pass encoded Alfresco save path
++                    params['savepath'] = data.existingfile.filepath;
++                    // pass generated new filename
++                    params['newfilename'] = data.newfile.filename;
++                    params['existingfilename'] = data.existingfile.filename;
++                    this.hide_header();
++                    this.request({
++                        'params': params,
++                        'scope': this,
++                        'action':'upload',
++                        'path': '',
++                        'client_id': this.options.client_id,
++                        'repository_id': data.duplicaterepo_id,
++                        'callback': function(id, o, args) {
++                            // RL EDIT: ELIS-7002
++                            if (o.event == 'fileexists') {
++                                scope.process_existing_file(o);
++                                return;
++                            }
++                            // editor needs to rename and upload new file
++                            // filemanager do nothing
+                             if (scope.options.editor_target && scope.options.env == 'editor') {
+                                 scope.options.editor_target.value = data.newfile.url;
+                                 scope.options.editor_target.onchange();
+@@ -682,6 +757,20 @@ M.core_filepicker.init = function(Y, options) {
+                                     'file':data.newfile.filename};
+                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                         }
++                    }, true);
++                } else {
++                    if (scope.options.editor_target && scope.options.env == 'editor') {
++                        scope.options.editor_target.value = data.newfile.url;
++                        scope.options.editor_target.onchange();
++                    }
++                    scope.hide();
++                    var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
++                    var fileinfo = {'client_id':scope.options.client_id,
++                                    'url':data.newfile.url,
++                                    'file':data.newfile.filename};
++                    scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
++                }
++            }
+             var handleCancel = function(e) {
+                 // Delete tmp file
+                 e.preventDefault();
+@@ -1042,11 +1131,19 @@ M.core_filepicker.init = function(Y, options) {
+                 }
+             }, false);
+         },
++        // Setter for the parent path attribute
++        set_parentpath: function(parentpath) {
++            this.parentpath = parentpath;
++        },
+         select_file: function(args) {
+             this.selectui.show();
+             var client_id = this.options.client_id;
+             var selectnode = this.selectnode;
+             var return_types = this.options.repositories[this.active_repo.id].return_types;
++            var toelisfiles = (this.options.savepath.substr(0,1) != "/");
++            if (toelisfiles) {
++                return_types = 2;
++            }
+             selectnode.removeClass('loading');
+             selectnode.one('.fp-saveas input').set('value', args.title);
+ 
+@@ -1083,6 +1180,9 @@ M.core_filepicker.init = function(Y, options) {
+             // TODO MDL-32532: attributes 'hasauthor' and 'haslicense' need to be obsolete,
+             selectnode.one('.fp-setauthor input').set('value', args.author ? args.author : this.options.author);
+             this.set_selected_license(selectnode.one('.fp-setlicense'), args.license);
++            if (toelisfiles) {
++                selectnode.all('.fp-setauthor input, .fp-setlicense select').set('disabled', 'disabled');
++            }
+             selectnode.one('form #filesource-'+client_id).set('value', args.source);
+ 
+             // display static information about a file (when known)
+@@ -1358,6 +1458,28 @@ M.core_filepicker.init = function(Y, options) {
+             }
+             // display repository that was used last time
+             this.show_recent_repository();
++
++            // RL edit: close the advanced search dialog when the file picker closes
++            var title_bars = Y.all('.yui3-widget-hd');
++
++            for (var i = 0; i < title_bars.size(); i++) {
++                // Find close buttons belonging to title bars
++                var title_bar = title_bars.item(i);
++                var close_button = title_bar.one('.yui3-button-close');
++
++                var display = close_button.getStyle('display');
++                if (display != 'none') {
++                    // This is the main title bar, so add a handler to close the
++                    // advanced search dialog when this is clicked
++                    close_button.on('click', function(e) {
++                        var search_dialog = Y.one('#fp-search-dlg');
++                        if (search_dialog != null) {
++                            search_dialog.one('.container-close').simulate('click');
++                        }
++                    });
++                }
++            }
++            // End of RL edit
+         },
+         parse_repository_options: function(data, appendtolist) {
+             if (appendtolist) {
+@@ -1373,8 +1495,11 @@ M.core_filepicker.init = function(Y, options) {
+                 this.filelist = data.list?data.list:null;
+                 this.lazyloading = {};
+             }
+-            this.filepath = data.path?data.path:null;
+-            this.objecttag = data.object?data.object:null;
++            this.filepath = data.path?data.path:null; // elis_files: current filepath
++            this.filelist = data.list?data.list:null; // elis_files: filelist
++            this.parentuuid = data.thisuuid?data.thisuuid:'';  // elis_files: current parent of the folder we are viewing
++            this.detailcols = data.detailcols?data.detailcols:null; // elis_files: configurable columns - N/A for 2.3
++            this.locations = data.locations?data.locations:null; // elis_files: used for the Jump menu
+             this.active_repo = {};
+             this.active_repo.issearchresult = data.issearchresult ? true : false;
+             this.active_repo.dynload = data.dynload?data.dynload:false;
+@@ -1384,7 +1509,10 @@ M.core_filepicker.init = function(Y, options) {
+             this.active_repo.id = data.repo_id?data.repo_id:null;
+             this.active_repo.nosearch = (data.login || data.nosearch); // this is either login form or 'nosearch' attribute set
+             this.active_repo.norefresh = (data.login || data.norefresh); // this is either login form or 'norefresh' attribute set
++            this.active_repo.refreshtooltip = data.refreshtooltip ? data.refreshtooltip : false; // RL edit: this is true for ELIS files, so that the refresh icon has a tooltip
+             this.active_repo.nologin = (data.login || data.nologin); // this is either login form or 'nologin' attribute is set
++            this.active_repo.advancedsearch = data.advancedsearch ? data.advancedsearch : false; // RL edit: this is true for ELIS Files, so that an advanced search button is added
++            this.active_repo.executesearch = data.executesearch ? data.executesearch : false; // RL edit: this is true for ELIS Files, so that a search button is added
+             this.active_repo.logouttext = data.logouttext?data.logouttext:null;
+             this.active_repo.logouturl = (data.logouturl || '');
+             this.active_repo.message = (data.message || '');
+@@ -1526,6 +1654,53 @@ M.core_filepicker.init = function(Y, options) {
+                 }, this);
+             }
+         },
++        set_jumpto_state: function(p_extra) {
++            // Current browsing location
++            var location = p_extra[0];
++
++            var scope = p_extra[1];    // no longer used
++            var node = p_extra[2];     // no longer used
++            var menudata = p_extra[3]; // no longer used
++            var itemid = p_extra[4];   // no longer used
++
++            // "Jump to" locations
++            var locations = this.locations;
++            if (!locations || locations.length < 1) {
++                var jumpnode = Y.one('.fp-vb-menu-jumpto');
++                if (jumpnode) {
++                    jumpnode.innerHTML = '';
++                }
++                return;
++            }
++
++            menudata = [];
++            var j = 0;
++            for (var i = 0; i < locations.length; i++) {
++                var link_path = locations[i].path;
++                var link_name = locations[i].name;
++                var link_style = 'display: inline';
++
++                // Determine if the "Jump to" UUID is present anywhere up the
++                // directory structure
++                var found = false;
++                if (this.parentpath) {
++                    for (var k = 0; k < this.parentpath.length; k++) {
++                        if (this.parentpath[k] == locations[i].unbiasedpath) {
++                            found = true;
++                            break;
++                        }
++                    }
++                }
++
++                // Not found, so add the location to the menu
++                if (!found) {
++                    menudata[j] = { text: link_name, value: link_path, style: link_style, onclick: { fn: this.on_location_item_click, obj:[link_path,this,node,menudata,j], scope: this } };
++                    ++j;
++                }
++            }
++
++            this.update_locations_menu(menudata);
++        },
+         display_response: function(id, obj, args) {
+             var scope = args.scope
+             // highlight the current repository in repositories list
+@@ -1556,6 +1731,8 @@ M.core_filepicker.init = function(Y, options) {
+                 scope.parse_repository_options(obj);
+                 scope.view_files();
+             }
++
++            scope.set_jumpto_state(scope.filepath);
+         },
+         list: function(args) {
+             if (!args) {
+@@ -1564,6 +1741,11 @@ M.core_filepicker.init = function(Y, options) {
+             if (!args.repo_id) {
+                 args.repo_id = this.active_repo.id;
+             }
++            if (args.repo_id == this.get_repo_id(this.options.repositories, 'elis_files')) {
++                this.show_jumpto();
++            } else {
++                this.hide_jumpto();
++            }
+             this.request({
+                 action: 'list',
+                 client_id: this.options.client_id,
+@@ -1620,6 +1802,7 @@ M.core_filepicker.init = function(Y, options) {
+             var client_id = this.options.client_id;
+             var id = data.upload.id+'_'+client_id;
+             var content = this.fpnode.one('.fp-content');
++            var toelisfiles = (this.options.savepath.substr(0,1) != "/");
+             var template_name = 'uploadform_'+this.options.repositories[data.repo_id].type;
+             var template = M.core_filepicker.templates[template_name] || M.core_filepicker.templates['uploadform'];
+             content.setContent(template);
+@@ -1636,6 +1819,9 @@ M.core_filepicker.init = function(Y, options) {
+             content.one('.fp-setauthor input').setAttrs({name:'author', value:this.options.author});
+             content.one('.fp-setlicense select').set('name', 'license');
+             this.populate_licenses_select(content.one('.fp-setlicense select'))
++            if (toelisfiles) { // RL EDIT: ELIS-5750
++                content.all('.fp-setauthor input, .fp-setlicense select').set('disabled', 'disabled');
++            }
+             // append hidden inputs to the upload form
+             content.one('form').appendChild(Y.Node.create('<input/>').
+                 setAttrs({type:'hidden',name:'itemid',value:this.options.itemid}));
+@@ -1656,12 +1842,16 @@ M.core_filepicker.init = function(Y, options) {
+                     return false;
+                 }
+                 this.hide_header();
++                var repo_id = scope.active_repo.id;
++                if (scope.options.savepath.indexOf('/') == -1) {
++                    repo_id = this.get_repo_id(this.options.repositories, 'elis_files');
++                }
+                 scope.request({
+                         scope: scope,
+                         action:'upload',
+                         client_id: client_id,
+                         params: {'savepath':scope.options.savepath},
+-                        repository_id: scope.active_repo.id,
++                        repository_id: repo_id,
+                         form: {id: id, upload:true},
+                         onerror: function(id, o, args) {
+                             scope.create_upload_form(data);
+@@ -1684,6 +1874,96 @@ M.core_filepicker.init = function(Y, options) {
+                 }, true);
+             }, this);
+         },
++        get_repo_id: function(repositories, type) {
++            var ret = false;
++            for (var i in repositories) {
++                //alert('filepicker.js::get_repo_id(); repository[' + i
++                //      + '].type = ' + repositories[i].type);
++                if (repositories[i].type == type) {
++                    ret = repositories[i].id;
++                    break;
++                }
++            }
++            return ret;
++        },
++        /**
++         * Obtain the list of categories currently selected in the tree
++         * (created by RL)
++         *
++         * @return mixed Array of category ids, or null if none
++         */
++        get_search_categories: function() {
++            // Obtain the set of checkboxes in the category tree
++            var form = Y.one('#fp-search-form');
++
++            if (form === null) {
++                // Form not displayed, so text-only search
++                return null;
++            }
++
++            var checkboxes = form.all('input[type="checkbox"]');
++
++            // Obtain the set of category ids that have been selected
++            var categoryids = [];
++            for (var i = 0; i < checkboxes.size(); i++) {
++                var item = checkboxes.item(i);
++
++                var checked = item.get('checked');
++                if (checked) {
++                    // Checked, so include it
++                    categoryids[categoryids.length] = item.get('value');
++                }
++            }
++
++            if (categoryids.length > 0) {
++                // Will be filtering
++                return categoryids;
++            } else {
++                // Will not be filtering
++                return null;
++            }
++        },
++        /**
++         * Mainline for executing a content search, and updating the filepicker
++         * listing with the associated results
++         * (created by RL)
++         *
++         * @param object e The event that triggered the search
++         */
++        execute_search: function(e) {
++            // RL edit: Obtain the set of selected categories
++            var categoryids = this.get_search_categories();
++
++            // Required in the handling of the search form
++            var client_id = this.options.client_id;
++
++            e.preventDefault();
++            // RL EDIT: ELIS-7143
++            var srchstr = Y.one('input[name="s"]');
++            //alert('setup_toolbar:search = \''+ srchstr.get('value') + '\'');
++
++            // RL edit: only search if text or category selected
++            var have_search_criteria = categoryids != null || srchstr.get('value').length;
++            if (!this.active_repo.nosearch && have_search_criteria) {
++                // RL edit: close the dialog whenever a search happens
++                var search_dialog = Y.one('#fp-search-dlg');
++                if (search_dialog != null) {
++                    search_dialog.one('.container-close').simulate('click');
++                }
++                // End of RL edit
++
++                this.request({
++                    scope: this,
++                    action:'search',
++                    // RL edit: pass along the selected category set
++                    categories: categoryids,
++                    client_id: this.options.client_id,
++                    repository_id: this.active_repo.id,
++                    form: {id: 'fp-tb-search-'+client_id, upload:false, useDisabled:true},
++                    callback: this.display_response
++                }, true);
++            }
++        },
+         /** setting handlers and labels for elements in toolbar. Called once during the initial render of filepicker */
+         setup_toolbar: function() {
+             var client_id = this.options.client_id;
+@@ -1710,9 +1990,13 @@ M.core_filepicker.init = function(Y, options) {
+                     this.list();
+                 }
+             }, this);
++            // RL edit: use the refactored "execute_search" method to perform the search
+             toolbar.one('.fp-tb-search form').
+                 set('method', 'POST').
+                 set('id', 'fp-tb-search-'+client_id).
++                on('submit', this.execute_search, this);
++            // end of RL edit
++	    /*
+                 on('submit', function(e) {
+                     e.preventDefault();
+                     if (!this.active_repo.nosearch) {
+@@ -1726,6 +2010,7 @@ M.core_filepicker.init = function(Y, options) {
+                         }, true);
+                     }
+             }, this);
++	    */
+ 
+             // it does not matter what kind of element is .fp-tb-manage, we create a dummy <a>
+             // element and use it to open url on click event
+@@ -1775,6 +2060,22 @@ M.core_filepicker.init = function(Y, options) {
+                 }
+             }
+ 
++            /**
++             * Method for enabling or disabling tooltip text on a node
++             * Added by RL
++             *
++             * @param object node The node where that tooltip would be bound to
++             * @param boolean enabled Whether the tooltip should be enabled
++             * @param string tooltiptext The text to display, if enabled
++             */
++            var enable_tooltip = function(node, enabled, tooltiptext) {
++                if (enabled) {
++                    node.setAttribute('title', tooltiptext);
++                } else {
++                    node.setAttribute('title', '');
++                }
++            }
++
+             // TODO 'back' permanently disabled for now. Note, flickr_public uses 'Logout' for it!
+             enable_tb_control(toolbar.one('.fp-tb-back'), false);
+ 
+@@ -1802,11 +2103,193 @@ M.core_filepicker.init = function(Y, options) {
+                         }
+                     }
+                 }, false);
++
++                // Beginning of RL edit for more advanced search functionality
++                var search_dialog = null;
++
++                if (r.advancedsearch) {
++                    // Advanced search popup is allowed
++
++                    // Obtain a reference to the button that opens the popup
++                    var advancedsearchbutton = Y.one('.fp-tb-advancedsearch').one('img');
++
++                    // Clean up any old event handlers
++                    advancedsearchbutton.purge(false, 'click');
++
++                    // Set up the onclick for opening the advanced search popup
++                    advancedsearchbutton.on('click', function(e) {
++                        // Prevent screen from scrolling to the icon
++                        e.preventDefault();
++
++                        // Obtain the category tree via a request
++                        scope.request({
++                            scope: scope,
++                            action:'searchform',
++                            repository_id: scope.active_repo.id,
++
++                            callback: function(id, obj, args) {
++                                var scope = args.scope;
++                                var client_id = scope.options.client_id;
++                                var repository_id = scope.active_repo.id;
++                                var container = document.getElementById('fp-search-dlg');
++                                if(container) {
++                                    container.innerHTML = '';
++                                    container.parentNode.removeChild(container);
++                                }
++
++                                // Set up the main search dialog container
++                                var container = document.createElement('DIV');
++                                container.id = 'fp-search-dlg';
++
++                                // Add in the advanced search container
++                                var dlg_title = document.createElement('DIV');
++                                dlg_title.className = 'hd';
++                                dlg_title.innerHTML = M.str.repository_elis_files.advancedsearch;
++
++                                var dlg_body = document.createElement('DIV');
++                                dlg_body.className = 'bd';
++
++                                // Make the search form
++                                var sform = document.createElement('FORM');
++                                sform.method = 'POST';
++                                sform.id = "fp-search-form";
++
++                                // Make the advanced options div
++                                var searchadvopt = document.createElement('DIV');
++                                searchadvopt.id = 'search-advanced-options';
++
++                                // Make the category title div
++                                var cattitlediv = document.createElement('DIV');
++                                cattitlediv.id = 'category-title-div';
++                                cattitlediv.innerHTML = '<label>'+M.str.repository_elis_files.onlyincategories+'</label><br />';
++
++                                // Make a div for containing the treemenu layout
++                                var catlayoutdiv = document.createElement('DIV');
++                                catlayoutdiv.id = 'category-tree-layout';
++
++                                // Put everything together
++                                searchadvopt.appendChild(cattitlediv);
++                                searchadvopt.appendChild(catlayoutdiv);
++                                sform.appendChild(searchadvopt);
++                                dlg_body.appendChild(sform);
++                                container.appendChild(dlg_title);
++                                container.appendChild(dlg_body);
++                                Y.one(document.body).appendChild(container);
++
++                                // Generate a scrollable layout for the category treemenu
++                                var catlayout = new YAHOO.widget.Layout('category-tree-layout', {
++                                    height: 140, width: 370,
++                                    units: [
++                                        {
++                                            position: 'center',
++                                            body: '<div id="category-tree-div"></div>',
++                                            scroll: true,
++                                            gutter: '0 2 0 0'
++                                        }
++                                    ]
++                                });
++                                catlayout.render();
++
++                                // Generate the category tree with all nodes
++                                if (obj.tree.length < 1) {
++                                    Y.one('#category-tree-div').set('innerHTML', '<i>'+M.str.repository_elis_files.nocategoriesfound+'</i>');
++                                } else {
++                                    var category_treeview = new YAHOO.widget.TreeView('category-tree-div');
++                                    var tree_root = category_treeview.getRoot();
++                                    var tree_nodes = [];
++                                    for(tree_key in obj.tree) {
++                                        var item_id = obj.tree[tree_key].id;
++                                        var item_title = obj.tree[tree_key].title;
++                                        var item_parent = obj.tree[tree_key].parent;
++                                        var tree_info = '<input type="checkbox" name="categories[]" value="'+item_id+'">'+item_title;
++                                        if (item_parent == 0) {
++                                            tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_root, false);
++                                        } else {
++                                            tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_nodes[item_parent], false);
++                                        }
++                                    }
++                                    category_treeview.subscribe('clickEvent', category_treeview.onEventToggleHighlight);
++                                    category_treeview.render();
++                                }
++
++                                function dialog_handler() {
++                                    scope.viewbar.set('disabled', false);
++                                    scope.request({
++                                        scope: scope,
++                                        action:'search',
++                                        client_id: client_id,
++                                        repository_id: repository_id,
++                                        form: {id: 'fp-search-form',upload:false,useDisabled:true},
++                                        callback: function(id, o, args) {
++                                            o.issearchresult = true;
++                                            scope.parse_repository_options(o);
++                                            scope.view_files();
++                                        }
++                                    }, true);
++                                    search_dialog.cancel();
++                                }
++                                Y.one('#fp-search-form').on('keydown', function(e){
++                                    if (e.keyCode == 13) {
++                                        dialog_handler();
++                                        e.preventDefault();
++                                    }
++                                }, this);
++
++                                // Need the search box so we can position the popup relative to it
++                                var search_box = toolbar.one('.fp-def-search');
++                                var search_xy = search_box.getXY();
++                                var search_height = parseInt(search_box.getComputedStyle('height'));
++
++                                // Render the advanced search dialog
++                                search_dialog = new YAHOO.widget.Dialog("fp-search-dlg", {
++                                   postmethod: 'async',
++                                   draggable: true,
++                                   width: "30em",
++                                   modal: false,
++                                   xy: [search_xy[0], search_xy[1] + search_height],
++                                   fixedcenter: false,
++                                   zindex: 9999991,
++                                   visible: false,
++                                   constraintoviewport: true,
++                                });
++                                search_dialog.render();
++                                search_dialog.show();
++
++                                // Make sure widget gets destroyed on close
++                                search_dialog.hideEvent.subscribe(function(e) {
++                                    setTimeout(function() {search_dialog.destroy();}, 0);
++                                });
++                            }
++                        });
++                    });
++                }
++            }
++
++            // Handling for the button that runs the search
++            if (r.executesearch) {
++                // Obtain the right element
++                var searchbutton = Y.one('.fp-tb-executesearch').one('img');
++
++                // Remove stale event handlers
++                searchbutton.purge(false, 'click');
++
++                // When the button is clicked, hide the advanced search dialog
++                searchbutton.on('click', function(e) {
++                    // Run the search, refreshing the contents of the filepicker's listing
++                    scope.execute_search(e);
++                });
+             }
++            // End of RL edit for more advanced search functionality
++
++            // RL: 'Jump to..' menu
++            this.print_jump();
+ 
+             // refresh button
+             // weather we use cache for this instance, this button will reload listing anyway
+             enable_tb_control(toolbar.one('.fp-tb-refresh'), !r.norefresh);
++            // Start of RL edit for handling the search tooltip
++            enable_tooltip(toolbar.one('.fp-tb-refresh'), r.refreshtooltip, M.str.repository.refresh);
++            // End of RL edit for handing the search tooltip
+ 
+             // login button
+             enable_tb_control(toolbar.one('.fp-tb-logout'), !r.nologin);
+@@ -1815,6 +2298,12 @@ M.core_filepicker.init = function(Y, options) {
+                 toolbar.one('.fp-tb-logout').one('a,button').setContent(label)
+             }
+ 
++            // Start of RL edit for showing a advanced and execute search icons
++            enable_tb_control(toolbar.one('.fp-tb-advancedsearch'), r.advancedsearch);
++
++            enable_tb_control(toolbar.one('.fp-tb-executesearch'), r.executesearch);
++            // End of RL edit for showing a search icon
++
+             // manage url
+             enable_tb_control(toolbar.one('.fp-tb-manage'), r.manage);
+             Y.one('#fp-tb-manage-'+client_id+'-link').set('href', r.manage);
+@@ -1829,6 +2318,184 @@ M.core_filepicker.init = function(Y, options) {
+                 toolbar.one('.fp-tb-message').setContent(r.message);
+             }
+         },
++        on_location_item_click: function(p_sType, p_aArgs, p_extra){
++            var location = p_extra[0];
++            var scope = p_extra[1];
++            var path = p_extra[2];
++            this.refresh_content_and_jump_options(p_extra);
++        },
++        create_jump_elem: function(jumpnode) {
++            jumpnode.innerHTML = '';
++            // Add container button for Locations menu
++            var existingjumpnode = Y.one('#locationbutton');
++            if (!existingjumpnode) {
++                var html_locations = '<input type="button" id="locationbutton" name="locationbutton" value="'+M.str.repository_elis_files.jump+'">';
++                this.locationbutton = Y.Node.create(html_locations);
++                Y.one(document.body).appendChild(this.locationbutton);
++                jumpnode.appendChild(this.locationbutton);
++            }
++        },
++        show_jumpto: function () {
++            this.jumpto = true;
++        },
++        hide_jumpto: function () {
++            this.jumpto = false;
++        },
++        // prints a shortcut menu - gets locations from the repository
++        print_jump: function() {
++            var locations = this.locations;
++            var jumpnode = Y.one('.fp-vb-menu-jumpto');
++            var locationbutton = this.locationbutton;
++            if (this.jumpto) {
++                if (locations && locations.length && jumpnode) {
++                    this.jumpto = true;
++                    this.create_jump_elem(jumpnode);
++                    // Create menu items
++                    var locations_menu_data = [];
++                    for (var i = 0; i < locations.length; i++) {
++                        // Don't include in drop-down if it is the same as the current uuid
++                        if (locations[i].path != this.parentuuid.encodedpath) {
++                            var link_path = locations[i].path;
++                            var link_name = locations[i].name;
++                            var link_style = 'display: inline';
++                            locations_menu_data[i] = { text: link_name, value: link_path, style: link_style, onclick: { fn: this.on_location_item_click, obj:[link_path,this,jumpnode,locations_menu_data,i], scope: this }  };
++                        }
++                    }
++                    this.update_locations_menu(locations_menu_data);
++                }
++            } else if (locationbutton ||
++                       (locationbutton = Y.one('#locationbutton'))) { // jumpto false
++                if (this.location_button) {
++                    this.location_button.destroy();
++                    this.location_button = null;
++                }
++                locationbutton.hide();
++            }
++        },
++        setup_jumpmenu_event : function(event, location_button) {
++            var outterfound = false;
++            var fpcallback = function(e) {
++                var jmpmenu = location_button.getMenu();
++                var target = YAHOO.util.Event.getTarget(e)
++                //var_dump('fp::setup_jumpmenu_event:fpcallback: target = ', target);
++                var menuitems;
++                var found = false;
++                if (target.id &&
++                    (menuitems = YAHOO.util.Dom.getElementsByClassName('yuimenuitemlabel'))) {
++                    // Determine if what is being clicked is an yui menu item
++                    for (var i = 0; i < menuitems.length; i++) {
++                        if (menuitems[i].id == target.id) {
++                            found = true;
++                            break;
++                        }
++                    }
++                }
++                // Hide the menu only if we clicked outside of it
++                if (!found) {
++                    jmpmenu.hide();
++                }
++                YAHOO.util.Event.removeListener(document, 'mousedown', fpcallback);
++            };
++
++            var listeners = YAHOO.util.Event.getListeners(document, 'mousedown');
++            for (var j in listeners) {
++                if (listeners[j].fn == fpcallback) {
++                    outterfound = true;
++                    break;
++                }
++            }
++            if (!outterfound) {
++                YAHOO.util.Event.addListener(document, 'mousedown', fpcallback);
++            }
++        },
++        jumpto_item_keypressed: function(e, f_args) {
++            var scope = f_args[0];
++            var shift = f_args[1];
++            var key = YAHOO.util.Event.getCharCode(e);
++            if (key == 9 && (e.shiftKey == shift ||
++                             (shift ^ (scope.lastkey != 16)))) {
++                // Tab[+shift?] key pressed
++                scope.location_button.getMenu().hide();
++            }
++            scope.lastkey = key;
++        },
++        update_locations_menu: function(menudata) {
++            if (this.location_button) {
++                this.location_button.destroy();
++                this.location_button = null;
++                var jumpnode = Y.one('.fp-vb-menu-jumpto');
++                if (!jumpnode) {
++                    return;
++                }
++                this.create_jump_elem(jumpnode);
++            }
++
++            // Create widget for our menu
++            this.location_button = new YAHOO.widget.Button("locationbutton",
++                     { name: "locations_menu",
++                       label: "<span>"+M.str.repository_elis_files.jump+"</span>",
++                       type: "menu",
++                       menu: menudata,
++                       menuclassname: "elis_files-jump-menu",
++                       menualignment: ["tr", "br"]
++                     });
++
++            //alert('update_location_menu(): NEW location_button = '+ this.location_button);
++            if (!this.location_button) {
++                return;
++            }
++
++            // Make the jump button look not look like a button
++            this.location_button.setStyle("border", "none");
++            this.location_button.setStyle("background", "none");
++            var children = YAHOO.util.Dom.getChildren('locationbutton');
++            if (children) {
++                // Override the border-style property for the firstchild span
++                children[0].style.borderStyle = 'none';
++            }
++
++            YAHOO.util.Event.addListener('locationbutton-button', 'click', this.setup_jumpmenu_event, this.location_button);
++
++            this.location_button.getMenu().show(); // required to update DOM
++            YAHOO.widget.Module.forceDocumentRedraw(); // required to update DOM
++            this.location_button.getMenu().hide(); // required!
++
++            var menuitems = YAHOO.util.Dom.getElementsByClassName('yuimenuitemlabel');
++            //alert('update_location_menu: menuitems.length = '+ menuitems.length);
++            if (menuitems && menuitems.length) {
++                // Only have to listen for keypress on first & last menu items
++                if (menudata && menuitems.length > menudata.length) {
++                     // It's picking up entires in filemanager Jumpto...
++                    var i = menuitems.length - menudata.length;
++                    YAHOO.util.Event.addListener(menuitems[i],
++                                                 'keydown',
++                                                 this.jumpto_item_keypressed,
++                                                 [this, true], this);
++                } else {
++                    YAHOO.util.Event.addListener(menuitems[0],
++                                                 'keydown',
++                                                 this.jumpto_item_keypressed,
++                                                 [this, true], this);
++                }
++                YAHOO.util.Event.addListener(menuitems[menuitems.length - 1],
++                                             'keydown',
++                                             this.jumpto_item_keypressed,
++                                             [this, false], this);
++            }
++        },
++        refresh_content_and_jump_options: function(p_extra) {
++            var filepath = p_extra[0];
++
++            var scope = this;
++            this.filepath = filepath;
++            if (!filepath) {
++                filepath = this.filepath;
++            } else {
++                this.filepath = filepath;
++            }
++
++            this.list({'path' : filepath});
++        },
+         print_path: function() {
+             if (!this.pathbar) {
+                 return;
+@@ -1854,7 +2521,7 @@ M.core_filepicker.init = function(Y, options) {
+                     el.on('click',
+                             function(e, path) {
+                                 e.preventDefault();
+-                                this.list({'path':path});
++                                this.refresh_content_and_jump_options([path]);
+                             },
+                         this, p[i].path);
+                 }

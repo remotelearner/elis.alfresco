@@ -1,0 +1,53 @@
+diff --git a/lib/navigationlib.php b/lib/navigationlib.php
+index b24c112..40be304 100644
+--- a/lib/navigationlib.php
++++ b/lib/navigationlib.php
+@@ -2203,7 +2203,7 @@ class global_navigation extends navigation_node {
+      * @return bool
+      */
+     protected function load_for_user($user=null, $forceforcontext=false) {
+-        global $DB, $CFG, $USER, $SITE;
++        global $DB, $CFG, $USER, $SITE, $COURSE; // RL EDIT: ELIS-7127
+ 
+         if ($user === null) {
+             // We can't require login here but if the user isn't logged in we don't
+@@ -2332,7 +2332,7 @@ class global_navigation extends navigation_node {
+ 
+         $context = get_context_instance(CONTEXT_USER, $USER->id);
+         if ($iscurrentuser && has_capability('moodle/user:manageownfiles', $context)) {
+-            $url = new moodle_url('/user/files.php');
++            $url = new moodle_url('/user/files.php', array('courseid' => $COURSE->id)); // RL EDIT: ELIS-7127
+             $usernode->add(get_string('myfiles'), $url, self::TYPE_SETTING);
+         }
+ 
+@@ -3702,6 +3702,30 @@ class settings_navigation extends navigation_node {
+ 
+         }
+ 
++        $systemcontext = get_system_context();
++
++        $systemcapabilities = array(
++            'repository/elis_files:viewsitecontent',
++            'repository/elis_files:createsitecontent',
++        );
++
++        $coursecapabilities = array(
++            'repository/elis_files:viewcoursecontent',
++            'repository/elis_files:createcoursecontent',
++        );
++
++        // ELIS files
++        if (has_capability('repository/elis_files:view', $coursecontext) &&
++            (has_any_capability($systemcapabilities, $systemcontext) || has_any_capability($coursecapabilities, $coursecontext))) {
++
++            require_once($CFG->dirroot.'/repository/lib.php');
++            require_once($CFG->dirroot.'/repository/elis_files/lib.php');
++            if (repository_elis_files::is_repo_visible('elis_files')) {
++                $url = new moodle_url('/repository/filemanager.php', array('course'=>$course->id, 'ctx_id'=>$coursecontext->id, 'sesskey'=>sesskey()));
++                $coursenode->add(get_string('pluginname', 'repository_elis_files'), $url, self::TYPE_SETTING, null, 'elisfiles', new pix_icon('i/files', ''));
++            }
++        }
++
+         // Switch roles
+         $roles = array();
+         $assumedrole = $this->in_alternative_role();
