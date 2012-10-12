@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index b7793c8..d4de70d 100644
+index f8c9fe5..5d5492e 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -25,7 +25,6 @@
@@ -18,7 +18,7 @@ index b7793c8..d4de70d 100644
  $linkexternal  = optional_param('linkexternal', '', PARAM_ALPHA);
  
  list($context, $course, $cm) = get_context_info_array($contextid);
-@@ -131,6 +131,11 @@ if (file_exists($CFG->dirroot.'/repository/'.$type.'/lib.php')) {
+@@ -132,6 +132,11 @@ if (file_exists($CFG->dirroot.'/repository/'.$type.'/lib.php')) {
      die(json_encode($err));
  }
  
@@ -30,7 +30,7 @@ index b7793c8..d4de70d 100644
  /// These actions all occur on the currently active repository instance
  switch ($action) {
      case 'sign':
-@@ -156,10 +161,11 @@ switch ($action) {
+@@ -157,10 +162,11 @@ switch ($action) {
          break;
      case 'searchform':
          $search_form['form'] = $repo->print_search();

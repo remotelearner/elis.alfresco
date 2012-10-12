@@ -1,5 +1,5 @@
 diff --git a/repository/filepicker.js b/repository/filepicker.js
-index 9c5ac40..364247f 100644
+index 9e23980..6a5baae 100644
 --- a/repository/filepicker.js
 +++ b/repository/filepicker.js
 @@ -34,8 +34,11 @@
@@ -557,8 +557,8 @@ index 9c5ac40..364247f 100644
              this.active_repo = {};
              this.active_repo.issearchresult = Boolean(data.issearchresult);
              this.active_repo.dynload = data.dynload?data.dynload:false;
-@@ -846,6 +1222,8 @@ M.core_filepicker.init = function(Y, options) {
-             this.active_repo.logouttext = data.logouttext?data.logouttext:null;
+@@ -848,6 +1224,8 @@ M.core_filepicker.init = function(Y, options) {
+             this.active_repo.message = (data.message || '');
              this.active_repo.help = data.help?data.help:null;
              this.active_repo.manage = data.manage?data.manage:null;
 +            this.active_repo.showselectedactions = data.showselectedactions?true:false;
@@ -566,7 +566,7 @@ index 9c5ac40..364247f 100644
          },
          print_login: function(data) {
              this.parse_repository_options(data);
-@@ -1100,6 +1478,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1102,6 +1480,7 @@ M.core_filepicker.init = function(Y, options) {
              if (!args.repo_id) {
                  args.repo_id = scope.active_repo.id;
              }
@@ -574,7 +574,7 @@ index 9c5ac40..364247f 100644
              scope.request({
                  action:'list',
                  client_id: scope.options.client_id,
-@@ -1122,6 +1501,11 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1124,6 +1503,11 @@ M.core_filepicker.init = function(Y, options) {
  
                      } else if (obj.iframe) {
  
@@ -586,7 +586,7 @@ index 9c5ac40..364247f 100644
                      } else if (obj.list) {
                          obj.issearchresult = false;
                          scope.viewbar.set('disabled', false);
-@@ -1131,6 +1515,98 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1133,6 +1517,98 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }, true);
          },
@@ -685,7 +685,7 @@ index 9c5ac40..364247f 100644
          create_upload_form: function(data) {
              var client_id = this.options.client_id;
              Y.one('#panel-'+client_id).set('innerHTML', '');
-@@ -1216,11 +1692,394 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1218,11 +1694,394 @@ M.core_filepicker.init = function(Y, options) {
                  }, true);
              }, this);
          },
@@ -1080,7 +1080,7 @@ index 9c5ac40..364247f 100644
              var panel = Y.one('#panel-'+client_id);
              var str = '<div id="fp-header-'+client_id+'">';
              str += '<div class="fp-toolbar" id="repo-tb-'+client_id+'"></div>';
-@@ -1233,8 +2092,8 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1235,8 +2094,8 @@ M.core_filepicker.init = function(Y, options) {
  
              var toolbar = Y.one('#repo-tb-'+client_id);
  
@@ -1091,7 +1091,7 @@ index 9c5ac40..364247f 100644
                  var search = Y.Node.create(html);
                  search.on('click', function() {
                      scope.request({
-@@ -1260,15 +2119,71 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1262,15 +2121,71 @@ M.core_filepicker.init = function(Y, options) {
                              var dlg_body = document.createElement('DIV');
                              dlg_body.className = 'bd';
  
@@ -1163,7 +1163,7 @@ index 9c5ac40..364247f 100644
                              var search_dialog= null;
                              function dialog_handler() {
                                  scope.viewbar.set('disabled', false);
-@@ -1279,6 +2194,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1281,6 +2196,7 @@ M.core_filepicker.init = function(Y, options) {
                                      repository_id: repository_id,
                                      form: {id: 'fp-search-form',upload:false,useDisabled:true},
                                      callback: function(id, o, args) {
@@ -1171,7 +1171,7 @@ index 9c5ac40..364247f 100644
                                          scope.parse_repository_options(o);
                                          scope.view_files();
                                      }
-@@ -1295,32 +2211,46 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1297,32 +2213,46 @@ M.core_filepicker.init = function(Y, options) {
                              search_dialog = new YAHOO.widget.Dialog("fp-search-dlg", {
                                 postmethod: 'async',
                                 draggable: true,
@@ -1225,8 +1225,8 @@ index 9c5ac40..364247f 100644
              if(!r.norefresh) {
                  var html = '<a href="###"><img src="'+M.util.image_url('a/refresh')+'" /> '+M.str.repository.refresh+'</a>';
                  var refresh = Y.Node.create(html);
-@@ -1363,6 +2293,46 @@ M.core_filepicker.init = function(Y, options) {
-                 toolbar.appendChild(help);
+@@ -1373,6 +2303,46 @@ M.core_filepicker.init = function(Y, options) {
+                 toolbar.appendChild(msg);
              }
  
 +            if((scope.canedit == 'true' || scope.canedit == '1') && r.showselectedactions && scope.viewmode == 3) { // TO-DO: until checkboxes are added to icons and list, only show on viewmode=3=details view
@@ -1272,7 +1272,7 @@ index 9c5ac40..364247f 100644
              this.print_path();
          },
          get_page_button: function(page) {
-@@ -1454,7 +2424,6 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1464,7 +2434,6 @@ M.core_filepicker.init = function(Y, options) {
                                          scope.view_files(result[1]);
                                      }
                                  }, true);
@@ -1280,7 +1280,7 @@ index 9c5ac40..364247f 100644
                              } else {
                                  if (scope.viewmode == 2) {
                                      scope.view_as_list(result[1]);
-@@ -1486,6 +2455,45 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1496,6 +2465,45 @@ M.core_filepicker.init = function(Y, options) {
                          this.list({'path':path});
                          }, this, link_path)
                  }
