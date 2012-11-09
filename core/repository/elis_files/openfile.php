@@ -32,7 +32,6 @@ require_once('ELIS_files_factory.class.php');
 
 global $USER;
 $uuid = required_param('uuid', PARAM_CLEAN);
-$filename = optional_param('filename', '', PARAM_PATH);
 
 if (!$repo = repository_factory::factory()) {
     print_error('couldnotcreaterepositoryobject', 'repository');
@@ -43,6 +42,6 @@ if (!$repo->permission_check($uuid, $USER->id)) {
     print_error('youdonothaveaccesstothisfunctionality', 'repository_alfresco');
 }
 
-$repo->read_file($uuid, '', false, true, !empty($filename));
+$repo->read_file($uuid);
 
 exit;

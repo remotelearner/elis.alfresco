@@ -1,8 +1,0 @@
-<webscript>
-  <shortname>Create file</shortname>
-  <description>Create document node</description>
-  <format default="xml" />
-  <authentication>user</authentication>
-  <transaction>required</transaction>
-  <url>/moodle/createcontent</url>
-</webscript>
