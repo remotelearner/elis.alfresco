@@ -26,19 +26,17 @@
  *
  */
 
-define('CLI_SCRIPT', true);
 require_once(dirname(__FILE__).'/../../../elis/core/test_config.php');
 global $CFG;
 require_once($CFG->dirroot.'/elis/core/lib/setup.php');
 require_once(elis::lib('testlib.php'));
 require_once($CFG->dirroot.'/repository/elis_files/ELIS_files_factory.class.php');
 require_once($CFG->dirroot.'/repository/elis_files/lib/lib.php');
-require_once($CFG->dirroot.'/repository/elis_files/lib.php');
 
 
 define('ONE_MB_BYTES', 1048576);
 define('ELIS_FILES_PREFIX', 'elis_files_test_file_upload_');
-define('FILE_NAME_PREFIX', 'elis_files_test_file_type_upload');
+
 
 /**
  *
@@ -73,20 +71,12 @@ function generate_temp_file($mbs) {
 
 
 class file_uploadTest extends elis_database_test {
-    protected $created_uuids = array();
 
     protected static function get_overlay_tables() {
         return array(
             'config_plugins' => 'moodle'
         );
-    }
-
-    protected static function get_ignore_tables() {
-        return array(
-            'repository' => 'moodle',
-            'repository_instance' => 'moodle'
-        );
-    }
+}
 
     protected function setUp() {
         parent::setUp();
@@ -105,29 +95,15 @@ class file_uploadTest extends elis_database_test {
     }
 
     protected function tearDown() {
-        foreach ($this->created_uuids as $uuid) {
-            elis_files_delete($uuid);
-        }
         if ($dir = elis_files_read_dir()) {
             foreach ($dir->files as $file) {
-                if (strpos($file->title, ELIS_FILES_PREFIX) === 0 ||
-                    strpos($file->title, FILE_NAME_PREFIX) === 0 ) {
+                if (strpos($file->title, ELIS_FILES_PREFIX) === 0) {
                     elis_files_delete($file->uuid);
                 }
             }
         }
-        parent::tearDown();
-    }
 
-    protected function call_upload_file($repo, $upload, $path, $uuid) {
-        $response = elis_files_upload_file($upload, $path, $uuid);
-        if ($response && !empty($response->uuid)) {
-            $this->created_uuids[] = $response->uuid;
-            $node = elis_files_get_parent($response->uuid);
-            $this->assertTrue($node && !empty($node->uuid));
-            $this->assertEquals($uuid, $node->uuid);
-        }
-        return $response;
+        parent::tearDown();
     }
 
     public function fileSizeProvider() {
@@ -165,8 +141,6 @@ class file_uploadTest extends elis_database_test {
      * @dataProvider fileSizeProvider
      */
     public function testUploadIncrementalFileSizes($mb) {
-        $this->markTestSkipped('Not necessary to test incremental file sizes at this time.');
-
         // Check if Alfresco is enabled, configured and running first
         if (!$repo = repository_factory::factory('elis_files')) {
             $this->markTestSkipped();
@@ -179,7 +153,7 @@ class file_uploadTest extends elis_database_test {
         $filesize = $mb * ONE_MB_BYTES;
         $filename = generate_temp_file($mb);
 
-        $response = $this->call_upload_file($repo, '', $filename, $repo->root->uuid);
+        $response = elis_files_upload_file('', $filename);
 
         unlink($filename);
 
@@ -201,7 +175,7 @@ class file_uploadTest extends elis_database_test {
 
         $filename = generate_temp_file(1);
 
-        $response = $this->call_upload_file($repo, '', $filename, $repo->root->uuid);
+        $response = elis_files_upload_file('', $filename);
 
         unlink($filename);
 
@@ -221,70 +195,13 @@ class file_uploadTest extends elis_database_test {
         // Explicitly set the file transfer method to FTP
         set_config('file_transfer_method', ELIS_FILES_XFER_FTP, 'elis_files');
 
-        $targets = array($repo->root->uuid, $repo->muuid, $repo->suuid, $repo->cuuid,
-                         $repo->uuuid, $repo->ouuid);
-        foreach ($targets as $uuid) {
-            $filename = generate_temp_file(1);
-            $response = $this->call_upload_file($repo, '', $filename, $uuid);
-            unlink($filename);
-            $this->assertNotEquals(false, $response);
-            $this->assertObjectHasAttribute('uuid', $response);
-        }
-    }
+        $filename = generate_temp_file(1);
 
-    public function fileExtensionsProvider() {
-        return array(
-            array('EMPTY'),
-            array('c'),
-            array('csv'),
-            array('docx'),
-            array('pdf'),
-            array('png'),
-            array('xml'),        );
-    }
-    /**
-     * Test uploading a file to Alfresco explicitly using the web services method
-     *
-     * @dataProvider fileExtensionsProvider
-     */
-    public function testUploadFileTypesViaWs($extension) {
-        global $CFG, $DB;
+        $response = elis_files_upload_file('', $filename);
 
-    // Check for ELIS_files repository
-        if (file_exists($CFG->dirroot .'/repository/elis_files/')) {
-            // RL: ELIS files: Alfresco
-            $data = null;
-            $listing = null;
-            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
-            $repository = $DB->get_record_sql($sql, array('elis_files'));
-            if ($repository) {
-                try {
-                    $repo = @new repository_elis_files('elis_files',
-                                get_context_instance(CONTEXT_SYSTEM),
-                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
-                } catch (Exception $e) {
-                    $this->markTestSkipped();
-               }
-            } else {
-                $this->markTestSkipped();
-            }
-        } else {
-            $this->markTestSkipped();
-        }
+        unlink($filename);
 
-        // Explicitly set the file transfer method to Web Services
-        set_config('file_transfer_method', ELIS_FILES_XFER_WS, 'elis_files');
-
-        // Handle the no extension test case
-        $extension = ($extension == 'EMPTY') ? '' : '.'.$extension;
-
-        $filename = $CFG->dirroot.'/repository/elis_files/phpunit/'.FILE_NAME_PREFIX.$extension;
-        $response = $this->call_upload_file($repo, '', $filename, $repo->elis_files->root->uuid);
-
-        //Download the file and compare contents
-        $thefile = $repo->get_file($response->uuid);
-
-        // Assert that the downloaded file is the same as the uploaded file
-        $this->assertFileEquals($filename,$thefile['path']);
+        $this->assertNotEquals(false, $response);
+        $this->assertObjectHasAttribute('uuid', $response);
     }
 }

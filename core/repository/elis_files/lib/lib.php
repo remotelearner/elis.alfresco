@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  * @package    elis
  * @subpackage curriculummanagement
@@ -27,10 +27,8 @@
  */
 
 require_once dirname(__FILE__). '/ELIS_files.php';
-require_once dirname(__FILE__). '/../ELIS_files_factory.class.php';
 require_once dirname(dirname(dirname(dirname(__FILE__)))). '/elis/core/lib/setup.php';
 require_once dirname(__FILE__) . '/cmis-php/cmis_repository_wrapper.php';
-require_once(dirname(__FILE__).'/elis_files_logger.class.php');
 
 /**
  * Send a GET request to the Alfresco repository.
@@ -131,74 +129,14 @@ function elis_files_get_services() {
     return $services;
 }
 
-/**
- * Display an message with optional details from HTML
- *
- * @param string $msg     The message to display
- * @param string $details Any message details to be initially hidden
- * @param string $type    The 'type' of message: i.e. 'error','general', ???
- * @uses  $OUTPUT
- * @TODO  change this to display in pop-up window or light-box!
- */
-function display_msg($msg, $details = '', $type = 'error') {
-    global $OUTPUT;
-    $width = '';
-    if (!empty($details)) {
-        $innertags = array('html', 'body');
-        foreach ($innertags as $tag) {
-            if (($tagpos = stripos($details, '<'. $tag)) !== false &&
-                ($firstend = strpos(substr($details, $tagpos), '>')) !== false) {
-                if (($tagend = stripos($details, '</'. $tag .'>')) !== false) {
-                    $details = substr($details, $tagpos + $firstend + 1, $tagend - $tagpos - $firstend - 1);
-                } else {
-                    $details = substr($details, $tagpos + $firstend + 1);
-                }
-            }
-        }
-        $details = addcslashes($details, "'");
-        $details = preg_replace("/\n/", '', $details);
-        $details = preg_replace("|/alfresco/images/logo/AlfrescoLogo32.png|",
-                                '/repository/elis_files/pix/icon.png',
-                                $details);
-    }
-    $output = $OUTPUT->box_start("generalbox {$type} boxaligncenter boxwidthwide", 'notice'); // TBD
-    $output .= $msg;
-    if (!empty($details)) {
-        $output .= '<p align="right"><input type="button" value="'.
-                   get_string('details', 'repository_elis_files') .
-                   '" onclick="toggle_msgdetails();" /></p>'
-                   .'<div id="msgdetails" style="overflow:auto;overflow-y:hidden;-ms-overflow-y:hidden"></div>';
-        $output .= "
-<script type=\"text/javascript\">
-//<![CDATA[
-function toggle_msgdetails() {
-    mddiv = document.getElementById('msgdetails');
-    if (mddiv) {
-        mddiv.innerHTML = (mddiv.innerHTML == '') ? '{$details}' : '';
-    }
-}
-//]]>
-</script>
-";
-    }
-
-    $output .= $OUTPUT->box_end();
-    echo $output;
-}
-
-function RLsimpleXMLelement($resp, $displayerrors = false) {
+function RLsimpleXMLelement($resp, $displayerrors = true) {
     //echo "RLsimpleXMLelement() => resp = {$resp}";
-
     $details = $resp;
     if (($preend = strpos($resp, '<title><!DOCTYPE')) !== false &&
         ($lastentry = strrpos($resp, "<entry>")) !== false) {
         $details = substr($resp, $preend + 7, -7);
         $resp = substr($resp, 0, $lastentry - 1) ."\n</feed>";
         error_log("repository/elis_files/lib/lib.php:: WARNING - Alfresco Server Error: {$details}");
-        if ($displayerrors) {
-            display_msg(get_string('incompletequeryresponse', 'repository_elis_files'),
-                        $details);
-        }
     }
     $resp = preg_replace('/&nbsp;/', ' ', $resp); // TBD?
     libxml_use_internal_errors(true);
@@ -206,10 +144,6 @@ function RLsimpleXMLelement($resp, $displayerrors = false) {
         $sxml = new SimpleXMLElement($resp);
     } catch (Exception $e) {
         error_log("repository/elis_files/lib/lib.php:: WARNING - Alfresco Server Error: BAD XML => {$details}");
-        if ($displayerrors) {
-            display_msg(get_string('badqueryresponse', 'repository_elis_files'),
-                        $details);
-        }
         return false;
     }
     return $sxml;
@@ -619,6 +553,7 @@ function elis_files_delete($uuid, $recursive = false, $repo = NULL) {
     // Ensure that we set the configured admin user to be the owner of the deleted file before deleting.
     // This is to prevent the user's Alfresco account from having space incorrectly attributed to it.
     // ELIS-1102
+
     elis_files_request('/moodle/nodeowner/' . $uuid . '?username=' . elis::$config->elis_files->server_username);
 
     if (ELIS_files::is_version('3.2')) {
@@ -641,6 +576,7 @@ function elis_files_delete($uuid, $recursive = false, $repo = NULL) {
     }
 }
 
+
 /**
  * Create a directory on the repository.
  *
@@ -652,15 +588,10 @@ function elis_files_delete($uuid, $recursive = false, $repo = NULL) {
  *                            the plug-in is not used for this operation (default: true).
  * @return object|bool Node information structure on the new folder or, False on error.
  */
-function elis_files_create_dir($name, $uuid, $description = '', $useadmin = true) {
+function elis_files_create_dir($name, $uuid = '', $description = '', $useadmin = true) {
     global $CFG, $USER;
 
     $properties = elis_files_node_properties($uuid);
-
-    if (!(ELIS_files::$version = elis_files_get_repository_version())) {
-        return false;
-    }
-    //error_log("elis_files_create_dir('$name', '$uuid', '$description', $useadmin): version = ". ELIS_files::$version);
 
     if (ELIS_files::is_version('3.2')) {
         $data = '<?xml version="1.0" encoding="utf-8"?>
@@ -717,7 +648,6 @@ function elis_files_create_dir($name, $uuid, $description = '', $useadmin = true
 
     if ($response === false) {
 //        debugging(get_string('couldnotaccessserviceat', 'repository_elis_files', $uri), DEBUG_DEVELOPER);
-        error_log('elis_files_create_dir(): '. get_string('couldnotaccessserviceat', 'repository_elis_files', $uri));
         return false;
     }
 
@@ -730,12 +660,12 @@ function elis_files_create_dir($name, $uuid, $description = '', $useadmin = true
     $nodes = $dom->getElementsByTagName('entry');
 
     if (!$nodes->length) {
-        error_log('elis_files_create_dir(): empty nodes->length');
         return false;
     }
 
     $type       = '';
     $properties = elis_files_process_node($dom, $nodes->item(0), $type);
+
     // Ensure that we set the current user to be the owner of the newly created directory.
     if (!empty($properties->uuid)) {
         $username = elis_files_transform_username($USER->username);
@@ -747,54 +677,6 @@ function elis_files_create_dir($name, $uuid, $description = '', $useadmin = true
     return $properties;
 }
 
-/**
- * Check if a given filename exists in a ELIS Files folder
- *
- * @param   string  $filename   The name of the file
- * @param   object  $dir        The folder listing to check
- * @return  string|false        If file exists, returns uuid of file else false
- */
-function elis_files_file_exists($filename, $dir) {
-    if (!empty($dir->files)) {
-        foreach ($dir->files as $file) {
-            if ($file->title == $filename) {
-                return $file->uuid;
-            }
-        }
-    }
-    return false;
-}
-
-/**
- * Generate a unique file name
- *
- * @param   string  $filename   The name of the file
- * @param   array   $listing    The listing to compare against
- * @return  string              The unique file name
-*/
-function elis_files_generate_unique_filename($filename, $listing) {
-    $pathinfo = pathinfo($filename);
-
-    $filename = $pathinfo['filename'];
-    $basename = preg_replace('/\.[0-9]+$/', '', $filename);
-    $number = 0;
-
-    if ($hasnumber = preg_match("/^(.*)_(\d+)$/", $filename, $matches)) {
-        $number = (int) $matches[2];
-        $basename = $matches[1];
-    }
-
-    do {
-        $number++;
-        if (empty($pathinfo['extension'])) {
-            $newfilename = $basename . '_' . $number;
-        } else {
-            $newfilename = $basename . '_' . $number . '.' . $pathinfo['extension'];
-        }
-    } while (elis_files_file_exists($newfilename, $listing));
-
-    return $newfilename;
-}
 
 /**
  * Upload a file into the repository.
@@ -806,28 +688,19 @@ function elis_files_generate_unique_filename($filename, $listing) {
  * @param string $uuid     The UUID of the folder where the file is being uploaded to.
  * @param bool   $useadmin Set to false to make sure that the administrative user configured in
  *                         the plug-in is not used for this operation (default: true).
- * @param string $filename The name of the file to be uploaded - used when a duplicate file is to be renamed
- * @param object $filemeta The file meta data of the file to be uploaded when overwriting
  * @return object Node values for the uploaded file.
  */
-function elis_files_upload_file($upload = '', $path = '', $uuid = '', $useadmin = true, $filename = '', $olduuid = false, $filemeta = null) {
+function elis_files_upload_file($upload = '', $path = '', $uuid = '', $useadmin = true) {
     global $CFG, $USER;
 
     require_once($CFG->libdir.'/filelib.php');
 
-    // assign file info from filemeta
-    if ($filemeta) {
-        $filename = empty($filename) ? $filemeta->name : $filename;
-        $filepath = $filemeta->filepath.$filemeta->name;
-        $filemime = $filemeta->type;
-        $filesize = $filemeta->size;
-
-    } else if (!empty($upload)) {
+    if (!empty($upload)) {
         if (!isset($_FILES[$upload]) || !empty($_FILES[$upload]->error)) {
             return false;
         }
 
-        $filename = (empty($filename)) ? $_FILES[$upload]['name']: $filename;
+        $filename = $_FILES[$upload]['name'];
         $filepath = $_FILES[$upload]['tmp_name'];
         $filemime = $_FILES[$upload]['type'];
         $filesize = $_FILES[$upload]['size'];
@@ -837,58 +710,36 @@ function elis_files_upload_file($upload = '', $path = '', $uuid = '', $useadmin 
             return false;
         }
 
-        $filename = (empty($filename)) ? basename($path): $filename;
+        $filename = basename($path);
         $filepath = $path;
         $filemime = mimeinfo('type', $filename);
         $filesize = filesize($path);
     } else {
         return false;
     }
-
     if (!$repo = repository_factory::factory('elis_files')) {
         return false;
     }
 
-    if (!(ELIS_files::$version = elis_files_get_repository_version())) {
-        return false;
-    }
-//    error_log("elis_files_upload_file('$upload', '$path', '$uuid', $useadmin): version = ". ELIS_files::$version);
     if (empty($uuid)) {
         $uuid = $repo->get_root()->uuid;
+
     }
 
-    $xfermethod = get_config('elis_files', 'file_transfer_method');
-    switch ($xfermethod) {
+    switch (get_config('elis_files', 'file_transfer_method')) {
         case ELIS_FILES_XFER_WS:
-            return elis_files_upload_ws($filename, $filepath, $filemime, $filesize, $uuid, $useadmin, $repo);
+            return elis_files_upload_ws($filename, $filepath, $filemime, $filesize, $uuid, $useadmin);
             break;
 
         case ELIS_FILES_XFER_FTP:
             return elis_files_upload_ftp($filename, $filepath, $filemime, $filesize, $uuid, $useadmin);
             break;
 
-        default: // TBD
-            error_log("elis_files_upload_file(): Invalid ELIS files setting for 'file_transfer_method' = {$xfermethod}");
+        default:
             return false;
     }
 }
 
-/* Define HTM Encoding filter class */
-class htmencoded_filter extends php_user_filter {
-  function filter($in, $out, &$consumed, $closing)
-  {
-    while ($bucket = stream_bucket_make_writeable($in)) {
-      $bucket->data = str_replace('&','&amp;',$bucket->data);
-      $bucket->data = str_replace('<','&lt;',$bucket->data);
-      $bucket->data = str_replace('>','&gt;',$bucket->data);
-      $bucket->data = str_replace("'",'&apos;',$bucket->data);
-      $bucket->data = str_replace('"','&quot;',$bucket->data);
-      $consumed += $bucket->datalen;
-      stream_bucket_append($out, $bucket);
-    }
-    return PSFS_PASS_ON;
-  }
-}
 
 /**
  * Upload a file into the repository via web services.
@@ -901,105 +752,217 @@ class htmencoded_filter extends php_user_filter {
  * @param string $uuid     The UUID of the folder where the file is being uploaded to.
  * @param bool   $useadmin Set to false to make sure that the administrative user configured in
  *                         the plug-in is not used for this operation (default: true).
- * @param object $repo     Optional elis_files repository_factory() object.
- * @uses  $USER
  * @return object Node values for the uploaded file.
  */
-function elis_files_upload_ws($filename, $filepath, $filemime, $filesize, $uuid = '', $useadmin = true, $repo = null) {
+function elis_files_upload_ws($filename, $filepath, $filemime, $filesize, $uuid = '', $useadmin = true) {
     global $USER;
 
-    // Obtain the logger object in a clean state, in case we need it
-    $logger = elis_files_logger::instance();
-    $logger->flush();
+    $chunksize = 8192;
 
-    // Create the repository object
-    if (empty($repo) &&
-        !($repo = repository_factory::factory('elis_files'))) {
-        return false;
+/// We need to write the XML structure for the upload out to a file on disk to accomdate large files
+/// that will potentially overrun the maximum memory allowed to a PHP script.
+    $data1 = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
+
+    if (ELIS_files::is_version('3.2')) {
+        $data1 .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app" ' .
+                  'xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200901" xmlns:alf="http://www.alfresco.org">' . "\n" .
+                  '  <link rel="type" href="' . elis_files_base_url() . '/api/type/document"/>' . "\n" .
+                  '  <link rel="repository" href="' . elis_files_base_url() . '/api/repository"/>' . "\n";
+    } else if (ELIS_files::is_version('3.4')) {
+        $data1 .= '<entry xmlns="http://www.w3.org/2005/Atom" xmlns:cmis="http://www.cmis.org/2008/05">' . "\n";
     }
 
-    if (basename($filepath) != $filename) {
-        // the upload file doesn't have correct filename - so change it
-        $dir = rtrim(dirname($filepath), '/');
-        $upfile = "{$dir}/{$filename}";
-        if (!@rename($filepath, $upfile)) {
-            error_log("/repository/elis_files/lib/lib.php::elis_files_upload_ws(): Failed renaming '{$filepath}' to '{$upfile}'");
-            $logger->signal_error(ELIS_FILES_ERROR_WS);
+    $data1 .= '  <title>' . $filename . '</title>' . "\n" .
+              '  <summary>' . get_string('uploadedbymoodle', 'repository_elis_files') . '</summary>' . "\n" .
+              '  <content type="' . $filemime . '">';
+
+    $data2 = '</content>' . "\n" .
+             '  <cmis:object>' . "\n" .
+             '    <cmis:properties>' . "\n" .
+             '      <cmis:propertyString cmis:name="ObjectTypeId">' . "\n" .
+             '        <cmis:value>document</cmis:value>' . "\n" .
+             '      </cmis:propertyString>' . "\n" .
+             '    </cmis:properties>' . "\n" .
+             '  </cmis:object>' . "\n" .
+             '</entry>';
+
+    $encodedbytes = 0;
+
+/// Use a stream filter to base64 encode the file contents to a temporary file.
+    if ($fi = fopen($filepath, 'r')) {
+        if ($fo = tmpfile()) {
+            stream_filter_append($fi, 'convert.base64-encode');
+
+        /// Write the beginning of the XML document to the temporary file.
+            $encodedbytes += fwrite($fo, $data1, strlen($data1));
+
+        /// Copy the uploaded file into the temporary file (usng the base64 encode stream filter)
+        /// in 8K chunks to conserve memory.
+            while (!feof($fi)) {
+                $encodedbytes += fwrite($fo, fread($fi, $chunksize));
+            }
+            fclose($fi);
+
+        /// Write the end of the XML document to the temporary file.
+            $encodedbytes += fwrite($fo, $data2, strlen($data2));
+        } else {
             return false;
         }
-        $filepath = $upfile;
-    }
-
-    $overwrite = false;
-    if (($folder_list = $repo->read_dir($uuid)) && !empty($folder_list->files)) {
-        foreach ($folder_list->files as $file) {
-            if ($file->title == $filename) {
-                // file already exists, save uuid
-                $overwrite = $file->uuid;
-                break;
-            }
-        }
-    }
-
-    if (empty($overwrite)) {
-        $serviceuri = '/moodle/createcontent';
     } else {
-        $serviceuri = '/moodle/updatecontent';
-        $uuid = $overwrite;
-    }
-    $response = elis_files_utils_http_request($serviceuri, 'ticket',
-                            array() /* TBD: headers? */, 'CUSTOM-POST',
-                            array('filedata' => "@{$filepath}",
-                                  'uuid' => $uuid),
-                            $useadmin ? '' : $USER->username);
-    if (empty($response) || empty($response->code) ||
-        (floor($response->code/100) * 100) != 200) {
-        ob_start();
-        var_dump($response);
-        $tmp = ob_get_contents();
-        ob_end_clean();
-        error_log('/repository/elis_files/lib/lib.php::elis_files_upload_ws(): Failed '. ($overwrite ? 'updating' : 'creating') ." node: response = {$tmp}");
-        $logger->signal_error(ELIS_FILES_ERROR_WS);
-        return false;
-    }
-    $properties = new stdClass;
-    $properties->type = ELIS_files::$type_document;
-    if (!empty($overwrite)) {
-        $properties->uuid = $overwrite;
-        $properties->title = $filename;
-    } else if (!empty($response->data) &&
-               ($sxml = RLsimpleXMLelement($response->data)) &&
-               !empty($sxml->node)) {
-        //ob_start();
-        //var_dump($sxml);
-        //$tmp = ob_get_contents();
-        //ob_end_clean();
-        //error_log("/repository/elis_files/lib/lib.php::elis_files_upload_ws(): INFO: sxml = {$tmp}");
-        if (!empty($sxml->node->uuid)) {
-            $properties->uuid = $sxml->node->uuid;
-        }
-        if (!empty($sxml->node->filename)) {
-            $properties->title = $sxml->node->filename;
-        }
-    }
-    if (empty($properties->uuid)) {
-        ob_start();
-        var_dump($sxml);
-        $tmp = ob_get_contents();
-        ob_end_clean();
-        error_log("/repository/elis_files/lib/lib.php::elis_files_upload_ws(): Failed getting node data: XML = {$tmp}");
-        $logger->signal_error(ELIS_FILES_ERROR_WS);
         return false;
     }
 
-    // set the current user to be the owner of the newly created file
-    $username = elis_files_transform_username($USER->username);
+    rewind($fo);
 
-    // We're not going to check the response for this right now.
-    elis_files_request('/moodle/nodeowner/'. $properties->uuid .'?username=' . $username);
+    // Force the usage of the configured Alfresco admin account, if requested.
+    if ($useadmin) {
+        $username = '';
+    } else {
+        $username = $USER->username;
+    }
+
+    if (ELIS_files::is_version('3.2')) {
+        $serviceuri = '/api/node/workspace/SpacesStore/' . $uuid . '/descendants';
+    } else if (ELIS_files::is_version('3.4')) {
+        $serviceuri = '/cmis/i/' . $uuid . '/children';
+    }
+
+    // Initialize the object that return/result data is stored with
+    $result = new stdClass;
+
+    $url = elis_files_utils_get_wc_url($serviceuri, 'refresh', $username);
+    $uri = parse_url($url);
+
+    switch ($uri['scheme']) {
+        case 'http':
+            $port = isset($uri['port']) ? $uri['port'] : 80;
+            $host = $uri['host'] . ($port != 80 ? ':'. $port : '');
+            $fp = @fsockopen($uri['host'], $port, $errno, $errstr, 15);
+            break;
+
+        case 'https':
+        /// Note: Only works for PHP 4.3 compiled with OpenSSL.
+            $port = isset($uri['port']) ? $uri['port'] : 443;
+            $host = $uri['host'] . ($port != 443 ? ':'. $port : '');
+            $fp = @fsockopen('ssl://'. $uri['host'], $port, $errno, $errstr, 20);
+            break;
+
+        default:
+            $result->error = 'invalid schema '. $uri['scheme'];
+            return $result;
+    }
+
+/// Make sure the socket opened properly.
+    if (!$fp) {
+        $result->error = trim($errno .' '. $errstr);
+        return $result;
+    }
+
+/// Construct the path to act on.
+    $path = isset($uri['path']) ? $uri['path'] : '/';
+    if (isset($uri['query'])) {
+        $path .= '?'. $uri['query'];
+    }
+
+/// Create HTTP request.
+    $headers = array(
+        // RFC 2616: "non-standard ports MUST, default ports MAY be included".
+        // We don't add the port to prevent from breaking rewrite rules checking
+        // the host that do not take into account the port number.
+        'Host'           => "Host: $host",
+        'Content-type'   => 'Content-type: application/atom+xml;type=entry',
+        'User-Agent'     => 'User-Agent: Moodle (+http://moodle.org/)',
+        'Content-Length' => 'Content-Length: ' . $encodedbytes,
+        'MIME-Version'   => 'MIME-Version: 1.0'
+    );
+
+    $request = 'POST  '. $path . " HTTP/1.0\r\n";
+    $request .= implode("\r\n", $headers);
+    $request .= "\r\n\r\n";
+    fwrite($fp, $request);
+
+/// Write the XML request (which contains the base64-encoded uploaded file contents) into the socket.
+    while (!feof($fo)) {
+        fwrite($fp, fread($fo, $chunksize));
+    }
+
+    fclose($fo);
+    fwrite($fp, "\r\n");
+
+/// Fetch response.
+    $response = '';
+    while (!feof($fp) && $chunk = fread($fp, $chunksize)) {
+        $response .= $chunk;
+    }
+    fclose($fp);
+
+    /// Parse response.
+    list($split, $result->data) = explode("\r\n\r\n", $response, 2);
+    $split = preg_split("/\r\n|\n|\r/", $split);
+
+    list($protocol, $code, $text) = explode(' ', trim(array_shift($split)), 3);
+    $result->headers = array();
+
+/// Parse headers.
+    while ($line = trim(array_shift($split))) {
+        list($header, $value) = explode(':', $line, 2);
+        if (isset($result->headers[$header]) && $header == 'Set-Cookie') {
+        /// RFC 2109: the Set-Cookie response header comprises the token Set-
+        /// Cookie:, followed by a comma-separated list of one or more cookies.
+            $result->headers[$header] .= ','. trim($value);
+        } else {
+            $result->headers[$header] = trim($value);
+        }
+    }
+
+    $responses = array(
+        100 => 'Continue', 101 => 'Switching Protocols',
+        200 => 'OK', 201 => 'Created', 202 => 'Accepted', 203 => 'Non-Authoritative Information', 204 => 'No Content', 205 => 'Reset Content', 206 => 'Partial Content',
+        300 => 'Multiple Choices', 301 => 'Moved Permanently', 302 => 'Found', 303 => 'See Other', 304 => 'Not Modified', 305 => 'Use Proxy', 307 => 'Temporary Redirect',
+        400 => 'Bad Request', 401 => 'Unauthorized', 402 => 'Payment Required', 403 => 'Forbidden', 404 => 'Not Found', 405 => 'Method Not Allowed', 406 => 'Not Acceptable', 407 => 'Proxy Authentication Required', 408 => 'Request Time-out', 409 => 'Conflict', 410 => 'Gone', 411 => 'Length Required', 412 => 'Precondition Failed', 413 => 'Request Entity Too Large', 414 => 'Request-URI Too Large', 415 => 'Unsupported Media Type', 416 => 'Requested range not satisfiable', 417 => 'Expectation Failed',
+        500 => 'Internal Server Error', 501 => 'Not Implemented', 502 => 'Bad Gateway', 503 => 'Service Unavailable', 504 => 'Gateway Time-out', 505 => 'HTTP Version not supported'
+    );
+
+/// RFC 2616 states that all unknown HTTP codes must be treated the same as
+/// the base code in their class.
+    if (!isset($responses[$code])) {
+        $code = floor($code / 100) * 100;
+    }
+//TODO: check for $code 500 and add menu to replace copy or cancel the uploaded file with the same name as an existing file
+//        if($code == 500) {
+//
+//        } else
+    if ($code != 200 && $code != 201 && $code != 304) {
+        debugging(get_string('couldnotaccessserviceat', 'repository_elis_files', $serviceuri), DEBUG_DEVELOPER);
+        return false;
+    }
+
+    $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
+
+    $dom = new DOMDocument();
+    $dom->preserveWhiteSpace = false;
+    $dom->loadXML($result->data);
+
+    $nodes = $dom->getElementsByTagName('entry');
+
+    if (!$nodes->length) {
+        return false;
+    }
+
+    $type       = '';
+    $properties = elis_files_process_node($dom, $nodes->item(0), $type);
+
+    // Ensure that we set the current user to be the owner of the newly created directory.
+    if (!empty($properties->uuid)) {
+        $username = elis_files_transform_username($USER->username);
+
+        // We're not going to check the response for this right now.
+        elis_files_request('/moodle/nodeowner/' . $properties->uuid . '?username=' . $username);
+    }
 
     return $properties;
 }
+
 
 /**
  * Upload a file into the repository via FTP.
@@ -1019,62 +982,31 @@ function elis_files_upload_ftp($filename, $filepath, $filemime, $filesize, $uuid
 
     $config = get_config('elis_files');
 
-    // Obtain the logger object in a clean state, in case we need it
-    $logger = elis_files_logger::instance();
-    $logger->flush();
-
     // We need to get just the hostname out of the configured host URL
     $uri = parse_url($config->server_host);
 
     if (!($ftp = ftp_connect($uri['host'], $config->ftp_port, 5))) {
         error_log('Could not connect to Alfresco FTP server '.$uri['host'].$config->ftp_port);
-
-        // Signal an FTP failure
-        $logger->signal_error(ELIS_FILES_ERROR_FTP);
-
         return false;
     }
 
     if (!ftp_login($ftp, $config->server_username, $config->server_password)) {
         error_log('Could not authenticate to Alfresco FTP server');
         ftp_close($ftp);
-
-        // Signal an FTP failure
-        $logger->signal_error(ELIS_FILES_ERROR_FTP);
-
         return false;
     }
 
     $repo_path = elis_files_node_path($uuid);
 
     // The FTP server represents "Company Home" as "Alfresco" so we need to change that now:
-    $repo_path = str_replace("/Company Home", "Alfresco", $repo_path, $count);
-    if ($count === 0) {
-        // /Company Home not found, so prepend Alfresco onto the repo path
-        $repo_path = 'Alfresco'.$repo_path;
-    }
-    // explode the path and chdir for each folder
-    $path_array = explode('/',$repo_path);
-    foreach ($path_array as $path) {
-        if (!@ftp_chdir($ftp, $path)) {
-            error_log("elis_files_upload_ftp('{$filename}', '{$filepath}', {$filemime}, {$filesize}, '{$uuid}', {$useadmin}): repo_path = {$repo_path} - couldn't ftp_chdir() to '{$path}'");
-            ftp_close($ftp);
-            // Signal an FTP failure
-            $logger->signal_error(ELIS_FILES_ERROR_FTP);
-            return false;
-        }
-    }
+    $repo_path = str_replace("/Company Home", "Alfresco", $repo_path);
 
-    $res = ftp_put($ftp, $filename, $filepath, FTP_BINARY);
+    $res = ftp_put($ftp, $repo_path.'/'.$filename, $filepath, FTP_BINARY);
 
     if ($res != FTP_FINISHED) {
         error_log('Could not upload file '.$filepath.' to Alfresco: '.$repo_path.'/'.$filename);
         mtrace('$res = '.$res);
         ftp_close($ftp);
-
-        // Signal an FTP failure
-        $logger->signal_error(ELIS_FILES_ERROR_FTP);
-
         return false;
     }
 
@@ -1085,11 +1017,6 @@ function elis_files_upload_ftp($filename, $filepath, $filemime, $filesize, $uuid
     if (!empty($dir->files)) {
         foreach ($dir->files as $file) {
             if ($file->title == $filename) {
-                if (!empty($file->uuid) &&
-                    ($username = elis_files_transform_username($USER->username))) {
-                    // We're not going to check the response for this right now.
-                    elis_files_request('/moodle/nodeowner/' . $file->uuid . '?username=' . $username);
-                }
                 return $file;
             }
         }
@@ -1217,7 +1144,20 @@ function elis_files_category_search($categories) {
     $nodes = array();
 
     foreach ($categories as $category) {
-        $cattitle = elis_files_ISO_9075_map($category->title);
+    /// Re-encoded special characters to ISO-9075 standard for Xpath.
+        $search = array(
+            ':',
+            '_',
+            ' '
+        );
+
+        $replace = array(
+            '_x003A_',
+            '_x005F_',
+            '_x0020_'
+        );
+
+        $cattitle = str_replace($search, $replace, $category->title);
         $response = elis_files_utils_invoke_service('/moodle/categorysearch/' . $cattitle);
 
         $sxml = RLsimpleXMLelement($response);
@@ -1355,132 +1295,24 @@ function elis_files_get_config() {
  * structure usable in Moodle.
  *
  * @param SimpleXMLElement $sxml A folder-level SimpleXMLElement object.
- * @param boolean $check_permissions Set to true to require "create" permissions
- *                                   on returned folders
- * @param string $path_prefix A prefix to use for the path, in case the parent
- *                            node is not accessible
- * @param string $parent_uuid The uuid of the parent node relative to the top of
- *                            the XML structure
- * @param int $courseid The id of the course whose area we are in, or the site id
- *                      if not in a particular course's area
- * @param boolean $shared Set to true if we are in the shared space
- * @param int $oid The id of the user set whose area we are in, if applicable
- * @param int $uid The id of the user whose area we are in, if applicable
- * @param object $repo The repository object, or NULL if we need to obtain it
  * @return array An array of folder information.
  */
-function elis_files_process_folder_structure($sxml, $check_permissions = false, $path_prefix = '', $parent_uuid = '',
-                                             $courseid = SITEID, $shared = false, $oid = 0, $uid = 0, $repo = NULL) {
-    global $DB, $USER;
-
+function elis_files_process_folder_structure($sxml) {
     $return = array();
-
-    // Data needed by the repository object
-    $params = array(
-        'ajax' => false,
-        'name' => '',
-        'type' =>'elis_files'
-    );
-
-    // Create the repository object
-    if ($repo == NULL) {
-        $sql = "SELECT MIN(ri.id)
-                FROM {repository} r
-                JOIN {repository_instances} ri
-                  ON r.id = ri.typeid
-                WHERE r.type = ?";
-        $instanceid = $DB->get_field_sql($sql, array('elis_files'));
-
-        $repo = new repository_elis_files($instanceid, SYSCONTEXTID, $params);
-    }
 
     if (!empty($sxml->folder)) {
         foreach ($sxml->folder as $folder) {
-            // Track values specifically for this node, i.e. not for other folders
-            // at the same level
-            $node_courseid = $courseid;
-            $node_shared = $shared;
-            $node_oid = $oid;
-            $node_uid = $uid;
-
-            if ($check_permissions) {
-                // The course id if we are at a specific course node, or the site id
-                // otherwise
-                if ($node_courseid == SITEID && $parent_uuid == $repo->elis_files->cuuid) {
-                    $params = array(
-                        'uuid' => "$folder->uuid"
-                    );
-                    $tempcourseid = $DB->get_field('elis_files_course_store', 'courseid', $params);
-                    if ($tempcourseid) {
-                        $node_courseid = $tempcourseid;
-                    }
-                }
-
-                // Flag indicating whether the node is the main shared folder
-                if (!$node_shared) {
-                    $node_shared = $folder->uuid == $repo->elis_files->suuid;
-                }
-
-                // The organization id if we are at a specific organization node, or
-                // an empty value otherwise
-                if ($node_oid == 0 && $parent_uuid == $repo->elis_files->ouuid) {
-                    $params = array(
-                        'uuid' => "$folder->uuid"
-                    );
-                    $node_oid = $DB->get_field('elis_files_userset_store', 'usersetid', $params);
-                }
-
-                // The user id if we are at the node for the curent user, or an empty
-                // value otherwise
-                if ($node_uid == 0) {
-                    $node_uid = $folder->uuid == $repo->elis_files->uuuid ? $USER->id : 0;
-                }
-
-                // Determine whether the current user has the edit permission on this folder
-                $has_permissions = $repo->check_editing_permissions($node_courseid, $node_shared, $node_oid,
-                                                                    $folder->uuid, $node_uid);
-            } else {
-                // Allow access
-                $has_permissions = true;
-            }
-
             $cat = array(
                 'uuid'     => "$folder->uuid",
-                // Append the path prefix
-                'name'     => "{$path_prefix}{$folder->name}",
+                'name'     => "$folder->name",
                 'children' => array()
             );
 
-            // Calculate the list of children
-            $children = array();
             if (!empty($folder->folders)) {
-                // Calculate the start of the child path
-                $child_path_prefix = $path_prefix;
-                if (!$has_permissions) {
-                    // Will not be inhereted from this node, so add the prefix
-                    $child_path_prefix .= $folder->name.'/';
-                } else {
-                    // We just want the last piece
-                    $child_path_prefix = '';
-                }
-
-                // Recurse, passing along information about the area we are in
-                $new_parent_uuid = "$folder->uuid";
-                $children = elis_files_process_folder_structure($folder->folders, $check_permissions, $child_path_prefix,
-                                                                $new_parent_uuid, $node_courseid, $node_shared, $node_oid,
-                                                                $node_uid, $repo);
+                $cat['children'] = elis_files_process_folder_structure($folder->folders);
             }
 
-            if ($has_permissions) {
-                // Current node will be included, so append the children
-                $cat['children'] = $children;
-                $return[] = $cat;
-            } else {
-                // Current node will not be included, so include children at this level
-                foreach ($children as $child) {
-                    $return[] = $child;
-                }
-            }
+            $return[] = $cat;
         }
     }
 
@@ -1491,11 +1323,10 @@ function elis_files_process_folder_structure($sxml, $check_permissions = false, 
 /**
  * Get a hierarchical folder structure from the Alfresco server.
  *
- * @param boolean $check_permissions Set to true to require "create" permissions
- *                                   on returned folders
+ * @param none
  * @return array A nested array of folder node data.
  */
-function elis_files_folder_structure($check_permissions = false) {
+function elis_files_folder_structure() {
     $response = elis_files_request('/moodle/folders');
 
     $response = preg_replace('/(&[^amp;])+/', '&amp;', $response);
@@ -1506,7 +1337,7 @@ function elis_files_folder_structure($check_permissions = false) {
     }
 
     if (!empty($sxml->folder)) {
-        return elis_files_process_folder_structure($sxml, $check_permissions);
+        return elis_files_process_folder_structure($sxml);
     }
 
     return array();
@@ -1598,10 +1429,6 @@ function elis_files_process_node_new($node, &$type) {
         $contentNode->filemimetype = $node->properties['cmis:contentStreamMimeType'];
     }
 
-    if (isset($node->properties['cmis:objectId'])) {
-        $contentNode->noderef = $node->properties['cmis:objectId'];
-    }
-
     // We have to recontextualize the date & time values given to us into
     // a standard UNIX timestamp value that Moodle uses.
     $created = $node->properties['cmis:creationDate'];
@@ -1677,7 +1504,6 @@ function elis_files_process_node_new($node, &$type) {
  * @return object The node properties in an object format.
  */
 function elis_files_process_node($dom, $node, &$type) {
-
     $xpath = new DOMXPath($dom);
 
     if ($node->hasChildNodes()) {
@@ -1695,10 +1521,7 @@ function elis_files_process_node($dom, $node, &$type) {
                     break;
 
                 case 'author':
-                    // ELIS-5750: see also test & request at end of function!
-                    $contentNode->owner = ($cnode->nodeValue == 'admin')
-                                          ? 'moodle' : $cnode->nodeValue;
-                    break;
+                    $contentNode->owner = $cnode->nodeValue;
 
                 case 'published':
                     $created = $cnode->nodeValue;
@@ -1768,28 +1591,36 @@ function elis_files_process_node($dom, $node, &$type) {
                             $contentNode->links['self'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'allowableactions':
+                        case 'cmis-allowableactions':
                             $contentNode->links['permissions'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'relationships':
+                        case 'cmis-relationships':
                             $contentNode->links['associations'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'parents':
+                        case 'cmis-parent':
                             $contentNode->links['parent'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'children':
+                        case 'cmis-folderparent':
+                            $contentNode->links['folderparent'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
+                            break;
+
+                        case 'cmis-children':
                             $contentNode->links['children'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'descendants':
+                        case 'cmis-descendants':
                             $contentNode->links['descendants'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
-                        case 'type':
+                        case 'cmis-type':
                             $contentNode->links['type'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
+                            break;
+
+                        case 'cmis-repository':
+                            $contentNode->links['repository'] = str_replace(elis_files_base_url(), '', $cnode->getAttribute('href'));
                             break;
 
                         default:
@@ -1799,17 +1630,15 @@ function elis_files_process_node($dom, $node, &$type) {
                     break;
 
                 default:
-                    //error_log("elis_files_process_node(): Unsupported tag '{$cnode->tagName}' = {$cnode->nodeValue}");
                     break;
             }
 
         }
-    } else {
-        // There were no child nodes
-        return false;
     }
 
     $entries    = $xpath->query('.//cmis:properties/*', $node);
+//    $isfolder   = false;
+//    $isdocument = false;
     $j          = 0;
 
     while ($prop = $entries->item($j++)) {
@@ -1857,7 +1686,6 @@ function elis_files_process_node($dom, $node, &$type) {
                         break;
 
                     default:
-                        //error_log("elis_files_process_node(): Unsupported cmis property '{$propname}' = {$prop->nodeValue}");
                         break;
                 }
             }
@@ -1870,16 +1698,6 @@ function elis_files_process_node($dom, $node, &$type) {
         }
     }
 
-    // ELIS-5750: the following requires the updated webscript: nodeowner.get.js
-    if (!empty($contentNode->uuid) &&
-        (empty($contentNode->owner) || $contentNode->owner == 'moodle') &&
-        ($response = elis_files_request('/moodle/nodeowner/'. $contentNode->uuid))
-        && ($sxml = RLsimpleXMLelement($response)) && !empty($sxml->owner)) {
-        foreach ((array)$sxml->owner AS $val) {
-            $contentNode->owner = $val;
-            break;
-        }
-    }
     return $contentNode;
 }
 
@@ -2063,7 +1881,7 @@ function elis_files_has_permission($uuid, $username = '', $edit = false) {
 
     $username = elis_files_transform_username($username);
 
-    $response = elis_files_request('/moodle/getpermissions/' . $uuid . (!empty($username) ? '?username=' . $username : ''));
+    $response = elis_files_request('/moodle/getpermissions/' . $uuid . '?username=' . $username);
 
     $sxml = RLsimpleXMLelement($response);
     if (empty($sxml)) {
@@ -2120,14 +1938,9 @@ function elis_files_get_permissions($uuid, $username = '') {
     global $CFG, $USER;
 
     // If no username was specified, make sure that there is a user currently logged in and use that username.
-    if (empty($username)) {
-        if (!isloggedin()) {
-            return false;
-        }
-
-        $username = $USER->username;
+    if (!empty($username)) {
+        $username = elis_files_transform_username($username);
     }
-    $username = elis_files_transform_username($username);
 
     $permissions = array();
 
@@ -2687,7 +2500,6 @@ function elis_files_utils_get_url($url) {
  */
 function elis_files_utils_get_wc_url($url, $op = 'norefresh', $username = '') {
 
-
     $endpoint = elis_files_base_url();
     $ticket   = elis_files_utils_get_ticket($op, $username);
 
@@ -2897,36 +2709,6 @@ function elis_files_transform_username($username) {
 }
 
 /**
- * Convert a folder title to a Moodle userid
- * @param string $folder The folder title, including _AT_ instead of @,
- *                       excluding any tenant information
- * @return mixed The id of the matching Moodle user, or false if none
- */
-function elis_files_folder_to_userid($folder) {
-    global $CFG, $DB;
-
-    if (strpos($folder, '@') !== false) {
-        // This should never happen
-        return false;
-    }
-
-    // Folder contain _AT_ instead of @
-    $username = str_replace('_AT_', '@', $folder);
-
-    if ($username == elis::$config->elis_files->admin_username) {
-        // This user is the Alfresco administrator
-        $username = 'admin';
-    }
-
-    // Find the user based on their username
-    $params = array(
-        'username' => $username,
-        'mnethostid' => $CFG->mnet_localhost_id
-    );
-    return $DB->get_field('user', 'id', $params);
-}
-
-/**
  * Recursively get the path to a specific node (folder or document) from the root of the repository down.
  *
  * @param string $uuid The UUID of the node we are processing
@@ -2936,102 +2718,30 @@ function elis_files_folder_to_userid($folder) {
 function elis_files_node_path($uuid, $path = '') {
     // If we're starting out and the current node is a folder, include it in the path
     if (empty($path)) {
-        $path = '';
         $node = elis_files_node_properties($uuid);
-        if (!$node || !property_exists($node, 'type')) {
-            return ''; // TBD
-        }
         if ($node->type == ELIS_files::$type_folder) {
             $path = $node->title;
         }
     }
 
     // Get the parents for the given node
-    while ($response = elis_files_get_parent($uuid)) {
-        $path = $response->title . (!empty($path) ? '/'. $path : '');
-        $uuid = $response->uuid;
-    }
+    $response = elis_files_request('/cmis/i/'.$uuid.'/parents');
 
-    //error_log("elis_files_node_path() => /{$path}");
-    return '/'. $path;
-}
+    $dom = new DOMDocument();
+    $dom->preserveWhiteSpace = false;
+    $dom->loadXML($response);
 
-/**
- * Obtain the current (i.e. "default") path for the provided course, depending
- * on the configured default browse location
- *
- * @param int $courseid The id of the course whose file picker view we are currently
- *                      on, or SITEID if we are viewing private files
- * @param bool $default True if desire default browsing location
- * @return string The encoded path corresponding to the current location
- */
-function elis_files_get_current_path_for_course($courseid, $default = false) {
-    global $CFG, $DB, $USER;
-    require_once($CFG->dirroot.'/repository/elis_files/lib.php');
+    $nodes = $dom->getElementsByTagName('entry');
 
-    // Default to the Moodle area
-    $currentpath = '/';
-
-    // Determine if the ELIS Files repository is enabled
-    $sql = 'SELECT i.name, i.typeid, r.type
-            FROM {repository} r
-            JOIN {repository_instances} i
-            WHERE r.type = ?
-            AND i.typeid = r.id';
-
-    $repository = $DB->get_record_sql($sql, array('elis_files'), IGNORE_MISSING);
-
-    if ($repository) {
-        // Initialize repository plugin
-        try {
-            $ctx = context_user::instance($USER->id);
-            $options = array(
-                'ajax' => false,
-                'name' => $repository->name,
-                'type' => 'elis_files'
-            );
-            $repo = @new repository_elis_files('elis_files', $ctx, $options);
-
-            if (!empty($repo->elis_files)) {
-                // TBD: Is the following required???
-                //$listing = (object)$repo->get_listing(true);
-                $uuid = ($courseid == SITEID)
-                         ? false // No Site course folder, use default location
-                         : $repo->elis_files->get_course_store($courseid);
-
-                // Determine the default browsing location
-                $cid    = $courseid;
-                $uid    = 0;
-                $shared = false;
-                $oid    = 0;
-                if ($default || empty($uuid)) {
-                    $uuid = $repo->elis_files->get_default_browsing_location($cid, $uid, $shared, $oid);
-                }
-
-                if ($uuid != false) {
-                    // Encode the UUID
-                    $currentpath = repository_elis_files::build_encodedpath($uuid, $uid, $cid, $oid, $shared);
-                }
-            }
-        } catch (Exception $e) {
-            // The parent "repository" class may throw exceptions
-            error_log("/repository/elis_files/lib/lib.php::elis_files_get_current_path_for_course({$courseid}): Exception: ". $e->getMessage());
-        }
-    }
-
-    return $currentpath;
-}
-
-// ELIS-6620,ELIS-6630: glob_recursive require by /repository/draftfiles_ajax.php
-if (!function_exists('glob_recursive')) {
-    // NOTE: does not support flag GLOB_BRACE
-    function glob_recursive($pattern, $flags = 0) {
-        $files = glob($pattern, $flags);
-        foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir)
-        {
-            $files = array_merge($files, glob_recursive($dir.'/'.basename($pattern), $flags));
-        }
-        return $files;
+    if ($nodes->length > 0) {
+        // This node has parents so add this node title to the path and recurse on the parent node
+        $type = '';
+        $node = elis_files_process_node($dom, $nodes->item(0), $type);
+        $path = $node->title.(!empty($path) ? '/'.$path : '');
+        return elis_files_node_path($node->uuid, $path);
+    } else {
+        // This node has no parents, we're at the root so prepend a slash and return everything
+        return '/'.$path;
     }
 }
 
@@ -3043,73 +2753,4 @@ if (!function_exists('glob_recursive')) {
 function elis_files_nopasswd_auths() {
     // TBD: determine from auth plugin which don't support passwords ???
     return array('openid', 'cas');
-}
-
-/**
- * Method to map special characters to ISO 9075 codes for valid XML search
- * @param string categorytitle The name of the category
- *
- * @return string Returns category title with special characters mapped to their hex values
- *
- */
-function elis_files_ISO_9075_map($categorytitle) {
-    /// Re-encoded special characters to ISO-9075 standard for Xpath.
-    // Alfresco accepts the following special characters as part of a category name: +=&{[;,`~@#$%^(-_'}])
-    // Of these, only the following characters can be encoded and successfully used in a search: &@$%(')`
-    // Encoding: +={[;,~#^-_} doesn't allow for a successful search, neither does leaving these characters unencoded
-    // For some reason we have always encoded ':' even though Alfresco does not allow this as part of a category name
-    $search = array(
-        ':',
-        '_',
-        ' ',
-        "'",
-        '+',
-        '=',
-        '&',
-        '{',
-        '}',
-        '[',
-        ']',
-        ';',
-        ',',
-        '`',
-        '~',
-        '@',
-        '#',
-        '$',
-        '%',
-        '^',
-        '(',
-        ')',
-        '-'
-    );
-
-    $replace = array(
-        '_x003A_',
-        '_x005F_',
-        '_x0020_',
-        '_x0027_',
-        '_x002B_',
-        '_x003D_',
-        '_x0026_',
-        '_x007B_',
-        '_x007D_',
-        '_x005B_',
-        '_x005D_',
-        '_x003B_',
-        '_x002C_',
-        '_x0060_',
-        '_x007E_',
-        '_x0040_',
-        '_x0023_',
-        '_x0024_',
-        '_x0025_',
-        '_x005E_',
-        '_x0028_',
-        '_x0029_',
-        '_x002D_'
-    );
-
-    $cattitle = str_replace($search, $replace, $categorytitle);
-    return $cattitle;
 }
