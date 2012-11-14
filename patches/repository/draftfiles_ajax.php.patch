@@ -1,0 +1,734 @@
+diff --git a/repository/draftfiles_ajax.php b/repository/draftfiles_ajax.php
+index 3857a0d..af170e5 100644
+--- a/repository/draftfiles_ajax.php
++++ b/repository/draftfiles_ajax.php
+@@ -27,9 +27,31 @@
+ define('AJAX_SCRIPT', true);
+ 
+ require('../config.php');
++global $CFG, $OUTPUT, $PAGE, $USER;
++
+ require_once($CFG->libdir.'/filelib.php');
+ require_once($CFG->libdir.'/adminlib.php');
+ require_once($CFG->dirroot.'/repository/lib.php');
++$has_elisfiles = false;
++if (file_exists($CFG->dirroot .'/repository/elis_files/')) {
++    $has_elisfiles = true;
++    require_once($CFG->dirroot .'/repository/elis_files/lib.php');
++    require_once($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++}
++
++function debug_errorlog_obj($msg, $obj = null) {
++    if (debugging('', DEBUG_DEVELOPER)) {
++        $tmp = '';
++        if ($obj !== null) {
++            ob_start();
++            var_dump($obj);
++            $tmp = ob_get_contents();
++            ob_end_clean();
++        }
++        error_log($msg . $tmp);
++    }
++}
++
+ $PAGE->set_context(get_system_context());
+ require_login();
+ if (isguestuser()) {
+@@ -58,23 +80,103 @@ switch ($action) {
+ 
+     case 'list':
+         $filepath = optional_param('filepath', '/', PARAM_PATH);
++        debug_errorlog_obj("draftfiles_ajax.php::list: filepath = {$filepath}");
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            // RL: ELIS files: Alfresco
++            $data = null;
++            $listing = null;
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        $listing = $repo->get_listing($filepath);
++                        if (!$listing) {
++                            $err = new stdClass;
++                            $err->error = get_string('elis_files_folder_not_found', 'repository_elis_files');
++                            die(json_encode($err));
++                        }
+ 
++                        list($data, $cnt) = $repo->prepare_fm_listing((object)$listing);
++                    }
++                } catch (Exception $e) {
++                    error_log('/repository/draftfile_ajax.php: list - Exception: '.
++                              $e->getMessage());
++                    $repo = null;
++               }
++            }
++            //debug_errorlog_obj('draftfiles_ajax.php:: listing = ', $listing);
++            if ($data) {
++                $data->filecount = $cnt;
++            } else {
++                $err = new stdClass;
++                $err->error = get_string('errorreadingfile', 'repository_elis_files', get_string('pluginname', 'repository_elis_files'));
++                die(json_encode($err));
++            }
++            //debug_errorlog_obj('draftfiles_ajax.php:: data.A = ', $data);
++        } else {
+         $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
+         $info = file_get_draft_area_info($draftid);
+         $data->filecount = $info['filecount'];
+         $data->filesize = $info['filesize'];
+         $data->tree = new stdClass();
+         file_get_drafarea_folders($draftid, '/', $data->tree);
++            //debug_errorlog_obj('draftfiles_ajax.php:: data.B = ', $data);
++        }
+         echo json_encode($data);
+         die;
+ 
+     case 'mkdir':
+         $filepath   = required_param('filepath', PARAM_PATH);
+         $newdirname = required_param('newdirname', PARAM_FILE);
++        //debug_errorlog_obj("draftfiles_ajax.php:: action = mkdir, filepath = {$filepath}, newdirname = {$newdirname}");
++        $return = new stdClass();
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedpath = unserialize(base64_decode($filepath));
++            debug_errorlog_obj('draftfiles_ajax.php: mkdir: decodedpath = ', $decodedpath);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        // TBD: next call shouldn't be required but fails w/o!
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php: mkdir - Exception: '.
++                              $e->getMessage());
++               }
++            }
+ 
++            // Track the success of this operation
++            $success = false;
++
++            if (!empty($repo)) {
++                // Perform permissions checking
++
++                if ($repo->can_edit_decoded_path($decodedpath)) {
++                    // Have permissions, so create the directory
++                    $success = elis_files_create_dir($newdirname, $decodedpath['path']);
++                }
++            }
++
++            if (!$success) {
++                $return->error = get_string('errorcouldnotcreatedirectory',
++                                            'repository_elis_files',
++                                            $newdirname);
++            }
++        } else {
+         $fs = get_file_storage();
+         $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
+-        $return = new stdClass();
++        }
+         $return->filepath = $filepath;
+         echo json_encode($return);
+         die;
+@@ -82,10 +184,64 @@ switch ($action) {
+     case 'delete':
+         $filename   = required_param('filename', PARAM_FILE);
+         $filepath   = required_param('filepath', PARAM_PATH);
++        $return = new stdClass();
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedpath = unserialize(base64_decode($filepath));
++            debug_errorlog_obj("draftfiles_ajax.php: delete: filename = {$filename}, decodedpath = ", $decodedpath);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        // TBD: next call shouldn't be required but fails w/o!
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php:delete - Exception: '.
++                              $e->getMessage());
++               }
++            }
++            $test_parent = elis_files_get_parent($decodedpath['path']);
++            // ^^^ TBD: ALfresco 3.4
++            $default_parent = !empty($test_parent->uuid)
++                              ? base64_encode(serialize($test_parent->uuid))
++                              : '';
++            $parent = optional_param('parent', $default_parent, PARAM_ALPHANUM);
++
++            // Check for obvious points of failure
++            $success = true;
++            $success = $success && !empty($repo);
++            $success = $success && !empty($decodedpath['path']);
++
++            if ($success) {
++                // Data seems correct, so check permissions, then delete the file if ok
++                $success = $success && $repo->can_edit_decoded_path($decodedpath);
++                $success = $success && elis_files_delete($decodedpath['path'], true);
++            }
+ 
++            if (!$success) {
++                // Failure message
++                $return->error = get_string('couldnotdeletefile',
++                                            'repository_elis_files',
++                                            $filename .' ('. $decodedpath['path'] .')');
++            }
++
++            // Need to report back the parent node for refreshing purposes
++            if (!empty($parent)) {
++                //debug_errorlog_obj("draftfiles_ajax.php: delete: parent = {$parent}, test_parent = ", $test_parent);
++                $return->filepath = $parent;
++            } else {
++                $return = false;
++            }
++            echo json_encode($return);
++        } else {
+         $fs = get_file_storage();
+         $filepath = file_correct_filepath($filepath);
+-        $return = new stdClass();
+         if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
+             $parent_path = $stored_file->get_parent_directory()->get_filepath();
+             if ($stored_file->is_directory()) {
+@@ -97,7 +253,7 @@ switch ($action) {
+                 $return->filepath = $parent_path;
+                 echo json_encode($return);
+             } else {
+-                if($result = $stored_file->delete()) {
++                    if ($result = $stored_file->delete()) {
+                     $return->filepath = $parent_path;
+                     echo json_encode($return);
+                 } else {
+@@ -107,6 +263,7 @@ switch ($action) {
+         } else {
+             echo json_encode(false);
+         }
++        }
+         die;
+ 
+     case 'setmainfile':
+@@ -126,6 +283,71 @@ switch ($action) {
+         $filename    = required_param('filename', PARAM_FILE);
+         $filepath    = required_param('filepath', PARAM_PATH);
+ 
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $newfilename = optional_param('newfilename', '', PARAM_FILE);
++            $newfilepath = optional_param('newfilepath', '', PARAM_PATH);
++            if (empty($newfilename) && empty($newfilepath)) { // TBD
++                die(json_encode((object)array('error' => get_string('couldnotupdatefile', 'repository_elis_files'))));
++            }
++            $decodedfrompath = unserialize(base64_decode($filepath));
++            $decodedtopath = (!empty($newfilepath) && substr($newfilepath, 0, 1) != '/')
++                             ? unserialize(base64_decode($newfilepath)) : null;
++            debug_errorlog_obj("draftfiles_ajax.php: update: filepath = {$filepath}, newfilename = {$newfilename}, newfilepath = {$newfilepath}, decodedfrompath = ", $decodedfrompath);
++            debug_errorlog_obj("decodedtopath = ", $decodedtopath);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        // TBD: next call shouldn't be required but fails w/o!
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php:update - Exception: '.
++                              $e->getMessage());
++               }
++            }
++            if (!empty($repo) && !empty($decodedfrompath['path']) &&
++                (!empty($newfilename) || !empty($newfilepath)) &&
++                ($existing = elis_files_node_properties($decodedfrompath['path'])) !== false) {
++
++                // Permissions checking
++                if (!$repo->can_edit_decoded_path($decodedtopath)) {
++                    // Note: we care about the destination directory here
++                    $error_string = get_string('couldnotupdatefile', 'repository_elis_files');
++                    die(json_encode((object)array('error' => $error_string)));
++                }
++
++                $parent = required_param('parent', PARAM_ALPHANUM); // TBD
++                debug_errorlog_obj('updatedir: existing = ', $existing);
++                if ($existing->title != $newfilename &&
++                    elis_files_node_rename($decodedfrompath['path'], $newfilename) === false) {
++                    // rename failed
++                    die(json_encode((object)array('error' =>
++                             get_string('couldnotrenamenode',
++                                        'repository_elis_files', $newfilename))));
++
++                }
++                if (!empty($decodedtopath['path']) &&
++                    $decodedtopath['path'] != $decodedfrompath['path'] &&
++                    elis_files_move_node($decodedfrompath['path'],
++                                         $decodedtopath['path']) === false) {
++                    // move failed
++                    die(json_encode((object)array('error' =>
++                             get_string('couldnotmovenode', 'repository_elis_files'))));
++                }
++                die(json_encode((object)array('filepath' => !empty($decodedtopath['path'])
++                                                            ? $newfilepath
++                                                            : $parent))); // TBD
++            }
++            die(json_encode((object)array('error' => get_string('couldnotupdatefile', 'repository_elis_files'))));
++        }
++
+         $fs = get_file_storage();
+         if (!($file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename))) {
+             die(json_encode((object)array('error' => get_string('filenotfound', 'error'))));
+@@ -167,14 +389,70 @@ switch ($action) {
+ 
+     case 'updatedir':
+         $filepath = required_param('filepath', PARAM_PATH);
++        $newdirname = required_param('newdirname', PARAM_FILE);
++        $parent = required_param('newfilepath', PARAM_PATH);
++
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedfrompath = unserialize(base64_decode($filepath));
++            $decodedtopath = unserialize(base64_decode($parent));
++            //debug_errorlog_obj("draftfiles_ajax.php: updatedir: filepath = {$filepath}, newdirname = {$newdirname}, parent = {$parent}, decodedfrompath = ", $decodedfrompath);
++            //debug_errorlog_obj("decodedtopath = ", $decodedtopath);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        // TBD: next call shouldn't be required but fails w/o!
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php:updatedir - Exception: '.
++                              $e->getMessage());
++               }
++            }
++            if (!empty($repo) && !empty($newdirname) &&
++                !empty($decodedtopath['path']) &&
++                !empty($decodedfrompath['path']) &&
++                ($existing = elis_files_node_properties($decodedfrompath['path'])) !== false) {
++
++                // Permissions checking
++                if (!$repo->can_edit_decoded_path($decodedtopath)) {
++                    // Note: we care about the destination directory here
++                    $error_string = get_string('couldnotupdatedir', 'repository_elis_files');
++                    die(json_encode((object)array('error' => $error_string)));
++                }
++
++                //debug_errorlog_obj('updatedir: existing = ', $existing);
++                if ($existing->title != $newdirname &&
++                    elis_files_node_rename($decodedfrompath['path'], $newdirname) === false) {
++                    // rename failed
++                    die(json_encode((object)array('error' =>
++                             get_string('couldnotrenamenode',
++                                        'repository_elis_files', $newdirname))));
++
++                }
++                if ($decodedtopath['path'] != $decodedfrompath['path']
++                    && elis_files_move_node($decodedfrompath['path'],
++                                            $decodedtopath['path']) === false) {
++                    // move failed
++                    die(json_encode((object)array('error' =>
++                             get_string('couldnotmovenode', 'repository_elis_files'))));
++                }
++                die(json_encode((object)array('filepath' => $parent))); // TBD
++            }
++            die(json_encode((object)array('error' => get_string('couldnotupdatedir', 'repository_elis_files'))));
++        }
+         $fs = get_file_storage();
+         if (!$dir = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.')) {
+             die(json_encode((object)array('error' => get_string('foldernotfound', 'repository'))));
+         }
+         $parts = explode('/', trim($dir->get_filepath(), '/'));
+         $dirname = end($parts);
+-        $newdirname = required_param('newdirname', PARAM_FILE);
+-        $parent = required_param('newfilepath', PARAM_PATH);
+         $newfilepath = clean_param($parent . '/' . $newdirname . '/', PARAM_PATH);
+         if ($newfilepath == $filepath) {
+             // no action required
+@@ -212,14 +490,146 @@ switch ($action) {
+ 
+     case 'zip':
+         $filepath = required_param('filepath', PARAM_PATH);
+-
+         $zipper = get_file_packer('application/zip');
+-        $fs = get_file_storage();
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedpath = unserialize(base64_decode($filepath));
++            $parent = required_param('parent', PARAM_ALPHANUM);
++            $decodedparent = unserialize(base64_decode($parent));
++            debug_errorlog_obj("draftfiles_ajax.php: zip: decodedparent = ", $decodedparent);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php: zip - Exception: '.
++                              $e->getMessage());
++               }
++            }
+ 
+-        $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
++            $data_error = empty($decodedpath['path']) || empty($decodedparent['path']) ||
++                          empty($listing) || empty($repo);
++
++            if ($data_error) {
++                // TODO: determine whether there are any legitimate scenarios to cover here
++                // and display an error message for each of them
++                die(json_encode(false));
++            } else if (!$repo->can_edit_decoded_path($decodedpath)) {
++                // Permissions failure
++                $error_string = get_string('errorzip', 'repository_elis_files');
++                die(json_encode((object)array('error' => $error_string)));
++            } else if (empty($listing->list)) {
++                // Empty directory
++                die(json_encode(array('error' => get_string('errorzipemptydirectory', 'repository_elis_files'))));
++            }
++            $files = array();
++            list($prep_listing, $cnt) = $repo->prepare_fm_listing($listing);
++            //debug_errorlog_obj("draftfiles_ajax.php: zip: prep_listing = ", $prep_listing);
++            //debug_errorlog_obj("draftfiles_ajax.php: zip: prep_listing->path = ", $prep_listing->path);
++            if ($cnt < 1 || empty($prep_listing->list)) {
++                die(json_encode(false));
++            }
++            $basefilename = substr($filepath, 0, 60); // TBD: default???
++            $found_base = false;
++            if (($nodeinfo = $repo->elis_files->get_info($decodedpath['path']))
++                && !empty($nodeinfo->title)) {
++                $basefilename = $nodeinfo->title;
++                $found_base = true;
++            } else {
++                foreach ($prep_listing->path as $efpath) {
++                    if ($efpath['path'] == $filepath) {
++                        $basefilename = $efpath['name'];
++                        $found_base = true;
++                        break;
++                    }
++                }
++            }
++            $filename = $basefilename .'.zip';
++            $tmpzipdir = "{$CFG->dataroot}/temp/zip/dltop_{$basefilename}";
++            @fulldelete($tmpzipdir);
++            if (!file_exists($tmpzipdir) && !@mkdir($tmpzipdir, 0777, true)) {
++                error_log("/repository/draftfiles_ajax.php: zip: Failed creating directory: {$tmpzipdir}");
++                die(json_encode(false));
++            }
++            if (!$repo->elis_files->download_dir($tmpzipdir, $decodedpath['path'])) {
++                error_log("/repository/draftfiles_ajax.php: zip: Failed downloading folder {$decodedpath['path']} to directory {$tmpzipdir}");
++                die(json_encode(false));
++            }
++            $files = array();
++            $dirprefix = "{$tmpzipdir}/";
++            if (!$found_base && ($dldir = glob("{$dirprefix}*", GLOB_ONLYDIR)) !== false
++                && !empty($dldir)) {
++                $dirprefix = "{$dldir[0]}/";
++            } else {
++                $dirprefix .= "{$basefilename}/";
++            }
++            //debug_errorlog_obj("draftfiles_ajax.php: zip: dirprefix = {$dirprefix}");
++            foreach (glob_recursive("{$dirprefix}*") as $file) {
++                if (($pos = strpos($file, $dirprefix)) !== false) {
++                    $pos += strlen($dirprefix);
++                    $key = substr($file, $pos);
++                } else {
++                    $key = basename($file);
++                }
++                //error_log("/repository/draftfiles_ajax.php: zip: processing file: {$file} (key = {$key})");
++                $files[$key] = $file;
++            }
++            //debug_errorlog_obj("draftfiles_ajax.php: zip: files[] = ", $files);
++            if (empty($files)) {
++                die(json_encode(false));
++            }
+ 
++            // Make sure zip filename is unique!
++            $parent_listing = (object)$repo->get_listing($parent);
++            $cnt = 1;
++            $newbasename = preg_replace('/\.[0-9]+$/', '', $basefilename);
++            if ($newbasename != $basefilename) {
++                $cnt = intval(substr($basefilename, strrpos($basefilename, '.') + 1)) + 1;
++                $basefilename = $newbasename;
++            }
++            do {
++                $zipunique = true;
++                foreach ($parent_listing->list as $file) {
++                    if ($filename == $file['title']) {
++                        $filename = $basefilename .".{$cnt}.zip";
++                        ++$cnt;
++                        $zipunique = false;
++                        break;
++                    }
++                }
++            } while (!$zipunique);
++            // archive compressed file to a temporary os file path in dataroot
++            $tempdir = "{$CFG->dataroot}/temp/zip"; // TBD
++            //if (!file_exists($tempdir) && !@mkdir($tempdir, 0777, true)) {
++            //    error_log("/repository/draftfiles_ajax.php: zip: Failed creating directory: {$tempdir}");
++            //    die(json_encode(false));
++            //}
++            $filename = "{$tempdir}/{$filename}";
++            // Delete any temp files with same name before creating new zip
++            @unlink($filename);
++            if ($zipper->archive_to_pathname($files, $filename) &&
++                elis_files_upload_file('', $filename, $decodedparent['path'])) {
++                @unlink($filename);
++                @fulldelete($tmpzipdir);
++                $return = new stdClass;
++                $return->filepath = $parent;
++                echo json_encode($return);
++            } else {
++                @unlink($filename);
++                @fulldelete($tmpzipdir);
++                echo json_encode(false);
++            }
++        } else {
++            $fs = get_file_storage();
++            $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
+         $parent_path = $file->get_parent_directory()->get_filepath();
+-
+         if ($newfile = $zipper->archive_to_storage(array($file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $filepath.'.zip', $USER->id)) {
+             $return = new stdClass();
+             $return->filepath = $parent_path;
+@@ -227,12 +637,104 @@ switch ($action) {
+         } else {
+             echo json_encode(false);
+         }
++        }
+         die;
+ 
+     case 'downloaddir':
+         $filepath = required_param('filepath', PARAM_PATH);
+-
+         $zipper = get_file_packer('application/zip');
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedpath = unserialize(base64_decode($filepath));
++            debug_errorlog_obj("draftfiles_ajax.php: downloaddir: decodedpath = ", $decodedpath);
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        $listing = (object)$repo->get_listing($filepath);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php: downloaddir - Exception: '.
++                              $e->getMessage());
++               }
++            }
++            if (empty($repo) || empty($listing) || empty($listing->list)
++                || empty($decodedpath['path'])) {
++                die(json_encode(false));
++            }
++            list($prep_listing, $cnt) = $repo->prepare_fm_listing($listing);
++            //debug_errorlog_obj("draftfiles_ajax.php: downloaddir: prep_listing = ", $prep_listing);
++            //debug_errorlog_obj("draftfiles_ajax.php: downloaddir: prep_listing->path = ", $prep_listing->path);
++            if ($cnt < 1 || empty($prep_listing->list)) {
++                die(json_encode(false));
++            }
++            $basefilename = substr($filepath, 0, 60); // TBD: default???
++            $found_base = false;
++            if (($nodeinfo = $repo->elis_files->get_info($decodedpath['path']))
++                && !empty($nodeinfo->title)) {
++                $basefilename = $nodeinfo->title;
++                $found_base = true;
++            } else {
++                foreach ($prep_listing->path as $efpath) {
++                    if ($efpath['path'] == $filepath) {
++                        $basefilename = $efpath['name'];
++                        $found_base = true;
++                        break;
++                    }
++                }
++            }
++            $filename = $basefilename .'.zip';
++            $tmpzipdir = "{$CFG->dataroot}/temp/zip/dltop_{$basefilename}";
++            @fulldelete($tmpzipdir);
++            if (!file_exists($tmpzipdir) && !@mkdir($tmpzipdir, 0777, true)) {
++                error_log("/repository/draftfiles_ajax.php: downloaddir: Failed creating directory: {$tmpzipdir}");
++                die(json_encode(false));
++            }
++            if (!$repo->elis_files->download_dir($tmpzipdir, $decodedpath['path'])) {
++                error_log("/repository/draftfiles_ajax.php: downloaddir: Failed downloading folder {$decodedpath['path']} to directory {$tmpzipdir}");
++                die(json_encode(false));
++            }
++            $files = array();
++            $dirprefix = "{$tmpzipdir}/";
++            if (!$found_base && ($dldir = glob("{$dirprefix}*", GLOB_ONLYDIR)) !== false
++                && !empty($dldir)) {
++                $dirprefix = "{$dldir[0]}/";
++            } else {
++                $dirprefix .= "{$basefilename}/";
++            }
++            //debug_errorlog_obj("draftfiles_ajax.php: downloaddir: dirprefix = {$dirprefix}");
++            foreach (glob_recursive("{$dirprefix}*") as $file) {
++                if (($pos = strpos($file, $dirprefix)) !== false) {
++                    $pos += strlen($dirprefix);
++                    $key = substr($file, $pos);
++                } else {
++                    $key = basename($file);
++                }
++                //error_log("/repository/draftfiles_ajax.php: downloaddir: processing file: {$file} (key = {$key})");
++                $files[$key] = $file;
++            }
++            //debug_errorlog_obj("draftfiles_ajax.php: downloaddir: files[] = ", $files);
++            if (empty($files)) {
++                die(json_encode(false));
++            }
++            // archive compressed file to an unused draft area
++            $newdraftitemid = file_get_unused_draft_itemid();
++            if ($newfile = $zipper->archive_to_storage($files, $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
++                @fulldelete($tmpzipdir);
++                $return = new stdClass;
++                $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
++                $return->filepath = $filepath; // TBD: $parent_path;
++                echo json_encode($return);
++            } else {
++                @fulldelete($tmpzipdir);
++                echo json_encode(false);
++            }
++        } else {
+         $fs = get_file_storage();
+         $area = file_get_draft_area_info($draftid);
+         if ($area['filecount'] == 0) {
+@@ -259,18 +761,96 @@ switch ($action) {
+         } else {
+             echo json_encode(false);
+         }
++        }
+         die;
+ 
+     case 'unzip':
+         $filename = required_param('filename', PARAM_FILE);
+         $filepath = required_param('filepath', PARAM_PATH);
+-
+         $zipper = get_file_packer('application/zip');
++        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
++            $decodedpath = unserialize(base64_decode($filepath));
++            $parent = required_param('parent', PARAM_ALPHANUM);
++            $decodedparent = unserialize(base64_decode($parent));
++            debug_errorlog_obj("draftfiles_ajax.php: unzip: decodedpath = ", $decodedpath);
++            debug_errorlog_obj("draftfiles_ajax.php: unzip: decodedparent = ", $decodedparent);
++            if (empty($decodedpath['path']) || empty($decodedparent['path'])) {
++                die(json_encode(false));
++            }
++            $sql = 'SELECT i.name, i.typeid, r.type FROM {repository} r, {repository_instances} i WHERE r.type=? AND i.typeid=r.id';
++            $repository = $DB->get_record_sql($sql, array('elis_files'));
++            $repo = null;
++            if ($repository) {
++                try {
++                    $repo = @new repository_elis_files('elis_files',
++                                get_context_instance(CONTEXT_USER, $USER->id),
++                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    if (!empty($repo)) {
++                        $parent_listing = (object)$repo->get_listing($parent);
++                    }
++                } catch (Exception $e) {
++                    $repo = null;
++                    error_log('/repository/draftfile_ajax.php: unzip - Exception: '.
++                              $e->getMessage());
++                    die(json_encode(false));
++               }
++            }
+ 
+-        $fs = get_file_storage();
++            // Permissions checking
++            if (!$repo->can_edit_decoded_path($decodedpath)) {
++                $error_string = get_string('errorunzip', 'repository_elis_files');
++                die(json_encode((object)array('error' => $error_string)));
++            }
+ 
++            $tmpzipdir = "{$CFG->dataroot}/temp/zip/". basename($filename, '.zip'); // TBD
++            @fulldelete($tmpzipdir);
++            if (!file_exists($tmpzipdir) && !@mkdir($tmpzipdir, 0777, true)) {
++                error_log("/repository/draftfiles_ajax.php: unzip: Failed creating directory: {$tmpzipdir}");
++                die(json_encode(false));
++            }
++            $files = array();
++            if (($zipdata = $repo->get_file($decodedpath['path'], $filename))
++                && !empty($zipdata['path']) &&
++                ($files = $zipper->extract_to_pathname($zipdata['path'], $tmpzipdir))
++                && !empty($files)) {
++                // Make sure new directory is unique!
++                $cnt = 1;
++                $basezipdir = basename($filename, '.zip');
++                $zipdir = $basezipdir;
++                $newzipdir = preg_replace('/\.[0-9]+$/', '', $basezipdir);
++                if ($newzipdir != $basezipdir) {
++                    $cnt = intval(substr($basezipdir, strrpos($basezipdir, '.') + 1)) + 1;
++                    $basezipdir = $newzipdir;
++                }
++                do {
++                    $dirunique = true;
++                    foreach ($parent_listing->list as $file) {
++                        if ($zipdir == $file['title']) {
++                            $zipdir = $basezipdir .".{$cnt}";
++                            ++$cnt;
++                            $dirunique = false;
++                            break;
++                        }
++                    }
++                } while (!$dirunique);
++                // Try to create the folder
++                if (!($zipdirnode = elis_files_create_dir($zipdir, $decodedparent['path']))) {
++                    @fulldelete($tmpzipdir);
++                    error_log("/repository/draftfiles_ajax.php: unzip: Failed creating folder in Alfresco: {$zipdir}");
++                    die(json_encode(false));
++                }
++                if (!$repo->elis_files->upload_dir($tmpzipdir, $zipdirnode->uuid)) {
++                    error_log("/repository/draftfiles_ajax.php: unzip: Failed uploading: {$tmpzipdir} to {$zipdir}");
++                }
++                @fulldelete($tmpzipdir);
++                $return = new stdClass;
++                $return->filepath = $parent;
++                die(json_encode($return));
++            }
++            echo json_encode(false);
++        } else {
++            $fs = get_file_storage();
+         $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
+-
+         if ($newfile = $file->extract_to_storage($zipper, $user_context->id, 'user', 'draft', $draftid, $filepath, $USER->id)) {
+             $return = new stdClass();
+             $return->filepath = $filepath;
+@@ -278,6 +858,7 @@ switch ($action) {
+         } else {
+             echo json_encode(false);
+         }
++        }
+         die;
+ 
+     case 'getoriginal':

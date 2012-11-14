@@ -1,0 +1,151 @@
+diff --git a/lib/form/dndupload.js b/lib/form/dndupload.js
+index bbadd5c..296a812 100644
+--- a/lib/form/dndupload.js
++++ b/lib/form/dndupload.js
+@@ -80,7 +80,8 @@ M.form_dndupload.init = function(Y, options) {
+             Y.one('body').addClass('dndsupported');
+ 
+             // try and retrieve enabled upload repository
+-            this.repositoryid = this.get_upload_repositoryid(options.repositories);
++            this.repositories = options.repositories;
++            this.repositoryid = this.get_upload_repositoryid(options.repositories, 'upload');
+ 
+             if (!this.repositoryid) {
+                 return; // no upload repository is enabled to upload to
+@@ -133,16 +134,22 @@ M.form_dndupload.init = function(Y, options) {
+          * Get upload repoistory from array of enabled repositories
+          *
+          * @param array repositories repository objects passed from filepicker
++         * @param string type        the repository type to return, Eg. 'upload'
+          * @param returns int id of upload repository or false if not found
++         * @TODO consolidate this method with same method in dnduploader (below)
+          */
+-        get_upload_repositoryid: function(repositories) {
++        get_upload_repositoryid: function(repositories, type) {
++            var ret = false;
+             for (var i in repositories) {
+-                if (repositories[i].type == "upload") {
+-                    return repositories[i].id;
++                //alert('dndupload.js::get_upload_repositoryid(); repository[' + i
++                //      + '].type = ' + repositories[i].type);
++                if (repositories[i].type == type) {
++                    ret = repositories[i].id;
++                    break;
+                 }
+             }
+ 
+-            return false;
++            return ret;
+         },
+ 
+         /**
+@@ -295,6 +302,14 @@ M.form_dndupload.init = function(Y, options) {
+          * of the files (until we reach the file limit, or run out of files)
+          */
+         drop: function(e) {
++            // Start of RL edit
++            if (!Y.one('body').hasClass('dndsupported')) {
++                // Drag and drop is not supported or no create permissions, so
++                // ignore this functionality
++                return false;
++            }
++            // End of RL edit
++
+             if (!this.check_drag(e, true)) {
+                 return true;
+             }
+@@ -714,8 +729,24 @@ M.form_dndupload.init = function(Y, options) {
+          * Upload the next file from the uploadqueue - called recursively after each
+          * upload is complete, then handles the callback to the filemanager/filepicker
+          * @param lastresult - the last result from the server
++         * @param scope      - optional scope variable (RL EDIT: ELIS-7010)
+          */
+-        do_upload: function(lastresult) {
++        do_upload: function(lastresult, scope) {
++            // RL EDIT: ELIS-7010
++            if (lastresult && lastresult.event == 'fileexists' &&
++                lastresult.duplicatefilemeta && scope && !scope.overwriteall &&
++                !scope.renameall) { // TBD: overwriteall & renameall
++                scope.renamequeue.push({
++                        name: lastresult.duplicatefilemeta.name,
++                        path: lastresult.duplicatefilemeta.filepath,
++                        size: lastresult.duplicatefilemeta.size,
++                        type: lastresult.duplicatefilemeta.type,
++                        oldname: lastresult.duplicatefilemeta.name,
++                        duplicateelisfiles: true
++                 });
++                scope.process_renames();
++            }
++            // END: RL EDIT
+             if (this.uploadqueue.length > 0) {
+                 var filedetails = this.uploadqueue.shift();
+                 this.upload_file(filedetails.file, filedetails.filename, filedetails.overwrite);
+@@ -732,6 +763,28 @@ M.form_dndupload.init = function(Y, options) {
+         },
+ 
+         /**
++         * Get upload repoistory from array of enabled repositories
++         *
++         * @param array repositories repository objects passed from filepicker
++         * @param string type        the repository type to return, Eg. 'upload'
++         * @param returns int id of upload repository or false if not found
++         * @TODO consolidate this method with same method in dnduploadhelper (above)
++         */
++        get_upload_repositoryid: function(repositories, type) {
++            var ret = false;
++            for (var i in repositories) {
++                //alert('dndupload.js::get_upload_repositoryid(); repository[' + i
++                //      + '].type = ' + repositories[i].type);
++                if (repositories[i].type == type) {
++                    ret = repositories[i].id;
++                    break;
++                }
++            }
++
++            return ret;
++        },
++
++        /**
+          * Upload a single file via an AJAX call to the 'upload' repository. Automatically
+          * calls do_upload as each upload completes.
+          * @param File file - the file to upload
+@@ -767,7 +820,8 @@ M.form_dndupload.init = function(Y, options) {
+                                 result.client_id = self.options.clientid;
+                             }
+                         }
+-                        self.do_upload(result); // continue uploading
++                        // RL EDIT: ELIS-7010 - added param self
++                        self.do_upload(result, self); // continue uploading
+                     } else {
+                         self.print_msg(M.util.get_string('serverconnection', 'error'), 'error');
+                         self.uploadfinished();
+@@ -778,16 +832,28 @@ M.form_dndupload.init = function(Y, options) {
+             // Prepare the data to send
+             var formdata = new FormData();
+             formdata.append('action', 'upload');
++            // RL EDIT: ELIS-7010
++            if (file.duplicateelisfiles) {
++                formdata.append('duplicateelisfiles', true);
++                formdata.append('duplicatefilemetaname', file.oldname);
++                formdata.append('duplicatefilemetapath', file.path);
++                formdata.append('duplicatefilemetasize', file.size);
++                formdata.append('duplicatefilemetatype', file.type);
++                formdata.append('newfilename', filename);
++            } else {
+             formdata.append('repo_upload_file', file); // The FormData class allows us to attach a file
++            }
+             formdata.append('sesskey', M.cfg.sesskey);
+-            formdata.append('repo_id', this.repositoryid);
++            formdata.append('itemid', this.itemid);
+             formdata.append('itemid', this.options.itemid);
+             if (this.options.author) {
+                 formdata.append('author', this.options.author);
+             }
+             if (this.options.filemanager) { // Filepickers do not have folders
+                 formdata.append('savepath', this.options.filemanager.currentpath);
++                this.repositoryid = this.get_upload_repositoryid(this.options.repositories, !this.options.filemanager.currentpath.indexOf('/') ? 'upload' : 'elis_files');
+             }
++            formdata.append('repo_id', this.repositoryid);
+             formdata.append('title', filename);
+             if (overwrite) {
+                 formdata.append('overwrite', 1);

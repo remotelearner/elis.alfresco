@@ -1,16 +1,18 @@
 diff --git a/lib/outputrequirementslib.php b/lib/outputrequirementslib.php
-index 79da0c0..ed1fe87 100644
+index e438abf..6445bdb 100644
 --- a/lib/outputrequirementslib.php
 +++ b/lib/outputrequirementslib.php
-@@ -420,7 +420,28 @@ class page_requirements_manager {
-                                                         array('nofilesavailable', 'repository'), array('overwrite', 'repository'),
-                                                         array('renameto', 'repository'), array('fileexists', 'repository'),
+@@ -457,7 +457,31 @@ class page_requirements_manager {
+                                                         array('nofilesavailable', 'repository'), array('norepositoriesavailable', 'repository'),
                                                          array('fileexistsdialogheader', 'repository'), array('fileexistsdialog_editor', 'repository'),
--                                                        array('fileexistsdialog_filemanager', 'repository')
-+                                                        array('fileexistsdialog_filemanager', 'repository'),
+                                                         array('fileexistsdialog_filemanager', 'repository'), array('renameto', 'repository'),
+-                                                        array('referencesexist', 'repository')
++                                                        array('referencesexist', 'repository'),
++                                                        array('entername', 'repository'),
 +                                                        // Added for ELIS files
 +                                                        array('errorupload', 'repository_elis_files'),
 +                                                        array('actions', 'repository_elis_files'),
++                                                        array('advancedsearch', 'repository_elis_files'),
 +                                                        array('createfolder', 'repository_elis_files'),
 +                                                        array('uploadfiles', 'repository_elis_files'),
 +                                                        array('advanced', 'repository_elis_files'),
@@ -24,11 +26,12 @@ index 79da0c0..ed1fe87 100644
 +                                                        array('pleaseenterfoldername', 'repository_elis_files'),
 +                                                        array('pleaseselectfilesfirst', 'repository_elis_files'),
 +                                                        array('pleaseselectfolder', 'repository_elis_files'),
++                                                        array('refresh', 'repository'),
 +                                                        array('uploadpopuptitle', 'repository_elis_files'),
 +                                                        array('filesuploaded', 'repository_elis_files'),
 +                                                        array('withselectedfiles', 'repository_elis_files'),
 +                                                        array('jump', 'repository_elis_files'),
-+                                                        array('entername', 'repository'),
++                                                        array('moodle', 'repository_elis_files')
                                                      ));
                      break;
                  case 'core_comment':
