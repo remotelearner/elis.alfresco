@@ -1,0 +1,57 @@
+diff --git a/lib/form/filemanager.php b/lib/form/filemanager.php
+index c1444c0..753f57f 100644
+--- a/lib/form/filemanager.php
++++ b/lib/form/filemanager.php
+@@ -48,7 +48,7 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+     // PHP doesn't support 'key' => $value1 | $value2 in class definition
+     // We cannot do $_options = array('return_types'=> FILE_INTERNAL | FILE_REFERENCE);
+     // So I have to set null here, and do it in constructor
+-    protected $_options    = array('mainfile'=>'', 'subdirs'=>1, 'maxbytes'=>-1, 'maxfiles'=>-1, 'accepted_types'=>'*', 'return_types'=> null);
++    protected $_options    = array('mainfile'=>'', 'subdirs'=>1, 'maxbytes'=>-1, 'maxfiles'=>-1, 'accepted_types'=>'*', 'return_types'=> null, 'locations' => null, 'currentpath' => '/', 'nomoodlefiles' => false);
+ 
+     /**
+      * Constructor
+@@ -68,6 +68,7 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+                 $this->_options[$name] = $value;
+             }
+         }
++
+         if (!empty($options['maxbytes'])) {
+             $this->_options['maxbytes'] = get_user_max_upload_file_size($PAGE->context, $CFG->maxbytes, $options['maxbytes']);
+         }
+@@ -270,6 +271,9 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+         $options->accepted_types = $accepted_types;
+         $options->return_types = $this->_options['return_types'];
+         $options->context = $PAGE->context;
++        $options->locations = $this->_options['locations'];
++        $options->currentpath = $this->_options['currentpath'];
++        $options->nomoodlefiles = !empty($this->_options['nomoodlefiles']);
+ 
+         $html = $this->_getTabs();
+         $fm = new form_filemanager($options);
+@@ -318,6 +322,7 @@ class form_filemanager implements renderable {
+     public function __construct(stdClass $options) {
+         global $CFG, $USER, $PAGE;
+         require_once($CFG->dirroot. '/repository/lib.php');
++        repository::include_fmfp_css(); // RLEDIT BJB12/08/17 ELIS-6928
+         $defaults = array(
+             'maxbytes'=>-1,
+             'maxfiles'=>-1,
+@@ -328,7 +333,8 @@ class form_filemanager implements renderable {
+             'return_types'=>FILE_INTERNAL,
+             'context'=>$PAGE->context,
+             'author'=>fullname($USER),
+-            'licenses'=>array()
++            'licenses'=>array(),
++            'locations'=>null
+             );
+         if (!empty($CFG->licenses)) {
+             $array = explode(',', $CFG->licenses);
+@@ -383,6 +389,7 @@ class form_filemanager implements renderable {
+         $params->context = $options->context;
+         $params->env = 'filemanager';
+         $params->disable_types = !empty($options->disable_types)?$options->disable_types:array();
++        $params->locations = $options->locations;
+         $filepicker_options = initialise_filepicker($params);
+         $this->options->filepicker = $filepicker_options;
+     }
