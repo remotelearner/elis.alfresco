@@ -1,7 +1,16 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index 20f9659..ca0de18 100644
+index 20f9659..3ab8b14 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
+@@ -3177,7 +3177,7 @@ class settings_navigation extends navigation_node {
+ 
+         if (has_capability('moodle/course:update', $coursecontext)) {
+             // Add the turn on/off settings
+-            $url = new moodle_url('/course/view.php', array('id'=>$course->id, 'sesskey'=>sesskey()));
++            $url = new moodle_url('/course/view.php', array('id'=>$course->id, 'return'=>str_replace($CFG->wwwroot, '', $this->page->url->out(false)), 'sesskey'=>sesskey()));
+             if ($this->page->user_is_editing()) {
+                 $url->param('edit', 'off');
+                 $editstring = get_string('turneditingoff');
 @@ -3298,6 +3298,16 @@ class settings_navigation extends navigation_node {
              $coursenode->add(get_string('courselegacyfiles'), $url, self::TYPE_SETTING, null, 'coursefiles', new pix_icon('i/files', ''));
          }
