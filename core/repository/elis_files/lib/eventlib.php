@@ -47,6 +47,37 @@ function elis_files_user_deleted($user) {
     return true;
 }
 
+/**
+ * Handle the event when a Moodle course is deleted
+ *
+ * @param object $course The deleted Moodle course
+ * @return bool true
+ */
+function elis_files_course_deleted($course) {
+    global $DB;
+
+    if (isset($course->id)) {
+        $DB->delete_records('elis_files_course_store', array('courseid' => $course->id));
+    }
+
+    return true;
+}
+
+/**
+ * Handle the event when an ELIS user set is deleted
+ *
+ * @param int $id The id of the deleted user set
+ * @return bool true
+ */
+function elis_files_userset_deleted($id) {
+    global $DB;
+
+    if (!empty($id)) {
+        $DB->delete_records('elis_files_userset_store', array('usersetid' => $id));
+    }
+
+    return true;
+}
 
 /**
  * Handle the event when a user has a role unassigned in Moodle.
@@ -58,8 +89,9 @@ function elis_files_user_deleted($user) {
 function elis_files_role_unassigned($ra) {
     global $DB;
 
-    // Only proceed here if the Alfresco plug-in is actually enabled.
-    if (!($repo = repository_factory::factory('elis_files'))) {
+    // Only proceed here if we have valid userid,contextid & the Alfresco plug-in is actually enabled.
+    if (empty($ra->userid) || empty($ra->contextid) ||
+        !($repo = repository_factory::factory('elis_files'))) {
         return true;
     }
 
@@ -102,6 +134,7 @@ function elis_files_role_unassigned($ra) {
                 // Look for Alfresco capabilities in this context for this user and assign permissions as required.
                 if ($permissions = elis_files_get_permissions($uuid, $username)) {
                     foreach ($permissions as $permission) {
+                        // TODO: determine if this is still needed
                         elis_files_set_permission($username, $uuid, $permission, ELIS_FILES_CAPABILITY_DENIED);
                     }
                 }
@@ -253,8 +286,9 @@ function elis_files_role_unassigned($ra) {
 function elis_files_userset_assigned($usersetinfo) {
     global $DB;
 
-    // Only proceed here if the Alfresco plug-in is actually enabled.
-    if (!$repo = repository_factory::factory('elis_files')) {
+    // Only proceed here if we have valid userid, clusterid & the Alfresco plug-in is actually enabled.
+    if (empty($usersetinfo->userid) || empty($usersetinfo->clusterid) ||
+        !($repo = repository_factory::factory('elis_files'))) {
         return true;
     }
 
@@ -356,13 +390,9 @@ function elis_files_userset_assigned($usersetinfo) {
 function elis_files_userset_deassigned($usersetinfo) {
     global $DB;
 
-    // Let's make sure the required properties are defined in the event data before proceeding -- ELIS-6567
-    if (!isset($usersetinfo->userid) || !isset($usersetinfo->clusterid)) {
-        return true;
-    }
-
-    // Only proceed here if the Alfresco plug-in is actually enabled.
-    if (!$repo = repository_factory::factory('elis_files')) {
+    // Only proceed here if we have valid userid,clusterid & the Alfresco plug-in is actually enabled.
+    if (empty($usersetinfo->userid) || empty($usersetinfo->clusterid) ||
+        !($repo = repository_factory::factory('elis_files'))) {
         return true;
     }
 

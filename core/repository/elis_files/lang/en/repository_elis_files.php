@@ -23,23 +23,12 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['elis_files_url'] = 'Alfresco URL';
-$string['alfrescourltext'] = 'Afresco API url should be: http://yoursite.com/alfresco/api';
-$string['alfresco:view'] = 'View ELIS files';
-$string['configplugin'] = 'ELIS Files configuration';
-$string['datecreated'] = 'Date Created';
-$string['datemodified'] = 'Date Modified';
-$string['modifiedby'] = 'Modified By';
-$string['notitle'] = 'notitle';
-$string['password'] = 'Password';
-$string['pluginname_help'] = 'A plug-in for Alfresco CMS';
-$string['pluginname'] = 'ELIS Files';
-$string['username'] = 'User name';
 
 //ELIS language strings - just copied straight over
 $string['actions'] = 'Actions';
 $string['adminusername'] = 'Admin username override';
 $string['advanced'] = 'Advanced';
+$string['advancedsearch'] = 'Advanced search';
 $string['alfheader'] = 'Alfresco multimedia filters';
 $string['alfheaderintro'] = 'To customize the media dimetions add &d=WIDTHxHEIGHT to the end of the URL.  Width and height also accept a percent.';
 $string['alfmediapluginavi'] = 'Enable .avi filter';
@@ -55,10 +44,13 @@ $string['alfmediapluginswfnote'] = 'As a default security measure, normal users 
 $string['alfmediapluginwmv'] = 'Enable .wmv filter';
 $string['alfmediapluginyoutube'] = 'Enable YouTube link filter';
 $string['alfrescosearch'] = 'Alfresco search';
+$string['alfrescourltext'] = 'Afresco API url should be: http://yoursite.com/alfresco/api';
 $string['alfrescoversion'] = 'Site Alfresco version';
 $string['alfrescoversionselect'] = 'Select Alfresco version';
 $string['alfrescoversion30'] = 'Alfresco Version 3.2';
 $string['alfrescoversion34'] = 'Alfresco Version 3.4';
+$string['alfresco:view'] = 'View ELIS files';
+$string['badqueryresponse'] = 'Bad query response!<br/>Your query has returned bad XML due to a Repository Server Error.';
 $string['badxmlreturn'] = 'Bad XML return';
 $string['cachetime'] = 'Cache files';
 $string['categoryfilter'] = 'Category filter';
@@ -92,16 +84,18 @@ $string['configdeleteuserdir'] = 'When deleting a Moodle user account, if that u
                                  'Change this option to enable or disable that behaviour.<br /><br /><b>NOTE:</b> ' .
                                  'deleting a user\'s home directory in Alfresco will break any links in Moodle to content ' .
                                  'that was located in that directory.';
+$string['configplugin'] = 'ELIS Files configuration';
 $string['configpasswordlessusersync'] = 'Your site contains users with an authentication plug-in that does not use passwords. '.
                                         'In order for those users to be able to properly use this plug-in from Moodle, they '.
                                         'need to have Alfresco accounts created with a generated password. You can do this '.
                                         'automatically by running the <em>np_user_sync.php</em> script within the '.
-                                        '<pre>repository/elis_files directory</pre>.';
+                                        '<pre>repository/elis_files directory</pre>';
 $string['configuserquota'] = 'Set the default value for how much storage space all Moodle users on Alfresco can use.  ' .
                              '<b>Select Unlimited for unlimited storage space.</b>';
 $string['configurecategoryfilter'] = 'Configure category filter';
 $string['couldnotaccessserviceat'] = 'Could not access Alfresco service at: {$a}';
 $string['couldnotdeletefile'] = '<br />Error: Could not delete: {$a}';
+$string['couldnoteditdir'] = 'Could not edit directory.';
 $string['couldnotgetalfrescouserdirectory'] = 'Could not get Alfresco user directory for user: {$a}';
 $string['couldnotgetfiledataforuuid'] = 'Could not get file data for UUID: {$a}';
 $string['couldnotgetnodeproperties'] = 'Could not get node properties for UUID: {$a}';
@@ -110,16 +104,22 @@ $string['couldnotmigrateuser'] = 'Could not migrate user account for: {$a}';
 $string['couldnotmovenode'] = 'Could not move node to new location';
 $string['couldnotmoveroot'] = 'Could not move root folder contents to new location';
 $string['couldnotopenlocalfileforwriting'] = 'Could not open local file for writing: {$a}';
+$string['couldnotrenamenode'] = 'Error: Could not rename node to \'{$a}\'';
+$string['couldnotupdatedir'] = 'Error: Could not update directory.';
+$string['couldnotupdatefile'] = 'Error: Could not update file.';
 $string['couldnotwritelocalfile'] = 'Could not write local file';
 $string['course'] = 'Course';
 $string['createfolder'] = 'Create folder';
 $string['curlmustbeenabled'] = 'The cURL extension must be enabled for web services file transfers to Alfresco';
+$string['datecreated'] = 'Date Created';
+$string['datemodified'] = 'Date Modified';
 $string['defaultfilebrowsinglocation'] = 'Default file browsing location';
 $string['delete'] = 'Delete';
 $string['strdelete'] = 'Delete';
 $string['deletecheckfiles'] = 'Are you absolutely sure you want to delete these files?';
 $string['deletecheckwarning'] = 'You are about to delete these files';
 $string['deleteuserdir'] = 'Auto-delete Alfresco user directories';
+$string['details'] = 'Details';
 $string['detailview'] = 'View details';
 $string['description'] = 'Connect to the Alfresco document management system repository.';
 $string['done'] = 'done';
@@ -146,6 +146,7 @@ $string['elis_files_default_server_host'] = 'Default: http://localhost';
 $string['elis_files_default_server_port'] = 'Default: 8080';
 $string['elis_files_default_server_username'] = 'Default: Empty';
 $string['elis_files_default_user_quota'] = 'Default: Not Set';
+$string['elis_files_folder_not_found'] = 'Folder not found';
 $string['elis_files_root_folder'] = 'The root folder on the repository where this Moodle site will store its files in Alfresco';
 $string['elis_files_server_homedir'] = 'This is home directory (relative to the repository root space) for the user configured to access Alfresco without leading slash (/).<br /><br />Examples:<br /><b>my_home_dir<br />Moodle Users/User A</b>';
 $string['elis_files_server_host'] = 'The URL to your Alfresco server (should be in the following format http://www.myserver.org).';
@@ -153,6 +154,7 @@ $string['elis_files_server_password'] = 'The password to login to the Alfresco s
 $string['elis_files_server_port'] = 'The port that your Alfresco server is running on (i.e. 80, 8080).';
 $string['elis_files_server_settings'] = 'Alfresco server settings';
 $string['elis_files_server_username'] = 'The username to login to the Alfresco server with.';
+$string['elis_files_url'] = 'Alfresco URL';
 $string['errorcouldnotcreatedirectory'] = 'Error: could not create directory {$a}';
 $string['errordirectorynameexists'] = 'Error: directory {$a} already exists';
 $string['errorftpinvalidport'] = 'Error: Could not establish a FTP connection to {$a}';
@@ -165,8 +167,11 @@ $string['errorreadingfile'] = 'Error reading file from repository: {$a}';
 $string['errorreceivedfromendpoint'] = 'Alfresco: Error received from endpoint -- ';
 $string['errorfilenotmoved'] = 'Error: file not moved';
 $string['errortitlenotmoved'] = 'Error: {$a} not moved';
+$string['errorunzip'] = 'Could not unzip file.';
 $string['erroruploadduplicatefilename'] = 'Error: A file with that name already exists in this directory: {$a}';
 $string['erroruploadingfile'] = 'Error uploading file to Alfresco';
+$string['errorzip'] = 'Could not create a zip file.';
+$string['errorzipemptydirectory'] = 'Could not create a zip file. The directory you have selected is empty.';
 $string['failedtoinvokeservice'] = 'Failed to invoke service {$a->serviceurl} Code: {$a->code}';
 $string['filealreadyexistsinthatlocation'] = '{$a} file already exists in that location';
 $string['filetransfermethod'] = 'File transfer method';
@@ -180,6 +185,7 @@ $string['ftpmustbeenabled'] = 'The FTP extension must be enabled for FTP file tr
 $string['ftpport'] = 'FTP port';
 $string['ftpportdefault'] = 'Default: 21';
 $string['ftpportdesc'] = 'The port that the Alfresco FTP server is running on';
+$string['incompletequeryresponse'] = 'Incomplete query response!<br/>Your query failed to complete successfully due to a Repository Server Error.';
 $string['incorectformatforchooseparameter'] = 'Incorrect format for choose parameter';
 $string['installingwebscripts'] = 'Installing new web scripts, please wait...';
 $string['invalidcourseid'] = 'Invalid course ID: {$a}';
@@ -190,18 +196,24 @@ $string['jump'] = 'Jump to...';
 $string['lockingdownpermissionson'] = 'Locking down permissions on Alfresco folder <b>{$a}->name</b> (<i>{$a}->uuid</i>)';
 $string['myfiles'] = 'My Files';
 $string['myfilesquota'] = 'My Files - {$a} free';
+$string['modifiedby'] = 'Modified By';
+$string['moodle'] = 'Moodle';
 $string['move'] = 'Move';
 $string['movefiles'] = 'Move file(s) to:';
 $string['nocategoriesfound'] = 'No categories found';
+$string['notitle'] = 'notitle';
 $string['np_migratecomplete'] = 'Migrated {$a->ucount} / {$a->utotal} users to Alfresco';
 $string['np_migratefailure'] = '  xxx  Failed migrating user {$a->id}:{$a->username} ".{$a->fullname}';
 $string['np_migratesuccess'] = '  ---  Migrated user ID: {$a->id} username: {$a->username} {$a->fullname}';
 $string['np_startingmigration'] = '  ===  Starting user migration {$a} users to migrate  ===';
 $string['onlyincategories'] = 'Only show results from the following selected categories:';
+$string['password'] = 'Password';
 $string['passwordlessusersync'] = 'Synchronize users without passwords';
 $string['pleaseenterfoldername'] = 'Please enter a folder name!';
 $string['pleaseselectfilesfirst'] = 'Please select files first!';
 $string['pleaseselectfolder'] = 'Please select a destination folder';
+$string['pluginname'] = 'ELIS Files';
+$string['pluginname_help'] = 'A plug-in for Alfresco CMS';
 $string['processingcategories'] = 'Processing categories...';
 $string['quotanotset'] = 'Not Set';
 $string['quotaunlimited'] = 'Unlimited';
@@ -233,6 +245,7 @@ $string['uploadfiles'] = 'Upload files';
 $string['uploadingtiptitle'] = 'Uploading Tip';
 $string['uploadingtiptext'] = 'You can select more than one file for uploading by holding down the control key while clicking on the files.';
 $string['uploadpopuptitle'] = 'Upload Files';
+$string['username'] = 'User name';
 $string['usernameorpasswordempty'] = 'Username and / or password is empty';
 $string['warningdeleteresource'] = 'Warning: {$a} is currently used as a resource. You might need to update this resource.';
 $string['webservices'] = 'Web services';

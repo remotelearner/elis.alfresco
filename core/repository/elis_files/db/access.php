@@ -40,7 +40,7 @@ $capabilities = array(
 
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'manager'=> CAP_ALLOW
         )
     ),
@@ -48,7 +48,7 @@ $capabilities = array(
     'repository/elis_files:viewsitecontent' => array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'manager'=> CAP_ALLOW
         )
     ),
@@ -59,7 +59,7 @@ $capabilities = array(
 
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'editingteacher' => CAP_ALLOW,
             'coursecreator' => CAP_ALLOW,
             'manager'=> CAP_ALLOW
@@ -69,7 +69,7 @@ $capabilities = array(
     'repository/elis_files:viewsharedcontent' => array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'editingteacher' => CAP_ALLOW,
             'coursecreator' => CAP_ALLOW,
             'manager'=> CAP_ALLOW
@@ -83,7 +83,7 @@ $capabilities = array(
 
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => array(
+        'legacy' => array(
             'editingteacher' => CAP_ALLOW,
             'coursecreator' => CAP_ALLOW,
             'manager'=> CAP_ALLOW
@@ -93,7 +93,7 @@ $capabilities = array(
     'repository/elis_files:viewcoursecontent' => array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
-        'archetypes' => array(
+        'legacy' => array(
             'editingteacher' => CAP_ALLOW,
             'coursecreator' => CAP_ALLOW,
             'manager'=> CAP_ALLOW
@@ -103,16 +103,20 @@ $capabilities = array(
     'repository/elis_files:createowncontent' => array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
-            'user' => CAP_ALLOW
+        'legacy' => array(
+            'editingteacher' => CAP_ALLOW,
+            'coursecreator' => CAP_ALLOW,
+            'manager'=> CAP_ALLOW
         )
     ),
 
     'repository/elis_files:viewowncontent' => array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
-            'user' => CAP_ALLOW
+        'legacy' => array(
+            'editingteacher' => CAP_ALLOW,
+            'coursecreator' => CAP_ALLOW,
+            'manager'=> CAP_ALLOW
         )
     ),
 
@@ -122,7 +126,7 @@ $capabilities = array(
 
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'manager'=> CAP_ALLOW
         )
     ),
@@ -130,7 +134,7 @@ $capabilities = array(
     'repository/elis_files:viewusersetcontent' => array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
+        'legacy' => array(
             'manager'=> CAP_ALLOW
         )
     )

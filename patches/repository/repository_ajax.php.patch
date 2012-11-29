@@ -1,45 +1,457 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index f8c9fe5..5d5492e 100644
+index 06df8f3..c6d1cd9 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
-@@ -25,7 +25,6 @@
-  * @copyright  2009 Dongsheng Cai <dongsheng@moodle.com>
+@@ -23,7 +23,6 @@
+  * @copyright  2009 Dongsheng Cai {@link http://dongsheng.org}
   * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
   */
 -
  define('AJAX_SCRIPT', true);
  
  require_once(dirname(dirname(__FILE__)).'/config.php');
-@@ -50,6 +49,7 @@ $accepted_types  = optional_param_array('accepted_types', '*', PARAM_RAW);
+@@ -45,9 +44,12 @@ $page      = optional_param('page', '', PARAM_RAW);             // Page
+ $maxbytes  = optional_param('maxbytes', 0, PARAM_INT);          // Maxbytes
+ $req_path  = optional_param('p', '', PARAM_RAW);                // Path
+ $accepted_types  = optional_param_array('accepted_types', '*', PARAM_RAW);
++$overwriteexisting = optional_param('overwrite', false, PARAM_BOOL);
  $saveas_filename = optional_param('title', '', PARAM_FILE);     // save as file name
  $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file path
  $search_text   = optional_param('s', '', PARAM_CLEANHTML);
-+$categories    = optional_param('categories', '', PARAM_RAW);
++//RL edit: this parameter specifies an array of categories to filter on
++$categories    = optional_param_array('categories', NULL, PARAM_RAW);
  $linkexternal  = optional_param('linkexternal', '', PARAM_ALPHA);
+ $usefilereference  = optional_param('usefilereference', false, PARAM_BOOL);
  
- list($context, $course, $cm) = get_context_info_array($contextid);
-@@ -132,6 +132,11 @@ if (file_exists($CFG->dirroot.'/repository/'.$type.'/lib.php')) {
-     die(json_encode($err));
- }
- 
-+// Include repository_ajax file if provided by the repository
-+if (file_exists($CFG->dirroot.'/repository/'.$type.'/repository_ajax.php')) {
-+    require_once($CFG->dirroot.'/repository/'.$type.'/repository_ajax.php');
-+}
-+
- /// These actions all occur on the currently active repository instance
- switch ($action) {
-     case 'sign':
-@@ -157,10 +162,11 @@ switch ($action) {
-         break;
+@@ -126,6 +128,11 @@ switch ($action) {
+     case 'list':
+         if ($repo->check_login()) {
+             $listing = repository::prepare_listing($repo->get_listing($req_path, $page));
++            if (get_class($repo) == 'repository_elis_files' && !empty($listing['path'])
++                && !empty($listing['path'][0]['name']) &&
++                $listing['path'][0]['name'] == $repo->elis_files->get_root()->title) {
++                $listing['path'][0]['name'] = get_string('repository', 'repository_elis_files');
++            }
+             $listing['repo_id'] = $repo_id;
+             echo json_encode($listing);
+             break;
+@@ -145,17 +152,24 @@ switch ($action) {
      case 'searchform':
+         $search_form['repo_id'] = $repo_id;
          $search_form['form'] = $repo->print_search();
 +        $search_form['tree'] = $repo->category_tree();
+         $search_form['allowcaching'] = true;
          echo json_encode($search_form);
          break;
      case 'search':
--        $search_result = $repo->search($search_text, (int)$page);
-+        $search_result = $repo->search($search_text, (int)$page, $categories);
+-        $search_result = repository::prepare_listing($repo->search($search_text, (int)$page));
++        // RL edit: Perform the search, filtering on categories and search text
++        $search_result = repository::prepare_listing($repo->search($search_text, (int)$page, $categories));
          $search_result['repo_id'] = $repo_id;
          $search_result['issearchresult'] = true;
++        $search_result['advancedsearch'] = true;
++        $search_result['executesearch'] = true;
          echo json_encode($search_result);
+         break;
+     case 'download':
+         // validate mimetype
++        $to_elisfiles = (strpos($saveas_path, '/') === 0) // TBD
++                        ? false
++                        : file_exists($CFG->dirroot .'/repository/elis_files/');
+         $mimetypes = array();
+         if ((is_array($accepted_types) and in_array('*', $accepted_types)) or $accepted_types == '*') {
+             $mimetypes = '*';
+@@ -178,7 +192,7 @@ switch ($action) {
+             $allowexternallink = false;
+         }
+         // allow external links in url element all the time
+-        $allowexternallink = ($allowexternallink || ($env == 'url'));
++        $allowexternallink = !$to_elisfiles && ($allowexternallink || ($env == 'url')); // TBD
+ 
+         $reference = $repo->get_file_reference($source);
+ 
+@@ -291,11 +305,55 @@ switch ($action) {
+                 // {@link repository::copy_to_area()}.
+                 $fileinfo = $repo->copy_to_area($reference, $record, $maxbytes);
+ 
++                // RL: ELIS_Files (Alfresco)
++                $decodedsrc = unserialize(base64_decode($source));
++                //error_log("repository_ajax.php::download (IV): saveas_path = {$saveas_path}, to_elisfiles = {$to_elisfiles}");
++                if ($to_elisfiles) {
++                    // Copying to ELIS Files (Alfresco repo)
++                    $fpsrc = null;
++                    $tempfname = false;
++                    if (is_array($decodedsrc) && // TBD: isset(...) ?
++                        ($userfile = $fs->get_file($decodedsrc['contextid'],
++                                                   $decodedsrc['component'],
++                                                   $decodedsrc['filearea'],
++                                                   $decodedsrc['itemid'],
++                                                   $decodedsrc['filepath'],
++                                                   $decodedsrc['filename'])) &&
++                        ($fpsrc = $userfile->get_content_file_handle()) &&
++                        ($tempfname = tempnam(sys_get_temp_dir(), 'rl_ef')) !== false &&
++                        ($fpdest = fopen($tempfname, 'w+b'))) {
++                        require_once($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++                        while (!feof($fpsrc)) {
++                            fwrite($fpdest, fread($fpsrc, 8192), 8192); // TBD
++                        }
++                        fclose($fpsrc);
++                        fclose($fpdest);
++                        $savename = dirname($tempfname) .'/'. $saveas_filename;
++                        @rename($tempfname, $savename);
++                        $decodedpath = unserialize(base64_decode($saveas_path));
++                        $fileinfo = (array)elis_files_upload_file('', $savename,
++                                               !empty($decodedpath['path'])
++                                               ? $decodedpath['path'] : '');
++                        @unlink($savename);
++                    } else { // TBD
++                        if ($fpsrc) {
++                            fclose($fpsrc);
++                        }
++                        if ($tempfname !== false) {
++                            @unlink($tempfname);
++                        }
++                        $err->error = get_string('cannotdownload', 'repository');
++                        die(json_encode($err));
++                    }
++                } else {
++                    $fileinfo = $repo->copy_to_area($source, $record, $maxbytes);
++                }
+                 echo json_encode($fileinfo);
+                 die;
+             } else {
+                 // Download file to moodle.
+                 $downloadedfile = $repo->get_file($reference, $saveas_filename);
++                //error_log("repository_ajax.php::download (V): saveas_path = {$saveas_path}, to_elisfiles = {$to_elisfiles}");
+                 if (empty($downloadedfile['path'])) {
+                     $err->error = get_string('cannotdownload', 'repository');
+                     die(json_encode($err));
+@@ -303,20 +361,200 @@ switch ($action) {
+ 
+                 // Check if exceed maxbytes.
+                 if ($maxbytes != -1 && filesize($downloadedfile['path']) > $maxbytes) {
++                    @unlink($downloadedfile['path']);
++                    // TBD: or return error object???
+                     throw new file_exception('maxbytes');
+                 }
+ 
++                if ($to_elisfiles) {
++                    $decodedpath = unserialize(base64_decode($saveas_path));
++                    $info = null;
++                    if (!empty($decodedpath['path'])) {
++                        // Handle duplicates
++                        if (!$overwriteexisting) {
++                            $listing = $repo->elis_files->read_dir($decodedpath['path']);
++                            if ($duplicateuuid = elis_files_file_exists($saveas_filename, $listing)) {
++                                $existingfilename = optional_param(
++                                                        'existingfilename',
++                                                        $saveas_filename,
++                                                        PARAM_FILE); // TBD
++                                $finfo = finfo_open(FILEINFO_MIME_TYPE);
++                                $mime_type = ''; // TBD: default?
++                                if ($finfo) {
++                                    $mime_type = finfo_file($finfo, $downloadedfile['path']);
++                                    @finfo_close($finfo);
++                                }
++                                die(json_encode(elis_files_duplicate_event(
++                                                    $action, $listing,
++                                                    true /* TBD: duplicateelisfiles ??? */,
++                                                    $existingfilename,
++                                                    $saveas_path,
++                                                    $downloadedfile['path'],
++                                                    dirname($downloadedfile['path']) .'/',
++                                                    filesize($downloadedfile['path']),
++                                                    $mime_type,
++                                                    $duplicateuuid, $repo_id)));
++                            }
++                        }
++                        $info = (array)elis_files_upload_file('',
++                                            $downloadedfile['path'],
++                                            $decodedpath['path'], true,
++                                            $saveas_filename);
++                    } else {
++                        @unlink($downloadedfile['path']);
++                        $err->error = get_string('cannotdownload', 'repository');
++                        die(json_encode($err));
++                    }
++                } else {
+                     $info = repository::move_to_filepool($downloadedfile['path'], $record);
++                }
+                 if (empty($info)) {
+                     $info['e'] = get_string('error', 'moodle');
+                 }
++                @unlink($downloadedfile['path']);
+             }
+             echo json_encode($info);
+             die;
+         }
+         break;
++
+     case 'upload':
++        $elis_files_exists = file_exists($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++        if (method_exists($repo, 'upload')) {
+             $result = $repo->upload($saveas_filename, $maxbytes);
++        } else if ($elis_files_exists) {
++            require_once($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++            $decodedpath = unserialize(base64_decode($saveas_path));
++            // Track the success of this operation
++            if (empty($decodedpath['path']) ||
++                !($result = $repo->can_edit_decoded_path($decodedpath))) {
++                // Handle any specific error signaled during the transfer
++                error_log("repository_ajax::upload: cannot edit decoded path: {$saveas_path}!");
++                $logger = elis_files_logger::instance();
++                $error_message = $logger->signal_error(ELIS_FILES_ERROR_UPLOAD_PERMS);
++                if (empty($error_message)) { // then use a generic error message
++                    $error_message = get_string('errorupload',
++                                                'repository_elis_files');
++                }
++                $err = new stdClass;
++                $err->error = $error_message;
++                die(json_encode($err));
++            }
++            // Obtain the parent node's UUID for duplicate filename checking purposes
++            $uuid = $decodedpath['path'];
++
++            // Permissions ok, so attempt the upload
++            $elname = 'repo_upload_file';
++
++            // fetch the optional params and see if we are handling a rename, in which case $_FILES is gone
++            $duplicateelisfiles = optional_param('duplicateelisfiles', false, PARAM_BOOL);
++            $duplicatefilemetaname = optional_param('duplicatefilemetaname', false, PARAM_FILE);
++            $duplicatefilemetapath = optional_param('duplicatefilemetapath', false, PARAM_PATH);
++            $duplicatefilemetasize = optional_param('duplicatefilemetasize', false, PARAM_INT);
++            $duplicatefilemetatype = optional_param('duplicatefilemetatype', false, PARAM_RAW);
++
++            if (!$duplicateelisfiles && !isset($_FILES[$elname])) {
++                error_log("/repository/repository_ajax.php: upload: duplicateelisfiles && _FILES[{$elname}] not set!");
++                $err = new stdClass;
++                $err->error = get_string('errorupload', 'repository_elis_files');
++                die(json_encode($err));
++            }
++
++            $filesize = ($duplicateelisfiles) ? $duplicatefilemetasize
++                                              : $_FILES[$elname]['size'];
++            if (!elis_files_quota_check($filesize)) {
++                $err = new stdClass;
++                $err->error = get_string('erroruploadquota', 'repository_elis_files');
++                die(json_encode($err));
++            }
++
++            // if we don't have a filename or this is a drag 'n drop rename
++            if (isset($_FILES[$elname])) {
++                $form_upload_name = clean_param($_FILES[$elname]['name'], PARAM_FILE);
++            } else {
++                $form_upload_name = '';
++            }
++
++            if (empty($saveas_filename)) {
++                // TBD  ^^^ WAS: || $saveas_filename != $form_upload_name
++                $newfilename = optional_param('newfilename', '', PARAM_FILE);
++                $realfilename = !empty($newfilename)
++                                ? $newfilename : $form_upload_name;
++            } else {
++                $realfilename = $saveas_filename;
++            }
++
++            $listing = $repo->elis_files->read_dir($uuid);
++            if ($duplicateuuid = elis_files_file_exists($realfilename, $listing)) {
++                if ($overwriteexisting) {
++                    // drag 'n drop overwrite
++                    //error_log("/repository/repository_ajax.php: upload: overwriteexistsing = TRUE!");
++                    $result = elis_files_upload_file($elname, '', $uuid);
++                } else {
++                    $existingfilename = optional_param('existingfilename',
++                                            $realfilename, PARAM_FILE); // TBD
++                    die(json_encode(elis_files_duplicate_event($action,
++                                        $listing, $duplicateelisfiles,
++                                        $existingfilename, $saveas_path,
++                                        $duplicateelisfiles
++                                        ? '' : $_FILES[$elname]['tmp_name'],
++                                        $duplicatefilemetapath,
++                                        $duplicateelisfiles
++                                        ? $duplicatefilemetasize
++                                        : $_FILES[$elname]['size'],
++                                        $duplicateelisfiles
++                                        ? $duplicatefilemetatype
++                                        : $_FILES[$elname]['type'],
++                                        $duplicateuuid, $repo_id)));
++                }
++            } else if ($duplicateelisfiles) {
++                //error_log("/repository/repository_ajax.php::upload: INFO: duplicateelisfiles flagged!");
++                // See if we need to handle a rename here...
++                // get the params required to handle duplicate files
++                $newfilename = optional_param('newfilename', '', PARAM_FILE);
++                $filemeta = new stdClass;
++                $filemeta->name = !empty($newfilename) ? $newfilename : $duplicatefilemetaname;
++                $filemeta->filepath = $duplicatefilemetapath;
++                $filemeta->type = $duplicatefilemetatype;
++                $filemeta->size = $duplicatefilemetasize;
++
++                if (!empty($newfilename) &&
++                    !@rename($duplicatefilemetapath.$duplicatefilemetaname,
++                             $duplicatefilemetapath.$newfilename)) {
++                    error_log("/repository/repository_ajax.php: upload: Failed copying file: {$duplicatefilemetapath}{$duplicatefilemetaname} to {$duplicatefilemetapath}{$newfilename}");
++                    //delete files
++                    @unlink($duplicatefilemetapath.$duplicatefilemetaname);
++                    @unlink($duplicatefilemetapath.$newfilename);
++                    $err = new stdClass;
++                    $err->error = get_string('errorupload',
++                                             'repository_elis_files');
++                    die(json_encode($err));
++                }
++                $result = elis_files_upload_file($elname, '', $uuid, true, $newfilename, $duplicateuuid, $filemeta);
++
++                //cleanup old file
++                @unlink($duplicatefilemetapath.$newfilename);
++            } else {
++                //regular upload
++                //error_log("/repository/repository_ajax.php::upload: INFO: Regular upload of {$realfilename}");
++                $result = elis_files_upload_file($elname, '', $uuid, true, $realfilename);
++            }
++        }
++        if (!$result && $elis_files_exists) {
++            require_once(dirname(__FILE__).'/elis_files/lib/elis_files_logger.class.php');
++            // Handle any specific error signaled during the transfer
++            $logger = elis_files_logger::instance();
++            $error_message = $logger->get_error_message();
++            if (empty($error_message)) { // then use a generic error message
++                $error_message = get_string('errorupload',
++                                            'repository_elis_files');
++            }
++            error_log("/repository/repository_ajax.php::upload: Error: {$error_message}");
++            // Pass back an encoded error
++            $err = new stdClass;
++            $err->error = $error_message;
++            die(json_encode($err));
++        }
+         echo json_encode($result);
+         break;
+ 
+@@ -327,8 +565,52 @@ switch ($action) {
+         // user added file which needs to replace the existing file
+         $newfilepath = required_param('newfilepath', PARAM_PATH);
+         $newfilename = required_param('newfilename', PARAM_FILE);
+-
++        // find out if this is an elis files duplicate
++        $duplicateelisfiles = optional_param('duplicateelisfiles',false, PARAM_BOOL);
++        $duplicateuuid = optional_param('duplicateuuid',false, PARAM_RAW);
++        $duplicatefilemetaname = optional_param('duplicatefilemetaname',false, PARAM_FILE);
++        $duplicatefilemetapath = optional_param('duplicatefilemetapath',false, PARAM_PATH);
++        $duplicatefilemetasize = optional_param('duplicatefilemetasize',false, PARAM_INT);
++        $duplicatefilemetatype = optional_param('duplicatefilemetatype',false, PARAM_RAW);
++
++        // process elis files overwrite
++        if ($duplicateelisfiles) {
++            $elis_files_exists = file_exists($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++            require_once($CFG->dirroot .'/repository/elis_files/lib/lib.php');
++
++            //get parent folder
++            $decodedpath = unserialize(base64_decode($saveas_path));
++
++            // Track the success of this operation
++            $result = $repo->can_edit_decoded_path($decodedpath);
++            if ($result) {
++                // Obtain the parent node's UUID
++                $uuid = $decodedpath['path'];
++
++                $filemeta = new stdClass;
++                $filemeta->name = $duplicatefilemetaname;
++                $filemeta->filepath = $duplicatefilemetapath;
++                $filemeta->type = $duplicatefilemetatype;
++                $filemeta->size = $duplicatefilemetasize;
++
++                $info = elis_files_upload_file('repo_upload_file', $filename, $uuid, true, '', $duplicateuuid, $filemeta);
++            } else {
++                // Handle any specific error signaled during the transfer
++                $logger = elis_files_logger::instance();
++                $error_message = $logger->signal_error(ELIS_FILES_ERROR_UPLOAD_PERMS);
++                if (empty($error_message)) { // then use a generic error message
++                    $error_message = get_string('errorupload',
++                                                'repository_elis_files');
++                }
++                error_log("/repository/repository_ajax.php::overwrite: Error: {$error_message}");
++                $err = new stdClass;
++                $err->error = $error_message;
++                die(json_encode($err));
++            }
++        } else {
++            // moving the file within the Moodle file area
+             $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
++        }
+         echo json_encode($info);
+         break;
+ 
+@@ -340,3 +622,73 @@ switch ($action) {
+ 
+         break;
+ }
++
++/**
++ * RL EDIT: ELIS-7010,ELIS-7002
++ * Function to create 'fileexists' event to return back to filemanager or filepicker
++ *
++ * @param string $action              the current action setting
++ * @param objext $listing             repo listing for destination
++ * @param bool   $duplicateelisfiles  flag - true if not first pass or download
++ * @param string $existingfilename
++ * @param string $saveas_path
++ * @param string $filepath            file source path on local filesystem
++ * @param int    $size                file size
++ * @param string $type                file MIME type
++ * @param string $duplicateuuid       uuid of existing file
++ * @param int    $repo_id             id of destination repo
++ * @uses  $CFG
++ */
++function elis_files_duplicate_event($action, $listing, $duplicateelisfiles, $existingfilename, $saveas_path, $src, $filepath, $size, $type, $duplicateuuid, $repo_id) {
++    global $CFG;
++    $unused_filename = elis_files_generate_unique_filename($existingfilename, $listing);
++
++    //error_log("/repository/repository_ajax.php: elis_files_duplicate_event: action = {$action}, DUPLICATE: Q rename/overwrite? existingfilename = {$existingfilename}, unused_filename = {$unused_filename}");
++
++    if (!$duplicateelisfiles) {
++        $tmpuploaddir = "{$CFG->dataroot}/temp/upload/duplicate/";
++        if (!file_exists($tmpuploaddir) && !@mkdir($tmpuploaddir, 0777, true)) {
++            error_log("/repository/repository_ajax.php: {$action}: Failed creating directory: {$tmpuploaddir}");
++            $err = new stdClass;
++            $err->error = get_string('errorcouldnotcreatedirectory',
++                                     'repository_elis_files', $tmpuploaddir);
++            die(json_encode($err));
++        }
++        //save tmp file when in filepicker - first pass
++        $tmpuploadfile = $tmpuploaddir.$existingfilename;
++        @unlink($tmpuploadfile); // TBD
++        if (!copy($src, $tmpuploadfile)) {
++            error_log("/repository/repository_ajax.php: {$action}: Failed copying file: {$tmpuploadfile}");
++            $err = new stdClass;
++            $err->error = get_string('errorupload', 'repository_elis_files');
++            die(json_encode($err));
++        }
++    }
++
++    $resp = array();
++    $resp['event'] = 'fileexists';
++    $resp['newfile'] = new stdClass;
++    $resp['newfile']->filepath = $saveas_path;
++    $resp['newfile']->filename = $unused_filename;
++
++    $resp['existingfile'] = new stdClass;
++    $resp['existingfile']->filepath = $saveas_path;
++    $resp['existingfile']->filename = $existingfilename;
++
++    //elis files info
++    $resp['duplicateelisfiles'] = true;
++    $resp['duplicateuuid'] = $duplicateuuid;
++
++    //file info
++    $resp['duplicatefilemeta'] = new stdClass;
++    $resp['duplicatefilemeta']->name = $existingfilename;
++    $resp['duplicatefilemeta']->filepath = $duplicateelisfiles ? $filepath
++                                                               : $tmpuploaddir;
++    $resp['duplicatefilemeta']->type = $type;
++    $resp['duplicatefilemeta']->size = $size;
++
++    //need to pass the active repo id too...
++    $resp['duplicaterepo_id'] = $repo_id;
++    return $resp;
++}
++
