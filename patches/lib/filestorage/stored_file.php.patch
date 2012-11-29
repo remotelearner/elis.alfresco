@@ -1,0 +1,18 @@
+diff --git a/lib/filestorage/stored_file.php b/lib/filestorage/stored_file.php
+index fee7bfa..168be3d 100644
+--- a/lib/filestorage/stored_file.php
++++ b/lib/filestorage/stored_file.php
+@@ -699,6 +699,13 @@ class stored_file {
+      * @return int 0 means file OK, anything else is a problem and file can not be used
+      */
+     public function get_status() {
++        $src = !empty($this->file_record->source)
++               ? @unserialize($this->file_record->source)
++               : new stdClass;
++        if (!empty($src->source) && strpos($src->source, '/') === false) {
++            error_log("/lib/filestorage/stored_file.php::get_status(): INFO: setting status = 0 for file_record..>source = {$src->source}");
++            $this->file_record->status = 0; // TBD
++        }
+         return $this->file_record->status;
+     }
+ 

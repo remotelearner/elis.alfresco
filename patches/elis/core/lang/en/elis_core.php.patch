@@ -1,8 +1,8 @@
 diff --git a/elis/core/lang/en/elis_core.php b/elis/core/lang/en/elis_core.php
-index 5ca8510..f42411a 100644
+index 4cc1758..bbe7d40 100644
 --- a/elis/core/lang/en/elis_core.php
 +++ b/elis/core/lang/en/elis_core.php
-@@ -35,9 +35,9 @@ $string['date_format'] = '%d/%m/%Y';
+@@ -38,9 +38,9 @@ $string['date_format'] = '%d/%m/%Y';
  $string['date_help'] = '<h1>Date filter</h1>
  <p>This filter allows you to filter information from before and/or after selected dates.</p>';
  $string['display'] = 'Display';
@@ -15,7 +15,7 @@ index 5ca8510..f42411a 100644
  $string['done'] = 'done';
  $string['elis'] = 'ELIS';
  $string['elisversion'] = '<strong>ELIS Version:</strong> {$a}';
-@@ -79,8 +79,8 @@ $string['fld_courserole_help'] = '<h1>Course role filter</h1>
+@@ -82,8 +82,8 @@ $string['fld_courserole_help'] = '<h1>Course role filter</h1>
  <p>This filter allows you to filter users based the role they have assigned in the course
  specified by its shortname from a specified course category (if the shortname textbox is empty,
  the category is "any category" and the role is "any role" then the filter is not active).</p>';
@@ -25,7 +25,7 @@ index 5ca8510..f42411a 100644
  $string['fld_description'] = 'Description';
  $string['fld_email'] = 'Email address';
  $string['fld_email_help'] = '<h1>Email address filter</h1>
-@@ -136,7 +136,7 @@ The filter has the following options:</p>
+@@ -139,7 +139,7 @@ The filter has the following options:</p>
  <li>ends with - this option allows only ID numbers that end with the text entered (if no text is entered, then the filter is disabled)</li>
  <li>is empty - this option allows only ID numbers that are equal to the empty string (the text entered is ignored)</li>
  </ul>';
@@ -34,7 +34,7 @@ index 5ca8510..f42411a 100644
  $string['fld_inactive_help'] = '<h1>Inactive filter</h1>
  <p>This filter allows you to filter users\' status as active, inactive or both.</p>';
  $string['fld_iscustom'] = 'Custom';
-@@ -161,9 +161,9 @@ The filter has the following options:</p>
+@@ -164,9 +164,9 @@ The filter has the following options:</p>
  <li>ends with - this option allows only lastnames that end with the text entered (if no text is entered, then the filter is disabled)</li>
  <li>is empty - this option allows only lastnames that are equal to the empty string (the text entered is ignored)</li>
  </ul>';

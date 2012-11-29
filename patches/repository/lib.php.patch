@@ -1,0 +1,57 @@
+diff --git a/repository/lib.php b/repository/lib.php
+index f60bed4..8b3af2b 100644
+--- a/repository/lib.php
++++ b/repository/lib.php
+@@ -2508,6 +2508,52 @@ abstract class repository {
+         $sourcefield->source = $source;
+         return serialize($sourcefield);
+     }
++
++    /**
++     * static method to include required CSS classes for filemanager/picker
++     * mainly for Chrome/Chromium
++     * @param object $page Optional page object, defaults to $PAGE
++     * @uses  $CFG
++     * @uses  $PAGE
++     */
++    public static function include_fmfp_css($page = null) {
++        global   $CFG, $PAGE;
++        static   $init = false;
++        if ($init) {
++            return;
++        }
++        $init = true;
++        $req_css = array(
++                     '/lib/yui/3.5.1/build/panel/assets/panel-core.css',
++                     '/lib/yui/3.5.1/build/panel/assets/skins/night/panel-skin.css',
++                     '/lib/yui/3.5.1/build/panel/assets/skins/night/panel.css',
++                     '/lib/yui/3.5.1/build/panel/assets/skins/sam/panel.css',
++                     '/lib/yui/3.5.1/build/panel/assets/skins/sam/panel-skin.css',
++                     '/lib/yui/3.5.1/build/panel/assets/skins/sam/panel.css',
++                     '/lib/yui/3.5.1/build/assets/skins/sam/skin.css'
++                   );
++
++        if (empty($page)) {
++            $page = $PAGE;
++        }
++        $out = '';
++        $headerprinted = $page->headerprinted; // not reliable!
++        foreach ($req_css as $css) {
++            if (!$headerprinted) {
++                try {
++                    $page->requires->css($css);
++                } catch (Exception $e) {
++                    $headerprinted = true;
++                }
++            }
++            if ($headerprinted) {
++                $out .= "@import url(\"{$CFG->wwwroot}{$css}\");\n";
++            }
++        }
++        if (!empty($out)) {
++            echo "<style>\n{$out}</style>";
++        }
++    }
+ }
+ 
+ /**
