@@ -175,7 +175,7 @@ index 06df8f3..c6d1cd9 100644
 +                        die(json_encode($err));
 +                    }
 +                } else {
-                     $info = repository::move_to_filepool($downloadedfile['path'], $record);
+                 $info = repository::move_to_filepool($downloadedfile['path'], $record);
 +                }
                  if (empty($info)) {
                      $info['e'] = get_string('error', 'moodle');
@@ -190,7 +190,7 @@ index 06df8f3..c6d1cd9 100644
      case 'upload':
 +        $elis_files_exists = file_exists($CFG->dirroot .'/repository/elis_files/lib/lib.php');
 +        if (method_exists($repo, 'upload')) {
-             $result = $repo->upload($saveas_filename, $maxbytes);
+         $result = $repo->upload($saveas_filename, $maxbytes);
 +        } else if ($elis_files_exists) {
 +            require_once($CFG->dirroot .'/repository/elis_files/lib/lib.php');
 +            $decodedpath = unserialize(base64_decode($saveas_path));
@@ -376,7 +376,7 @@ index 06df8f3..c6d1cd9 100644
 +            }
 +        } else {
 +            // moving the file within the Moodle file area
-             $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
+         $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
 +        }
          echo json_encode($info);
          break;

@@ -1,5 +1,5 @@
 diff --git a/repository/draftfiles_ajax.php b/repository/draftfiles_ajax.php
-index 3857a0d..af170e5 100644
+index 31b7e15..af170e5 100644
 --- a/repository/draftfiles_ajax.php
 +++ b/repository/draftfiles_ajax.php
 @@ -27,9 +27,31 @@
@@ -76,12 +76,12 @@ index 3857a0d..af170e5 100644
 +            }
 +            //debug_errorlog_obj('draftfiles_ajax.php:: data.A = ', $data);
 +        } else {
-             $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
-             $info = file_get_draft_area_info($draftid);
-             $data->filecount = $info['filecount'];
-             $data->filesize = $info['filesize'];
-             $data->tree = new stdClass();
-             file_get_drafarea_folders($draftid, '/', $data->tree);
+         $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
+         $info = file_get_draft_area_info($draftid);
+         $data->filecount = $info['filecount'];
+         $data->filesize = $info['filesize'];
+         $data->tree = new stdClass();
+         file_get_drafarea_folders($draftid, '/', $data->tree);
 +            //debug_errorlog_obj('draftfiles_ajax.php:: data.B = ', $data);
 +        }
          echo json_encode($data);
@@ -113,10 +113,10 @@ index 3857a0d..af170e5 100644
 +                              $e->getMessage());
 +               }
 +            }
- 
++
 +            // Track the success of this operation
 +            $success = false;
-+
+ 
 +            if (!empty($repo)) {
 +                // Perform permissions checking
 +
@@ -132,8 +132,8 @@ index 3857a0d..af170e5 100644
 +                                            $newdirname);
 +            }
 +        } else {
-             $fs = get_file_storage();
-             $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
+         $fs = get_file_storage();
+         $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
 -        $return = new stdClass();
 +        }
          $return->filepath = $filepath;
@@ -182,14 +182,14 @@ index 3857a0d..af170e5 100644
 +                $success = $success && $repo->can_edit_decoded_path($decodedpath);
 +                $success = $success && elis_files_delete($decodedpath['path'], true);
 +            }
- 
++
 +            if (!$success) {
 +                // Failure message
 +                $return->error = get_string('couldnotdeletefile',
 +                                            'repository_elis_files',
 +                                            $filename .' ('. $decodedpath['path'] .')');
 +            }
-+
+ 
 +            // Need to report back the parent node for refreshing purposes
 +            if (!empty($parent)) {
 +                //debug_errorlog_obj("draftfiles_ajax.php: delete: parent = {$parent}, test_parent = ", $test_parent);
@@ -199,25 +199,25 @@ index 3857a0d..af170e5 100644
 +            }
 +            echo json_encode($return);
 +        } else {
-             $fs = get_file_storage();
-             $filepath = file_correct_filepath($filepath);
+         $fs = get_file_storage();
+         $filepath = file_correct_filepath($filepath);
 -        $return = new stdClass();
-             if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
-                 $parent_path = $stored_file->get_parent_directory()->get_filepath();
-                 if ($stored_file->is_directory()) {
+         if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
+             $parent_path = $stored_file->get_parent_directory()->get_filepath();
+             if ($stored_file->is_directory()) {
 @@ -97,7 +253,7 @@ switch ($action) {
+                 $return->filepath = $parent_path;
+                 echo json_encode($return);
+             } else {
+-                if($result = $stored_file->delete()) {
++                    if ($result = $stored_file->delete()) {
                      $return->filepath = $parent_path;
                      echo json_encode($return);
                  } else {
--                if($result = $stored_file->delete()) {
-+                    if ($result = $stored_file->delete()) {
-                         $return->filepath = $parent_path;
-                         echo json_encode($return);
-                     } else {
 @@ -107,6 +263,7 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
-             }
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
@@ -367,7 +367,7 @@ index 3857a0d..af170e5 100644
          $newfilepath = clean_param($parent . '/' . $newdirname . '/', PARAM_PATH);
          if ($newfilepath == $filepath) {
              // no action required
-@@ -212,14 +490,146 @@ switch ($action) {
+@@ -212,31 +490,251 @@ switch ($action) {
  
      case 'zip':
          $filepath = required_param('filepath', PARAM_PATH);
@@ -513,15 +513,20 @@ index 3857a0d..af170e5 100644
 +        } else {
 +            $fs = get_file_storage();
 +            $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
-             $parent_path = $file->get_parent_directory()->get_filepath();
+         $parent_path = $file->get_parent_directory()->get_filepath();
 -
-             if ($newfile = $zipper->archive_to_storage(array($file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $filepath.'.zip', $USER->id)) {
-                 $return = new stdClass();
-                 $return->filepath = $parent_path;
-@@ -227,12 +637,104 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
-             }
+-        $filepath = explode('/', trim($file->get_filepath(), '/'));
+-        $filepath = array_pop($filepath);
+-        $zipfile = repository::get_unused_filename($draftid, $parent_path, $filepath . '.zip');
+-
+-        if ($newfile = $zipper->archive_to_storage(array($filepath => $file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $zipfile, $USER->id)) {
++            if ($newfile = $zipper->archive_to_storage(array($file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $filepath.'.zip', $USER->id)) {
+             $return = new stdClass();
+             $return->filepath = $parent_path;
+             echo json_encode($return);
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
@@ -621,13 +626,34 @@ index 3857a0d..af170e5 100644
 +                echo json_encode(false);
 +            }
 +        } else {
-             $fs = get_file_storage();
-             $area = file_get_draft_area_info($draftid);
-             if ($area['filecount'] == 0) {
-@@ -259,18 +761,96 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
-             }
+         $fs = get_file_storage();
+         $area = file_get_draft_area_info($draftid);
+         if ($area['filecount'] == 0) {
+@@ -246,34 +744,113 @@ switch ($action) {
+ 
+         $stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
+         if ($filepath === '/') {
++                $parent_path = '/';
+             $filename = get_string('files').'.zip';
+         } else {
+-            $filename = explode('/', trim($filepath, '/'));
+-            $filename = array_pop($filename) . '.zip';
++                $parent_path = $stored_file->get_parent_directory()->get_filepath();
++                $filename = trim($filepath, '/').'.zip';
+         }
+ 
+         // archive compressed file to an unused draft area
+         $newdraftitemid = file_get_unused_draft_itemid();
+-        if ($newfile = $zipper->archive_to_storage(array('/' => $stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
++            if ($newfile = $zipper->archive_to_storage(array($stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
+             $return = new stdClass();
+             $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
+-            $return->filepath = $filepath;
++                $return->filepath = $parent_path;
+             echo json_encode($return);
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
@@ -719,15 +745,15 @@ index 3857a0d..af170e5 100644
 +            echo json_encode(false);
 +        } else {
 +            $fs = get_file_storage();
-             $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
+         $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
 -
-             if ($newfile = $file->extract_to_storage($zipper, $user_context->id, 'user', 'draft', $draftid, $filepath, $USER->id)) {
-                 $return = new stdClass();
-                 $return->filepath = $filepath;
-@@ -278,6 +858,7 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
-             }
+         if ($newfile = $file->extract_to_storage($zipper, $user_context->id, 'user', 'draft', $draftid, $filepath, $USER->id)) {
+             $return = new stdClass();
+             $return->filepath = $filepath;
+@@ -281,6 +858,7 @@ switch ($action) {
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  

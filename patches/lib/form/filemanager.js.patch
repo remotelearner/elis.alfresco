@@ -1,5 +1,5 @@
 diff --git a/lib/form/filemanager.js b/lib/form/filemanager.js
-index 1e879f2..00bfb1c 100644
+index 0c868d5..90e3353 100644
 --- a/lib/form/filemanager.js
 +++ b/lib/form/filemanager.js
 @@ -36,6 +36,13 @@
@@ -100,7 +100,7 @@ index 1e879f2..00bfb1c 100644
                          args.callback(id,data,p);
                      }
                  },
-@@ -212,16 +251,136 @@ M.form_filemanager.init = function(Y, options) {
+@@ -212,19 +251,139 @@ M.form_filemanager.init = function(Y, options) {
              } else {
                  this.currentpath = filepath;
              }
@@ -113,20 +113,21 @@ index 1e879f2..00bfb1c 100644
 +                    break;
 +                }
 +            }
-+            this.request({
-+                action: 'list',
-+                scope: scope,
+             this.request({
+                 action: 'list',
+                 scope: scope,
+-                params: {'filepath':filepath},
 +                params: {'filepath': filepath, textpath: textpath, src: 'refresh'},
-+                callback: function(id, obj, args) {
-+                    scope.filecount = obj.filecount;
-+                    scope.check_buttons();
-+                    scope.options = obj;
+                 callback: function(id, obj, args) {
+                     scope.filecount = obj.filecount;
+                     scope.options = obj;
 +                    scope.update_form_buttons(scope.currentpath, false); // RL EDIT: ELIS-6958
-+                    scope.lazyloading = {};
-+                    scope.render(obj);
-+                }
-+            }, true);
-+        },
+                     scope.lazyloading = {};
+                     scope.check_buttons();
+                     scope.render(obj);
+                 }
+             }, true);
+         },
 +        // RL EDIT: ELIS-6958
 +        // Method to toggle 'Save Changes' & 'Cancel' buttons in private files
 +        update_form_buttons: function(path, allowhide) {
@@ -210,34 +211,36 @@ index 1e879f2..00bfb1c 100644
 +            }
 +
 +            // Handle file listing through the standard request setup
-             this.request({
-                 action: 'list',
-                 scope: scope,
--                params: {'filepath':filepath},
++            this.request({
++                action: 'list',
++                scope: scope,
 +                params: {'filepath': filepath},
-                 callback: function(id, obj, args) {
++                callback: function(id, obj, args) {
 +                    if (obj.error) {
 +                        scope.print_msg(obj.error, 'error');
 +                        scope.refresh('/');
 +                        return;
 +                    }
 +
-                     scope.filecount = obj.filecount;
-                     scope.check_buttons();
-                     scope.options = obj;
++                    scope.filecount = obj.filecount;
++                    scope.check_buttons();
++                    scope.options = obj;
 +                    if (obj.locations) {
 +                        scope.locations = obj.locations;
 +                    }
 +                    scope.update_form_buttons(scope.currentpath, false); // RL EDIT: ELIS-6958
-                     scope.lazyloading = {};
-                     scope.render(obj);
++                    scope.lazyloading = {};
++                    scope.render(obj);
 +
 +                    // Set up the "Jump to" options after content is refreshed
 +                    scope.set_jumpto_state([p_extra[0], scope, p_extra[2],
 +                                            p_extra[3], p_extra[4]]);
-                 }
-             }, true);
-         },
++                }
++            }, true);
++        },
+         /** displays message in a popup */
+         print_msg: function(msg, type) {
+             var header = M.str.moodle.error;
 @@ -283,8 +442,14 @@ M.form_filemanager.init = function(Y, options) {
                      // a function used to perform an ajax request
                      var perform_action = function(e) {
@@ -663,8 +666,8 @@ index 1e879f2..00bfb1c 100644
 +
 +                        if (obj.filepath) {
 +                            // Successful zip file creation, so refresh listing
-                             args.scope.refresh(obj.filepath);
-                         }
+                         args.scope.refresh(obj.filepath);
+                     }
 +                    }
                  });
              }, this);
