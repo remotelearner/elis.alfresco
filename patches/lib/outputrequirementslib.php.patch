@@ -1,5 +1,5 @@
 diff --git a/lib/outputrequirementslib.php b/lib/outputrequirementslib.php
-index 79da0c0..ed1fe87 100644
+index f6b3679..735ad7b 100644
 --- a/lib/outputrequirementslib.php
 +++ b/lib/outputrequirementslib.php
 @@ -420,7 +420,28 @@ class page_requirements_manager {

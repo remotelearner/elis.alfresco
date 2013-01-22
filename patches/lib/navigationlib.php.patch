@@ -1,5 +1,5 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index beb3eb9..3ab8b14 100644
+index 7ee14b4..3ca9812 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
 @@ -3298,6 +3298,16 @@ class settings_navigation extends navigation_node {
