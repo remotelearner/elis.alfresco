@@ -13,7 +13,7 @@ index 204302e..0c5e4fc 100644
 +    $search = '/uuid=([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/';
 +
 +    if (!preg_match($search, $imageurl, $matches)) {
-         require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
+     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $id));
 +    } else {
 +        // Initialize the repository plug-in and verify permissions through the Alfresco API.
 +        $uuid = $matches[1];

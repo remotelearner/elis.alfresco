@@ -232,7 +232,7 @@ index 1bb913a..d09ad36 100644
 +  <div class="space"></div>
 +  <form action="" method="get" id="first">
 +    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-         <tr>
+   <tr>
 -    <td style="width: 7em; text-align: right"><?php print_string("imageurl","editor");?>:</td>
 -    <td><input type="text" name="url" id="f_url" style="width:75%"
 -      title="Enter the image URL here" />
@@ -243,8 +243,8 @@ index 1bb913a..d09ad36 100644
 +        <td width="60%"><input name="f_url" type="text" id="f_url" style="width: 100%;" /></td>
 +        <td width="23%" align="center">
 +          <button name="btnOK" type="button" id="btnOK" onclick="return onOK();"><?php print_string("ok","editor") ?></button></td>
-         </tr>
-         <tr>
+   </tr>
+   <tr>
 -    <td style="width: 7em; text-align: right"><?php print_string("alternatetext","editor");?>:</td>
 -    <td><input type="text" name="alt" id="f_alt" style="width:100%"
 -      title="For browsers that don't support images" /></td>
@@ -252,7 +252,7 @@ index 1bb913a..d09ad36 100644
 +        <td><input name="f_alt" type="text" id="f_alt" style="width: 100%;" /></td>
 +        <td align="center">
 +          <button name="btnCancel" type="button" id="btnCancel" onclick="return onCancel();"><?php print_string("cancel","editor") ?></button></td>
-         </tr>
+   </tr>
 -  </tbody>
 -</table>
 -
@@ -276,13 +276,13 @@ index 1bb913a..d09ad36 100644
 +              <td width="40%" align="right"><?php print_string("alignment","editor");?>:</td>
 +              <td width="60%">
 +                <select size="1" name="f_align" id="f_align"
-         title="Positioning of this image">
-           <option value=""                       ><?php print_string("notset","editor") ?></option>
-           <option value="left"                   ><?php print_string("left","editor") ?></option>
+   title="Positioning of this image">
+   <option value=""                       ><?php print_string("notset","editor") ?></option>
+   <option value="left"                   ><?php print_string("left","editor") ?></option>
 @@ -198,42 +313,211 @@ form { padding: 0px; margin: 0px; }
-           <option value="bottom"                 ><?php print_string("bottom","editor") ?></option>
-           <option value="middle"                 ><?php print_string("middle","editor") ?></option>
-           <option value="top"                    ><?php print_string("top","editor") ?></option>
+   <option value="bottom"                 ><?php print_string("bottom","editor") ?></option>
+   <option value="middle"                 ><?php print_string("middle","editor") ?></option>
+   <option value="top"                    ><?php print_string("top","editor") ?></option>
 -</select>
 +                </select></td>
 +      </tr>
@@ -369,7 +369,7 @@ index 1bb913a..d09ad36 100644
 -<div class="space"></div>
 +      }
 +/// Remote Learner Edit -- END
-       
+ 
 -<div class="fr"><?php print_string("horizontal","editor");?>:</div>
 -<input type="text" name="horiz" id="f_horiz" size="5"
 -title="Horizontal padding" />

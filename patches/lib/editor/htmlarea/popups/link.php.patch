@@ -8,7 +8,7 @@ index fd9b451..79aa802 100644
      require("../../../../config.php");
 +    require_once $CFG->dirroot . '/file/repository/repository.class.php';
  
-     $id  = optional_param('id', SITEID, PARAM_INT);
+     $id = optional_param('id', SITEID, PARAM_INT);
 +    $oid = optional_param('oid', '', PARAM_INT);
 +    $dd  = optional_param('dd', 0, PARAM_INT);
 +

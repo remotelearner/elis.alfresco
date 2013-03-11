@@ -28,7 +28,7 @@ class block_repository extends block_base {
     function block_repository() {
         $this->title   = get_string('blockname', 'block_repository');
         $this->version = 2010090901;
-        $this->release = '1.9.3';
+        $this->release = '1.9.4 (Build: 20130307)';
     }
 
 

@@ -4,7 +4,7 @@ index f1d2626..7113148 100644
 +++ b/mod/resource/lib.php
 @@ -361,8 +361,38 @@ function resource_get_coursemodule_info($coursemodule) {
  
-         require_once($CFG->libdir.'/filelib.php');
+        require_once($CFG->libdir.'/filelib.php');
  
 +        // Determine if Alfresco is even enabled on the site right now.
 +        $hasalfresco = isset($CFG->repository_plugins_enabled) &&
