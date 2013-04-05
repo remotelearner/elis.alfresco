@@ -1,5 +1,5 @@
 diff --git a/repository/filepicker.js b/repository/filepicker.js
-index 9e23980..6a5baae 100644
+index 284a4b8..d8421ce 100644
 --- a/repository/filepicker.js
 +++ b/repository/filepicker.js
 @@ -34,8 +34,11 @@
@@ -1223,7 +1223,7 @@ index 9e23980..6a5baae 100644
 -            // weather we use cache for this instance, this button will reload listing anyway
 +            // whether we use cache for this instance, this button will reload listing anyway
              if(!r.norefresh) {
-                 var html = '<a href="###"><img src="'+M.util.image_url('a/refresh')+'" /> '+M.str.repository.refresh+'</a>';
+                 var html = '<a href="###"><img src="'+M.util.image_url('a/refresh')+'" alt="" /> '+M.str.repository.refresh+'</a>';
                  var refresh = Y.Node.create(html);
 @@ -1373,6 +2303,46 @@ M.core_filepicker.init = function(Y, options) {
                  toolbar.appendChild(msg);
