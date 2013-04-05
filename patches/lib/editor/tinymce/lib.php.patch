@@ -1,0 +1,16 @@
+diff --git a/lib/editor/tinymce/lib.php b/lib/editor/tinymce/lib.php
+index 55c2e22..81fd851 100644
+--- a/lib/editor/tinymce/lib.php
++++ b/lib/editor/tinymce/lib.php
+@@ -85,6 +85,11 @@ class tinymce_texteditor extends texteditor {
+      * Sets up head code if necessary.
+      */
+     public function head_setup() {
++        // RL EDIT: BJB130215 - includes filemanager & filepicker CSS
++        global $CFG;
++        require_once($CFG->dirroot.'/repository/lib.php');
++        repository::include_fmfp_css();
++        // End RL EDIT
+     }
+ 
+     /**
