@@ -1,5 +1,5 @@
 diff --git a/files/renderer.php b/files/renderer.php
-index 4c6dc8b..054c282 100644
+index 9fc233c..bbba01a 100644
 --- a/files/renderer.php
 +++ b/files/renderer.php
 @@ -204,6 +204,7 @@ class core_files_renderer extends plugin_renderer_base {
@@ -10,7 +10,7 @@ index 4c6dc8b..054c282 100644
              </div>
              <div class="{!}fp-viewbar">
                  <a class="{!}fp-vb-icons" href="#"></a>
-@@ -509,6 +510,10 @@ class core_files_renderer extends plugin_renderer_base {
+@@ -512,6 +513,10 @@ class core_files_renderer extends plugin_renderer_base {
       * @return string
       */
      private function fp_js_template_generallayout() {
@@ -21,7 +21,7 @@ index 4c6dc8b..054c282 100644
          $rv = '
  <div class="file-picker fp-generallayout">
      <div class="fp-repo-area">
-@@ -518,16 +523,19 @@ class core_files_renderer extends plugin_renderer_base {
+@@ -521,16 +526,19 @@ class core_files_renderer extends plugin_renderer_base {
      </div>
      <div class="fp-repo-items">
          <div class="fp-navbar">

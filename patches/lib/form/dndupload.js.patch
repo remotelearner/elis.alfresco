@@ -1,5 +1,5 @@
 diff --git a/lib/form/dndupload.js b/lib/form/dndupload.js
-index bbadd5c..296a812 100644
+index 29d5112..a361712 100644
 --- a/lib/form/dndupload.js
 +++ b/lib/form/dndupload.js
 @@ -80,7 +80,8 @@ M.form_dndupload.init = function(Y, options) {
@@ -54,7 +54,7 @@ index bbadd5c..296a812 100644
              if (!this.check_drag(e, true)) {
                  return true;
              }
-@@ -714,8 +729,24 @@ M.form_dndupload.init = function(Y, options) {
+@@ -715,8 +730,24 @@ M.form_dndupload.init = function(Y, options) {
           * Upload the next file from the uploadqueue - called recursively after each
           * upload is complete, then handles the callback to the filemanager/filepicker
           * @param lastresult - the last result from the server
@@ -80,7 +80,7 @@ index bbadd5c..296a812 100644
              if (this.uploadqueue.length > 0) {
                  var filedetails = this.uploadqueue.shift();
                  this.upload_file(filedetails.file, filedetails.filename, filedetails.overwrite);
-@@ -732,6 +763,28 @@ M.form_dndupload.init = function(Y, options) {
+@@ -733,6 +764,28 @@ M.form_dndupload.init = function(Y, options) {
          },
  
          /**
@@ -109,7 +109,7 @@ index bbadd5c..296a812 100644
           * Upload a single file via an AJAX call to the 'upload' repository. Automatically
           * calls do_upload as each upload completes.
           * @param File file - the file to upload
-@@ -767,7 +820,8 @@ M.form_dndupload.init = function(Y, options) {
+@@ -768,7 +821,8 @@ M.form_dndupload.init = function(Y, options) {
                                  result.client_id = self.options.clientid;
                              }
                          }
@@ -119,7 +119,7 @@ index bbadd5c..296a812 100644
                      } else {
                          self.print_msg(M.util.get_string('serverconnection', 'error'), 'error');
                          self.uploadfinished();
-@@ -778,16 +832,28 @@ M.form_dndupload.init = function(Y, options) {
+@@ -779,16 +833,28 @@ M.form_dndupload.init = function(Y, options) {
              // Prepare the data to send
              var formdata = new FormData();
              formdata.append('action', 'upload');

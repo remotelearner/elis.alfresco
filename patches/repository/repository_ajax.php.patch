@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index 06df8f3..c6d1cd9 100644
+index 06df8f3..3ff116a 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -23,7 +23,6 @@
@@ -35,12 +35,13 @@ index 06df8f3..c6d1cd9 100644
              $listing['repo_id'] = $repo_id;
              echo json_encode($listing);
              break;
-@@ -145,17 +152,24 @@ switch ($action) {
-     case 'searchform':
+@@ -146,16 +153,25 @@ switch ($action) {
          $search_form['repo_id'] = $repo_id;
          $search_form['form'] = $repo->print_search();
-+        $search_form['tree'] = $repo->category_tree();
          $search_form['allowcaching'] = true;
++        // RL EDIT: BJB130301 ELIS-8326 (Kaltura)
++        $search_form['tree'] = method_exists($repo, 'category_tree') ? $repo->category_tree() : array();
++        // End RL EDIT
          echo json_encode($search_form);
          break;
      case 'search':
@@ -61,7 +62,7 @@ index 06df8f3..c6d1cd9 100644
          $mimetypes = array();
          if ((is_array($accepted_types) and in_array('*', $accepted_types)) or $accepted_types == '*') {
              $mimetypes = '*';
-@@ -178,7 +192,7 @@ switch ($action) {
+@@ -178,7 +194,7 @@ switch ($action) {
              $allowexternallink = false;
          }
          // allow external links in url element all the time
@@ -70,7 +71,7 @@ index 06df8f3..c6d1cd9 100644
  
          $reference = $repo->get_file_reference($source);
  
-@@ -291,11 +305,55 @@ switch ($action) {
+@@ -291,11 +307,55 @@ switch ($action) {
                  // {@link repository::copy_to_area()}.
                  $fileinfo = $repo->copy_to_area($reference, $record, $maxbytes);
  
@@ -126,7 +127,7 @@ index 06df8f3..c6d1cd9 100644
                  if (empty($downloadedfile['path'])) {
                      $err->error = get_string('cannotdownload', 'repository');
                      die(json_encode($err));
-@@ -303,20 +361,200 @@ switch ($action) {
+@@ -303,20 +363,200 @@ switch ($action) {
  
                  // Check if exceed maxbytes.
                  if ($maxbytes != -1 && filesize($downloadedfile['path']) > $maxbytes) {
@@ -327,7 +328,7 @@ index 06df8f3..c6d1cd9 100644
          echo json_encode($result);
          break;
  
-@@ -327,8 +565,52 @@ switch ($action) {
+@@ -327,8 +567,52 @@ switch ($action) {
          // user added file which needs to replace the existing file
          $newfilepath = required_param('newfilepath', PARAM_PATH);
          $newfilename = required_param('newfilename', PARAM_FILE);
@@ -381,7 +382,7 @@ index 06df8f3..c6d1cd9 100644
          echo json_encode($info);
          break;
  
-@@ -340,3 +622,73 @@ switch ($action) {
+@@ -340,3 +624,73 @@ switch ($action) {
  
          break;
  }
