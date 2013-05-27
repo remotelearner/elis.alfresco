@@ -1,8 +1,8 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index f8709a7..c8b7df6 100644
+index 72ab369..ef2f646 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
-@@ -2215,7 +2215,7 @@ class global_navigation extends navigation_node {
+@@ -2221,7 +2221,7 @@ class global_navigation extends navigation_node {
       * @return bool
       */
      protected function load_for_user($user=null, $forceforcontext=false) {
@@ -11,7 +11,7 @@ index f8709a7..c8b7df6 100644
  
          if ($user === null) {
              // We can't require login here but if the user isn't logged in we don't
-@@ -2344,7 +2344,7 @@ class global_navigation extends navigation_node {
+@@ -2350,7 +2350,7 @@ class global_navigation extends navigation_node {
  
          $context = get_context_instance(CONTEXT_USER, $USER->id);
          if ($iscurrentuser && has_capability('moodle/user:manageownfiles', $context)) {
@@ -20,7 +20,7 @@ index f8709a7..c8b7df6 100644
              $usernode->add(get_string('myfiles'), $url, self::TYPE_SETTING);
          }
  
-@@ -3717,6 +3717,30 @@ class settings_navigation extends navigation_node {
+@@ -3732,6 +3732,30 @@ class settings_navigation extends navigation_node {
  
          }
  

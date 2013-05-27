@@ -1,8 +1,8 @@
 diff --git a/repository/lib.php b/repository/lib.php
-index 9d59b2d..e65af55 100644
+index 1d89307..52dc113 100644
 --- a/repository/lib.php
 +++ b/repository/lib.php
-@@ -2561,6 +2561,52 @@ abstract class repository {
+@@ -2574,6 +2574,52 @@ abstract class repository {
          $sourcefield->source = $source;
          return serialize($sourcefield);
      }
