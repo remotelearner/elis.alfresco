@@ -166,13 +166,13 @@ index e8d4701..2720360 100644
 +                        }
 +                    }, true);
 +                } else {
-                 if (scope.options.editor_target && scope.options.env == 'editor') {
-                     scope.options.editor_target.value = data.newfile.url;
-                     scope.options.editor_target.onchange();
+                     if (scope.options.editor_target && scope.options.env == 'editor') {
+                         scope.options.editor_target.value = data.newfile.url;
+                         scope.options.editor_target.onchange();
 @@ -693,6 +787,8 @@ M.core_filepicker.init = function(Y, options) {
-                                 'file':data.newfile.filename};
-                 scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-             }
+                                     'file':data.newfile.filename};
+                     scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                 }
 +                // End RL EDIT
 +            }
              var handleCancel = function(e) {

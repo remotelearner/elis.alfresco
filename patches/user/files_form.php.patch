@@ -13,7 +13,7 @@ index 1cb3715..82dca00 100644
 +        }
          $mform = $this->_form;
 -
-         $data           = $this->_customdata['data'];
+         $data  = $this->_customdata['data'];
 +
 +        // RL: ELIS Files locations
 +        // Determine if the ELIS Files repository is enabled
@@ -49,7 +49,7 @@ index 1cb3715..82dca00 100644
 +           }
 +        }
 +
-         $options        = $this->_customdata['options'];
+         $options = $this->_customdata['options'];
  
 -        $mform->addElement('filemanager', 'files_filemanager', get_string('files'), null, $options);
 +        $label = get_string('files');

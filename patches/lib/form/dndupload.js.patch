@@ -132,7 +132,7 @@ index 68df5ac..18b5c31 100644
 +                formdata.append('duplicatefilemetatype', file.type);
 +                formdata.append('newfilename', filename);
 +            } else {
-             formdata.append('repo_upload_file', file); // The FormData class allows us to attach a file
+                 formdata.append('repo_upload_file', file); // The FormData class allows us to attach a file
 +            }
              formdata.append('sesskey', M.cfg.sesskey);
 -            formdata.append('repo_id', this.repositoryid);

@@ -1,5 +1,5 @@
 diff --git a/lib/editor/tinymce/lib.php b/lib/editor/tinymce/lib.php
-index 55c2e22..81fd851 100644
+index 9276c76..9b1cb62 100644
 --- a/lib/editor/tinymce/lib.php
 +++ b/lib/editor/tinymce/lib.php
 @@ -85,6 +85,11 @@ class tinymce_texteditor extends texteditor {

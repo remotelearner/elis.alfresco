@@ -676,8 +676,8 @@ index c6d32fb..30f3103 100644
 +                        }
 +                        if (obj.filepath) {
 +                            // Successful zip file creation, so refresh listing
-                         args.scope.refresh(obj.filepath);
-                     }
+                             args.scope.refresh(obj.filepath);
+                         }
 +                        // End RL EDIT
 +                    }
                  });
