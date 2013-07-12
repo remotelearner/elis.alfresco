@@ -73,7 +73,7 @@ index 284a4b8..d8421ce 100644
 +                zindex: 9999999,
                  draggable: true,
                  buttons: [{ text: M.str.repository.overwrite, handler: handleOverwrite },
-                           { text: M.str.repository.renameto + ' "' + data.newfile.filename + '"', handler: handleRename },
+                 { text: M.str.repository.renameto + ' "' + data.newfile.filename + '"', handler: handleRename },
 @@ -290,8 +311,10 @@ M.core_filepicker.init = function(Y, options) {
                  this.hide();
              }
@@ -155,7 +155,7 @@ index 284a4b8..d8421ce 100644
 +                if (this.viewmode == 3) {
 +                    this.view_as_details();
 +                } else {
-                     this.view_as_icons();
+                 this.view_as_icons();
 +                }
              } else {
                  this.viewbar.set('disabled', false);
@@ -209,12 +209,12 @@ index 284a4b8..d8421ce 100644
 +                                window.open(M.cfg.wwwroot+'/repository/elis_files/openfile.php?uuid='+e.node.data.source);
 +                            } else {
 +                                // show the file details, allow select
-                                 var fileinfo = {};
-                                 fileinfo['title'] = e.node.data.filename;
-                                 fileinfo['source'] = e.node.data.source;
-                                 fileinfo['thumbnail'] = e.node.data.thumbnail;
-                                 scope.select_file(fileinfo);
-                             }
+                             var fileinfo = {};
+                             fileinfo['title'] = e.node.data.filename;
+                             fileinfo['source'] = e.node.data.source;
+                             fileinfo['thumbnail'] = e.node.data.thumbnail;
+                             scope.select_file(fileinfo);
+                         }
 +                        }
                      });
 +
@@ -243,13 +243,13 @@ index 284a4b8..d8421ce 100644
 +                        }, this, fileinfo);
 +                    } else {
 +                        // show the file details, allow select
-                         y_title.on('click', function(e, args) {
-                             this.select_file(args);
-                         }, this, fileinfo);
+                     y_title.on('click', function(e, args) {
+                         this.select_file(args);
+                     }, this, fileinfo);
 @@ -560,9 +669,160 @@ M.core_filepicker.init = function(Y, options) {
-                             this.select_file(args);
-                         }, this, fileinfo);
-                     }
+                         this.select_file(args);
+                     }, this, fileinfo);
+                 }
 +                }
                  count++;
              }
@@ -1164,13 +1164,13 @@ index 284a4b8..d8421ce 100644
                              function dialog_handler() {
                                  scope.viewbar.set('disabled', false);
 @@ -1281,6 +2196,7 @@ M.core_filepicker.init = function(Y, options) {
-                                     repository_id: repository_id,
-                                     form: {id: 'fp-search-form',upload:false,useDisabled:true},
-                                     callback: function(id, o, args) {
+                                         repository_id: repository_id,
+                                         form: {id: 'fp-search-form',upload:false,useDisabled:true},
+                                         callback: function(id, o, args) {
 +                                        o.issearchresult = true;
-                                         scope.parse_repository_options(o);
-                                         scope.view_files();
-                                     }
+                                             scope.parse_repository_options(o);
+                                             scope.view_files();
+                                         }
 @@ -1297,32 +2213,46 @@ M.core_filepicker.init = function(Y, options) {
                              search_dialog = new YAHOO.widget.Dialog("fp-search-dlg", {
                                 postmethod: 'async',
@@ -1273,8 +1273,8 @@ index 284a4b8..d8421ce 100644
          },
          get_page_button: function(page) {
 @@ -1464,7 +2434,6 @@ M.core_filepicker.init = function(Y, options) {
-                                         scope.view_files(result[1]);
-                                     }
+                                             scope.view_files(result[1]);
+                                         }
                                  }, true);
 -
                              } else {
