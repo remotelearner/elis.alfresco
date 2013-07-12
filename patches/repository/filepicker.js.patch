@@ -1,5 +1,5 @@
 diff --git a/repository/filepicker.js b/repository/filepicker.js
-index 64b1428..aabb5a1 100644
+index aedfbe8..ee6e9cc 100644
 --- a/repository/filepicker.js
 +++ b/repository/filepicker.js
 @@ -41,6 +41,7 @@
@@ -95,23 +95,24 @@ index 64b1428..aabb5a1 100644
 +                    'repository_id': data.duplicaterepo_id,
                      'callback': function(id, o, args) {
                          scope.hide();
-                         // editor needs to update url
-@@ -672,6 +707,14 @@ M.core_filepicker.init = function(Y, options) {
-                             var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
-                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                         if (scope.options.editor_target && scope.options.env == 'editor') {
+@@ -665,12 +700,15 @@ M.core_filepicker.init = function(Y, options) {
+                             scope.options.editor_target.value = data.existingfile.url;
+                             scope.options.editor_target.onchange();
                          }
 +                        // do a scope callback for elis files after overwrite
 +                        if (scope.options.env !== 'filepicker' && data.duplicateelisfiles !== undefined) {
-+                            var fileinfo = {'client_id':scope.options.client_id,
-+                                    'url':data.existingfile.url,
-+                                    'file':data.existingfile.filename};
-+                            var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
-+                            scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-+                        }
+                         var fileinfo = {'client_id':scope.options.client_id,
+                                 'url':data.existingfile.url,
+                                 'file':data.existingfile.filename};
+                         var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
+                         scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
                      }
++                    }
                  }, true);
              }
-@@ -680,6 +723,38 @@ M.core_filepicker.init = function(Y, options) {
+             var handleRename = function(e) {
+@@ -678,6 +716,51 @@ M.core_filepicker.init = function(Y, options) {
                  e.preventDefault();
                  var scope = this;
                  var data = this.process_dlg.dialogdata;
@@ -147,31 +148,31 @@ index 64b1428..aabb5a1 100644
 +                            }
 +                            // editor needs to rename and upload new file
 +                            // filemanager do nothing
-                             if (scope.options.editor_target && scope.options.env == 'editor') {
-                                 scope.options.editor_target.value = data.newfile.url;
-                                 scope.options.editor_target.onchange();
-@@ -691,6 +766,20 @@ M.core_filepicker.init = function(Y, options) {
-                                     'file':data.newfile.filename};
-                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-                         }
-+                    }, true);
-+                } else {
-+                    if (scope.options.editor_target && scope.options.env == 'editor') {
-+                        scope.options.editor_target.value = data.newfile.url;
-+                        scope.options.editor_target.onchange();
-+                    }
-+                    scope.hide();
-+                    var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
-+                    var fileinfo = {'client_id':scope.options.client_id,
++                            if (scope.options.editor_target && scope.options.env == 'editor') {
++                                scope.options.editor_target.value = data.newfile.url;
++                                scope.options.editor_target.onchange();
++                            }
++                            scope.hide();
++                            var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
++                            var fileinfo = {'client_id':scope.options.client_id,
 +                                    'url':data.newfile.url,
 +                                    'file':data.newfile.filename};
-+                    scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-+                }
++                            scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
++                        }
++                    }, true);
++                } else {
+                 if (scope.options.editor_target && scope.options.env == 'editor') {
+                     scope.options.editor_target.value = data.newfile.url;
+                     scope.options.editor_target.onchange();
+@@ -689,6 +772,7 @@ M.core_filepicker.init = function(Y, options) {
+                                 'file':data.newfile.filename};
+                 scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+             }
 +            }
              var handleCancel = function(e) {
                  // Delete tmp file
                  e.preventDefault();
-@@ -1064,11 +1153,19 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1062,11 +1146,19 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }, false);
          },
@@ -191,7 +192,7 @@ index 64b1428..aabb5a1 100644
              selectnode.removeClass('loading');
              selectnode.one('.fp-saveas input').set('value', args.title);
  
-@@ -1105,6 +1202,9 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1103,6 +1195,9 @@ M.core_filepicker.init = function(Y, options) {
              // TODO MDL-32532: attributes 'hasauthor' and 'haslicense' need to be obsolete,
              selectnode.one('.fp-setauthor input').set('value', args.author ? args.author : this.options.author);
              this.set_selected_license(selectnode.one('.fp-setlicense'), args.license);
@@ -201,7 +202,7 @@ index 64b1428..aabb5a1 100644
              selectnode.one('form #filesource-'+client_id).set('value', args.source);
  
              // display static information about a file (when known)
-@@ -1380,6 +1480,28 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1378,6 +1473,28 @@ M.core_filepicker.init = function(Y, options) {
              }
              // display repository that was used last time
              this.show_recent_repository();
@@ -230,7 +231,7 @@ index 64b1428..aabb5a1 100644
          },
          parse_repository_options: function(data, appendtolist) {
              if (appendtolist) {
-@@ -1395,8 +1517,11 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1393,8 +1510,11 @@ M.core_filepicker.init = function(Y, options) {
                  this.filelist = data.list?data.list:null;
                  this.lazyloading = {};
              }
@@ -244,7 +245,7 @@ index 64b1428..aabb5a1 100644
              this.active_repo = {};
              this.active_repo.issearchresult = data.issearchresult ? true : false;
              this.active_repo.dynload = data.dynload?data.dynload:false;
-@@ -1406,7 +1531,10 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1404,7 +1524,10 @@ M.core_filepicker.init = function(Y, options) {
              this.active_repo.id = data.repo_id?data.repo_id:null;
              this.active_repo.nosearch = (data.login || data.nosearch); // this is either login form or 'nosearch' attribute set
              this.active_repo.norefresh = (data.login || data.norefresh); // this is either login form or 'norefresh' attribute set
@@ -255,7 +256,7 @@ index 64b1428..aabb5a1 100644
              this.active_repo.logouttext = data.logouttext?data.logouttext:null;
              this.active_repo.logouturl = (data.logouturl || '');
              this.active_repo.message = (data.message || '');
-@@ -1548,6 +1676,53 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1546,6 +1669,53 @@ M.core_filepicker.init = function(Y, options) {
                  }, this);
              }
          },
@@ -309,7 +310,7 @@ index 64b1428..aabb5a1 100644
          display_response: function(id, obj, args) {
              var scope = args.scope
              // highlight the current repository in repositories list
-@@ -1578,6 +1753,8 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1576,6 +1746,8 @@ M.core_filepicker.init = function(Y, options) {
                  scope.parse_repository_options(obj);
                  scope.view_files();
              }
@@ -318,7 +319,7 @@ index 64b1428..aabb5a1 100644
          },
          list: function(args) {
              if (!args) {
-@@ -1586,6 +1763,11 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1584,6 +1756,11 @@ M.core_filepicker.init = function(Y, options) {
              if (!args.repo_id) {
                  args.repo_id = this.active_repo.id;
              }
@@ -330,7 +331,7 @@ index 64b1428..aabb5a1 100644
              if (!args.path) {
                  args.path = '';
              }
-@@ -1646,6 +1828,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1644,6 +1821,7 @@ M.core_filepicker.init = function(Y, options) {
              var client_id = this.options.client_id;
              var id = data.upload.id+'_'+client_id;
              var content = this.fpnode.one('.fp-content');
@@ -338,7 +339,7 @@ index 64b1428..aabb5a1 100644
              var template_name = 'uploadform_'+this.options.repositories[data.repo_id].type;
              var template = M.core_filepicker.templates[template_name] || M.core_filepicker.templates['uploadform'];
              content.setContent(template);
-@@ -1662,6 +1845,9 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1660,6 +1838,9 @@ M.core_filepicker.init = function(Y, options) {
              content.one('.fp-setauthor input').setAttrs({name:'author', value:this.options.author});
              content.one('.fp-setlicense select').set('name', 'license');
              this.populate_licenses_select(content.one('.fp-setlicense select'))
@@ -348,7 +349,7 @@ index 64b1428..aabb5a1 100644
              // append hidden inputs to the upload form
              content.one('form').appendChild(Y.Node.create('<input/>').
                  setAttrs({type:'hidden',name:'itemid',value:this.options.itemid}));
-@@ -1682,12 +1868,16 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1680,12 +1861,16 @@ M.core_filepicker.init = function(Y, options) {
                      return false;
                  }
                  this.hide_header();
@@ -366,7 +367,7 @@ index 64b1428..aabb5a1 100644
                          form: {id: id, upload:true},
                          onerror: function(id, o, args) {
                              scope.create_upload_form(data);
-@@ -1710,6 +1900,96 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1708,6 +1893,96 @@ M.core_filepicker.init = function(Y, options) {
                  }, true);
              }, this);
          },
@@ -463,7 +464,7 @@ index 64b1428..aabb5a1 100644
          /** setting handlers and labels for elements in toolbar. Called once during the initial render of filepicker */
          setup_toolbar: function() {
              var client_id = this.options.client_id;
-@@ -1736,9 +2016,13 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1734,9 +2009,13 @@ M.core_filepicker.init = function(Y, options) {
                      this.list({ path: this.currentpath });
                  }
              }, this);
@@ -477,7 +478,7 @@ index 64b1428..aabb5a1 100644
                  on('submit', function(e) {
                      e.preventDefault();
                      if (!this.active_repo.nosearch) {
-@@ -1752,6 +2036,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1750,6 +2029,7 @@ M.core_filepicker.init = function(Y, options) {
                          }, true);
                      }
              }, this);
@@ -485,7 +486,7 @@ index 64b1428..aabb5a1 100644
  
              // it does not matter what kind of element is .fp-tb-manage, we create a dummy <a>
              // element and use it to open url on click event
-@@ -1801,6 +2086,22 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1799,6 +2079,22 @@ M.core_filepicker.init = function(Y, options) {
                  }
              }
  
@@ -508,7 +509,7 @@ index 64b1428..aabb5a1 100644
              // TODO 'back' permanently disabled for now. Note, flickr_public uses 'Logout' for it!
              enable_tb_control(toolbar.one('.fp-tb-back'), false);
  
-@@ -1828,11 +2129,193 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1826,11 +2122,193 @@ M.core_filepicker.init = function(Y, options) {
                          }
                      }
                  }, false);
@@ -619,8 +620,8 @@ index 64b1428..aabb5a1 100644
 +                                    }
 +                                    category_treeview.subscribe('clickEvent', category_treeview.onEventToggleHighlight);
 +                                    category_treeview.render();
-+                                }
-+
+             }
+ 
 +                                function dialog_handler() {
 +                                    scope.viewbar.set('disabled', false);
 +                                    scope.request({
@@ -687,12 +688,12 @@ index 64b1428..aabb5a1 100644
 +                    // Run the search, refreshing the contents of the filepicker's listing
 +                    scope.execute_search(e);
 +                });
-             }
++            }
 +            // End of RL edit for more advanced search functionality
 +
 +            // RL: 'Jump to..' menu
 +            this.print_jump();
- 
++
              // refresh button
              // weather we use cache for this instance, this button will reload listing anyway
              enable_tb_control(toolbar.one('.fp-tb-refresh'), !r.norefresh);
@@ -702,7 +703,7 @@ index 64b1428..aabb5a1 100644
  
              // login button
              enable_tb_control(toolbar.one('.fp-tb-logout'), !r.nologin);
-@@ -1841,6 +2324,12 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1839,6 +2317,12 @@ M.core_filepicker.init = function(Y, options) {
                  toolbar.one('.fp-tb-logout').one('a,button').setContent(label)
              }
  
@@ -715,7 +716,7 @@ index 64b1428..aabb5a1 100644
              // manage url
              enable_tb_control(toolbar.one('.fp-tb-manage'), r.manage);
              Y.one('#fp-tb-manage-'+client_id+'-link').set('href', r.manage);
-@@ -1855,6 +2344,184 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1853,6 +2337,184 @@ M.core_filepicker.init = function(Y, options) {
                  toolbar.one('.fp-tb-message').setContent(r.message);
              }
          },
@@ -900,7 +901,7 @@ index 64b1428..aabb5a1 100644
          print_path: function() {
              if (!this.pathbar) {
                  return;
-@@ -1880,7 +2547,7 @@ M.core_filepicker.init = function(Y, options) {
+@@ -1878,7 +2540,7 @@ M.core_filepicker.init = function(Y, options) {
                      el.on('click',
                              function(e, path) {
                                  e.preventDefault();

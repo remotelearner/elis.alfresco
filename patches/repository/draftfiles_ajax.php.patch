@@ -1,5 +1,5 @@
 diff --git a/repository/draftfiles_ajax.php b/repository/draftfiles_ajax.php
-index 31b7e15..af170e5 100644
+index 76916a8..05b48be 100644
 --- a/repository/draftfiles_ajax.php
 +++ b/repository/draftfiles_ajax.php
 @@ -27,9 +27,31 @@
@@ -76,12 +76,12 @@ index 31b7e15..af170e5 100644
 +            }
 +            //debug_errorlog_obj('draftfiles_ajax.php:: data.A = ', $data);
 +        } else {
-             $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
-             $info = file_get_draft_area_info($draftid);
-             $data->filecount = $info['filecount'];
-             $data->filesize = $info['filesize'];
-             $data->tree = new stdClass();
-             file_get_drafarea_folders($draftid, '/', $data->tree);
+         $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
+         $info = file_get_draft_area_info($draftid);
+         $data->filecount = $info['filecount'];
+         $data->filesize = $info['filesize'];
+         $data->tree = new stdClass();
+         file_get_drafarea_folders($draftid, '/', $data->tree);
 +            //debug_errorlog_obj('draftfiles_ajax.php:: data.B = ', $data);
 +        }
          echo json_encode($data);
@@ -113,10 +113,10 @@ index 31b7e15..af170e5 100644
 +                              $e->getMessage());
 +               }
 +            }
-+
+ 
 +            // Track the success of this operation
 +            $success = false;
- 
++
 +            if (!empty($repo)) {
 +                // Perform permissions checking
 +
@@ -132,8 +132,8 @@ index 31b7e15..af170e5 100644
 +                                            $newdirname);
 +            }
 +        } else {
-             $fs = get_file_storage();
-             $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
+         $fs = get_file_storage();
+         $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
 -        $return = new stdClass();
 +        }
          $return->filepath = $filepath;
@@ -199,33 +199,34 @@ index 31b7e15..af170e5 100644
 +            }
 +            echo json_encode($return);
 +        } else {
-             $fs = get_file_storage();
-             $filepath = file_correct_filepath($filepath);
+         $fs = get_file_storage();
+         $filepath = file_correct_filepath($filepath);
 -        $return = new stdClass();
-             if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
-                 $parent_path = $stored_file->get_parent_directory()->get_filepath();
-                 if ($stored_file->is_directory()) {
+         if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
+             $parent_path = $stored_file->get_parent_directory()->get_filepath();
+             if ($stored_file->is_directory()) {
 @@ -97,7 +253,7 @@ switch ($action) {
+                 $return->filepath = $parent_path;
+                 echo json_encode($return);
+             } else {
+-                if($result = $stored_file->delete()) {
++                    if ($result = $stored_file->delete()) {
                      $return->filepath = $parent_path;
                      echo json_encode($return);
                  } else {
--                if($result = $stored_file->delete()) {
-+                    if ($result = $stored_file->delete()) {
-                         $return->filepath = $parent_path;
-                         echo json_encode($return);
-                     } else {
 @@ -107,6 +263,7 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
-             }
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
      case 'setmainfile':
-@@ -126,6 +283,71 @@ switch ($action) {
+@@ -125,6 +282,77 @@ switch ($action) {
+         // Allows to Rename file, move it to another directory, change it's license and author information in one request
          $filename    = required_param('filename', PARAM_FILE);
          $filepath    = required_param('filepath', PARAM_PATH);
- 
++
 +        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
 +            $newfilename = optional_param('newfilename', '', PARAM_FILE);
 +            $newfilepath = optional_param('newfilepath', '', PARAM_PATH);
@@ -291,15 +292,18 @@ index 31b7e15..af170e5 100644
 +            die(json_encode((object)array('error' => get_string('couldnotupdatefile', 'repository_elis_files'))));
 +        }
 +
-         $fs = get_file_storage();
-         if (!($file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename))) {
-             die(json_encode((object)array('error' => get_string('filenotfound', 'error'))));
-@@ -167,14 +389,70 @@ switch ($action) {
- 
-     case 'updatedir':
++        $fs = get_file_storage();
++        if (!($file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename))) {
++            die(json_encode((object)array('error' => get_string('filenotfound', 'error'))));
++        }
++
+         $updatedata = array();
+         $updatedata['filename'] = optional_param('newfilename', $filename, PARAM_FILE);
+         $updatedata['filepath'] = $newfilepath = optional_param('newfilepath', $filepath, PARAM_PATH);
+@@ -145,6 +373,68 @@ switch ($action) {
          $filepath = required_param('filepath', PARAM_PATH);
-+        $newdirname = required_param('newdirname', PARAM_FILE);
-+        $parent = required_param('newfilepath', PARAM_PATH);
+         $newdirname = required_param('newdirname', PARAM_FILE);
+         $parent = required_param('newfilepath', PARAM_PATH);
 +
 +        if ($has_elisfiles && substr($filepath, 0, 1) != '/') {
 +            $decodedfrompath = unserialize(base64_decode($filepath));
@@ -356,18 +360,16 @@ index 31b7e15..af170e5 100644
 +            }
 +            die(json_encode((object)array('error' => get_string('couldnotupdatedir', 'repository_elis_files'))));
 +        }
-         $fs = get_file_storage();
-         if (!$dir = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.')) {
-             die(json_encode((object)array('error' => get_string('foldernotfound', 'repository'))));
-         }
-         $parts = explode('/', trim($dir->get_filepath(), '/'));
-         $dirname = end($parts);
--        $newdirname = required_param('newdirname', PARAM_FILE);
--        $parent = required_param('newfilepath', PARAM_PATH);
++        $fs = get_file_storage();
++        if (!$dir = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.')) {
++            die(json_encode((object)array('error' => get_string('foldernotfound', 'repository'))));
++        }
++        $parts = explode('/', trim($dir->get_filepath(), '/'));
++        $dirname = end($parts);
          $newfilepath = clean_param($parent . '/' . $newdirname . '/', PARAM_PATH);
-         if ($newfilepath == $filepath) {
-             // no action required
-@@ -212,31 +490,251 @@ switch ($action) {
+         try {
+             repository::update_draftfile($draftid, $filepath, '.', array('filepath' => $newfilepath));
+@@ -155,31 +445,251 @@ switch ($action) {
  
      case 'zip':
          $filepath = required_param('filepath', PARAM_PATH);
@@ -513,7 +515,7 @@ index 31b7e15..af170e5 100644
 +        } else {
 +            $fs = get_file_storage();
 +            $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
-             $parent_path = $file->get_parent_directory()->get_filepath();
+         $parent_path = $file->get_parent_directory()->get_filepath();
 -
 -        $filepath = explode('/', trim($file->get_filepath(), '/'));
 -        $filepath = array_pop($filepath);
@@ -521,12 +523,12 @@ index 31b7e15..af170e5 100644
 -
 -        if ($newfile = $zipper->archive_to_storage(array($filepath => $file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $zipfile, $USER->id)) {
 +            if ($newfile = $zipper->archive_to_storage(array($file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $filepath.'.zip', $USER->id)) {
-                 $return = new stdClass();
-                 $return->filepath = $parent_path;
-                 echo json_encode($return);
-             } else {
-                 echo json_encode(false);
-             }
+             $return = new stdClass();
+             $return->filepath = $parent_path;
+             echo json_encode($return);
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
@@ -626,34 +628,34 @@ index 31b7e15..af170e5 100644
 +                echo json_encode(false);
 +            }
 +        } else {
-             $fs = get_file_storage();
-             $area = file_get_draft_area_info($draftid);
-             if ($area['filecount'] == 0) {
-@@ -246,34 +744,113 @@ switch ($action) {
+         $fs = get_file_storage();
+         $area = file_get_draft_area_info($draftid);
+         if ($area['filecount'] == 0) {
+@@ -189,34 +699,113 @@ switch ($action) {
  
-             $stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
-             if ($filepath === '/') {
+         $stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
+         if ($filepath === '/') {
 +                $parent_path = '/';
-                 $filename = get_string('files').'.zip';
-             } else {
+             $filename = get_string('files').'.zip';
+         } else {
 -            $filename = explode('/', trim($filepath, '/'));
 -            $filename = array_pop($filename) . '.zip';
 +                $parent_path = $stored_file->get_parent_directory()->get_filepath();
 +                $filename = trim($filepath, '/').'.zip';
-             }
+         }
  
-             // archive compressed file to an unused draft area
-             $newdraftitemid = file_get_unused_draft_itemid();
+         // archive compressed file to an unused draft area
+         $newdraftitemid = file_get_unused_draft_itemid();
 -        if ($newfile = $zipper->archive_to_storage(array('/' => $stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
 +            if ($newfile = $zipper->archive_to_storage(array($stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
-                 $return = new stdClass();
-                 $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
+             $return = new stdClass();
+             $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
 -            $return->filepath = $filepath;
 +                $return->filepath = $parent_path;
-                 echo json_encode($return);
-             } else {
-                 echo json_encode(false);
-             }
+             echo json_encode($return);
+         } else {
+             echo json_encode(false);
+         }
 +        }
          die;
  
@@ -745,16 +747,17 @@ index 31b7e15..af170e5 100644
 +            echo json_encode(false);
 +        } else {
 +            $fs = get_file_storage();
-             $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
+         $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
 -
-             if ($newfile = $file->extract_to_storage($zipper, $user_context->id, 'user', 'draft', $draftid, $filepath, $USER->id)) {
-                 $return = new stdClass();
-                 $return->filepath = $filepath;
-@@ -281,6 +858,7 @@ switch ($action) {
-             } else {
-                 echo json_encode(false);
+         // Find unused name for directory to extract the archive.
+         $temppath = $filepath. pathinfo($filename, PATHINFO_FILENAME). '/';
+         if ($fs->file_exists($user_context->id, 'user', 'draft', $draftid, $temppath, '.')) {
+@@ -263,6 +852,8 @@ switch ($action) {
              }
+         }
+         die(json_encode($return));
 +        }
-         die;
++        break;
  
      case 'getoriginal':
+         $filename    = required_param('filename', PARAM_FILE);
