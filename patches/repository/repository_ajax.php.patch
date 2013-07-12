@@ -177,7 +177,7 @@ index d2fccd9..f25d17f 100644
 +                        die(json_encode($err));
 +                    }
 +                } else {
-                     $info = repository::move_to_filepool($downloadedfile['path'], $record);
+                 $info = repository::move_to_filepool($downloadedfile['path'], $record);
 +                }
 +                @unlink($downloadedfile['path']);
 +                // End RL EDIT
@@ -193,7 +193,7 @@ index d2fccd9..f25d17f 100644
 +        // RL EDIT: BJB130215
 +        $elis_files_exists = file_exists($CFG->dirroot.'/repository/elis_files/lib/lib.php');
 +        if (method_exists($repo, 'upload')) {
-             $result = $repo->upload($saveas_filename, $maxbytes);
+         $result = $repo->upload($saveas_filename, $maxbytes);
 +        } else if ($elis_files_exists) {
 +            require_once($CFG->dirroot.'/repository/elis_files/lib/lib.php');
 +            $decodedpath = unserialize(base64_decode($saveas_path));
@@ -378,7 +378,7 @@ index d2fccd9..f25d17f 100644
 +            }
 +        } else {
 +            // moving the file within the Moodle file area
-             $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
+         $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
 +        }
 +        // End RL EDIT
          echo json_encode($info);
