@@ -1,0 +1,48 @@
+diff --git a/user/files.php b/user/files.php
+index 9305cab..3fd0e0f 100644
+--- a/user/files.php
++++ b/user/files.php
+@@ -26,13 +26,18 @@
+ require('../config.php');
+ require_once("$CFG->dirroot/user/files_form.php");
+ require_once("$CFG->dirroot/repository/lib.php");
++require_once($CFG->dirroot.'/repository/elis_files/lib/lib.php'); // RL EDIT: BJB130215
+ 
+ require_login();
+ if (isguestuser()) {
+     die();
+ }
+ 
+-$returnurl = optional_param('returnurl', '', PARAM_LOCALURL);
++// RL EDIT: BJB130215
++$returnurl = optional_param('returnurl', '', PARAM_URL); // was: PARAM_LOCALURL
++$courseid = optional_param('courseid', SITEID, PARAM_INT); // ELIS-7127
++$returnbutton = true;
++// End RL EDIT
+ 
+ if (empty($returnurl)) {
+     $returnurl = new moodle_url('/user/files.php');
+@@ -50,6 +55,12 @@ $PAGE->set_title($title);
+ $PAGE->set_heading($title);
+ $PAGE->set_pagelayout('mydashboard');
+ $PAGE->set_pagetype('user-files');
++// RL EDIT: BJB130215 - need this module for the rendering of the ELIS Files advanced search UI
++// $PAGE->requires->yui_module(array('yui2-layout', 'yui2-container', 'yui2-dragdrop'), 'TBD_init_function');
++
++// Obtain the UUID for the default browsing location
++$currentpath = elis_files_get_current_path_for_course($courseid, true);
++// End RL EDIT
+ 
+ $maxbytes = $CFG->userquota;
+ $maxareabytes = $CFG->userquota;
+@@ -61,7 +72,9 @@ if (has_capability('moodle/user:ignoreuserquota', $context)) {
+ $data = new stdClass();
+ $data->returnurl = $returnurl;
+ $options = array('subdirs' => 1, 'maxbytes' => $maxbytes, 'maxfiles' => -1, 'accepted_types' => '*',
+-        'areamaxbytes' => $maxareabytes);
++        'areamaxbytes' => $maxareabytes,
++        'currentpath'  => $currentpath // RL EDIT: BJB130215
++    );
+ file_prepare_standard_filemanager($data, 'files', $options, $context, 'user', 'private', 0);
+ 
+ $mform = new user_files_form(null, array('data'=>$data, 'options'=>$options));

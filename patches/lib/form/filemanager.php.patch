@@ -1,0 +1,55 @@
+diff --git a/lib/form/filemanager.php b/lib/form/filemanager.php
+index 5f203b9..0591c5e 100644
+--- a/lib/form/filemanager.php
++++ b/lib/form/filemanager.php
+@@ -49,7 +49,11 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+     // We cannot do $_options = array('return_types'=> FILE_INTERNAL | FILE_REFERENCE);
+     // So I have to set null here, and do it in constructor
+     protected $_options = array('mainfile' => '', 'subdirs' => 1, 'maxbytes' => -1, 'maxfiles' => -1,
+-            'accepted_types' => '*', 'return_types' =>  null, 'areamaxbytes' => FILE_AREA_MAX_BYTES_UNLIMITED);
++            'accepted_types' => '*', 'return_types' =>  null, 'areamaxbytes' => FILE_AREA_MAX_BYTES_UNLIMITED
++            // RL EDIT: BJB130215
++            , 'locations' => null, 'currentpath' => '/', 'nomoodlefiles' => false
++            // End RL EDIT
++    );
+ 
+     /**
+      * Constructor
+@@ -277,6 +281,11 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+         $options->return_types = $this->_options['return_types'];
+         $options->context = $PAGE->context;
+         $options->areamaxbytes = $this->_options['areamaxbytes'];
++        // RL EDIT: BJB130215
++        $options->locations = $this->_options['locations'];
++        $options->currentpath = $this->_options['currentpath'];
++        $options->nomoodlefiles = !empty($this->_options['nomoodlefiles']);
++        // End RL EDIT
+ 
+         $html = $this->_getTabs();
+         $fm = new form_filemanager($options);
+@@ -326,6 +335,7 @@ class form_filemanager implements renderable {
+     public function __construct(stdClass $options) {
+         global $CFG, $USER, $PAGE;
+         require_once($CFG->dirroot. '/repository/lib.php');
++        repository::include_fmfp_css(); // RL EDIT BJB130215 ELIS-6928
+         $defaults = array(
+             'maxbytes'=>-1,
+             'areamaxbytes' => FILE_AREA_MAX_BYTES_UNLIMITED,
+@@ -337,7 +347,8 @@ class form_filemanager implements renderable {
+             'return_types'=>FILE_INTERNAL,
+             'context'=>$PAGE->context,
+             'author'=>fullname($USER),
+-            'licenses'=>array()
++            'licenses'=>array(),
++            'locations' => null // RL EDIT: BJB130215
+             );
+         if (!empty($CFG->licenses)) {
+             $array = explode(',', $CFG->licenses);
+@@ -393,6 +404,7 @@ class form_filemanager implements renderable {
+         $params->context = $options->context;
+         $params->env = 'filemanager';
+         $params->disable_types = !empty($options->disable_types)?$options->disable_types:array();
++        $params->locations = $options->locations; // RL EDIT: BJB130215
+         $filepicker_options = initialise_filepicker($params);
+         $this->options->filepicker = $filepicker_options;
+     }

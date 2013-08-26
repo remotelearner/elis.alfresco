@@ -1,0 +1,50 @@
+diff --git a/theme/base/style/filemanager.css b/theme/base/style/filemanager.css
+index 9ee8dc6..3139f50 100644
+--- a/theme/base/style/filemanager.css
++++ b/theme/base/style/filemanager.css
+@@ -73,6 +73,13 @@ background: #E2E2E2;filter: progid:DXImageTransform.Microsoft.gradient(startColo
+ .dir-rtl .fp-toolbar div {width:100px;}
+ .fp-toolbar img {vertical-align: -15%; margin-right: 5px;}
+ 
++/* RL: fix alignment of icons on Chrome */
++@media screen and (-webkit-min-device-pixel-ratio:0) {
++    .fp-tb-advancedsearch img {vertical-align: -150%;}
++    .fp-tb-executesearch img {vertical-align: -150%;}
++    .fp-tb-executesearch[class="fp-tb-executesearch enabled"] + .fp-tb-refresh img {vertical-align: -150%;}
++}
++
+ .fp-toolbar .fp-tb-search {width: 228px;height: 14px;}
+ .fp-toolbar .fp-tb-search input {background:#FFFFFF url('[[pix:a/search]]') no-repeat 3px 3px;padding: 2px 6px 1px 20px;width: 200px;height: 16px;border: 1px solid #BBBBBB;}
+ 
+@@ -97,6 +104,19 @@ background: #E2E2E2;filter: progid:DXImageTransform.Microsoft.gradient(startColo
+ .fp-viewbar.disabled .fp-vb-tree {background:url('[[pix:theme|fp/view_tree_inactive]]');}
+ .file-picker .fp-clear-left {clear: left;}
+ 
++/* RL: jump menu class for file picker */
++.fp-vb-menu-jumpto {float:left; margin-left: 80px;}
++.dir-rtl .fp-vb-menu-jumpto {float: right; margin-right: 80px;}
++.fp-vb-menu-jumpto #locationbutton-button {font-family: Arial,Verdana,Helvetica,sans-serif; font-size: 11px; color: #555;}
++.elis_files-jump-menu .yuimenuitemlabel {font-family: Arial,Verdana,Helvetica,sans-serif; font-size: 11px; color: #555;}
++.fp-menu-jumpto #fmlocationbutton-button {font-family: Arial,Verdana,Helvetica,sans-serif; font-size: 11px; color: #555;}
++.elis_fm-jumpto-menu .yuimenuitemlabel {font-family: Arial,Verdana,Helvetica,sans-serif; font-size: 11px; color: #555;}
++
++/* RL: override toolbar height for Chrome */
++@media screen and (-webkit-min-device-pixel-ratio:0) {
++    .fp-height { height: 48px; }
++}
++
+ /* over ride hover rule from core.css*/
+ .dir-rtl .filemanager-toolbar .fp-vb-icons a:hover {background:url('[[pix:theme|fp/view_icon_selected]]');}
+ .dir-rtl .filemanager-toolbar .fp-vb-icons.checked a:hover {background:url('[[pix:theme|fp/view_icon_active]]') no-repeat 0 0;}
+@@ -338,7 +358,10 @@ a.ygtvspacer:hover {color: transparent;text-decoration: none;}
+  * Drag and drop support (filemanager and filepicker form elements)
+  */
+ .filepicker-filelist .filepicker-container,
+-.filemanager.fm-noitems .fm-empty-container {display:block;position:absolute;top:10px;bottom:10px;left:10px;right:10px;border: 2px dashed #BBBBBB;padding-top:85px;text-align:center;z-index: 3000;}
++.filemanager.fm-noitems .fm-empty-container {display:block;position:absolute;top:10px;bottom:10px;left:10px;right:10px;border: 2px dashed #BBBBBB;padding-top:85px;text-align:center;}
++/* RL edit: Hide dashed file manager border if drag and drop not available */
++.dndnotsupported .filemanager.fm-noitems .fm-empty-container {border:none}
++/* End of RL edit */
+ .filepicker-filelist .dndupload-target,
+ .filemanager-container .dndupload-target {background:#FFFFFF;position:absolute;top:10px;bottom:10px;left:10px;right:10px;border: 2px dashed #fb7979;padding-top:85px;text-align:center;z-index:3000;-webkit-box-shadow:  0px 0px 0px 10px #FFFFFF;-moz-box-shadow: 0px 0px 0px 10px #FFFFFF;box-shadow:  0px 0px 0px 10px #FFFFFF;}
+ .filepicker-filelist.dndupload-over .dndupload-target,

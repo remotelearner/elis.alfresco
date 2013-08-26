@@ -1,0 +1,44 @@
+diff --git a/files/renderer.php b/files/renderer.php
+index 5f9eb61..b21bfe6 100644
+--- a/files/renderer.php
++++ b/files/renderer.php
+@@ -204,6 +204,7 @@ class core_files_renderer extends plugin_renderer_base {
+                 <div class="{!}fp-btn-add"><a href="#"><img src="'.$this->pix_url('a/add_file').'" /> '.$straddfile.'</a></div>
+                 <div class="{!}fp-btn-mkdir"><a href="#"><img src="'.$this->pix_url('a/create_folder').'" /> '.$strmakedir.'</a></div>
+                 <div class="{!}fp-btn-download"><a href="#"><img src="'.$this->pix_url('a/download_all').'" /> '.$strdownload.'</a></div>
++                <div class="{!}fp-menu-jumpto"></div>
+             </div>
+             <div class="{!}fp-viewbar">
+                 <a title="'. get_string('displayicons', 'repository') .'" class="{!}fp-vb-icons" href="#"></a>
+@@ -520,6 +521,10 @@ class core_files_renderer extends plugin_renderer_base {
+      * @return string
+      */
+     private function fp_js_template_generallayout() {
++        // RL edit: add "executesearch" to the listing
++        // note that title text is set up for "refresh" as well, but dynamicall
++        // JS so that it only displayed for the ELIS Files repo plugin
++
+         $rv = '
+ <div class="file-picker fp-generallayout">
+     <div class="fp-repo-area">
+@@ -529,16 +534,19 @@ class core_files_renderer extends plugin_renderer_base {
+     </div>
+     <div class="fp-repo-items">
+         <div class="fp-navbar">
+-            <div>
++            <div class="fp-height">
+                 <div class="{!}fp-toolbar">
+                     <div class="{!}fp-tb-back"><a href="#">'.get_string('back', 'repository').'</a></div>
+                     <div class="{!}fp-tb-search"><form></form></div>
++                    <div class="{!}fp-tb-advancedsearch" title="'.get_string('advanced').'"><a href="#"><img src="'.$this->pix_url('a/advancedsearch').'" /></a></div>
++                    <div class="{!}fp-tb-executesearch" title="'.get_string('search').'"><a href="#"><img src="'.$this->pix_url('a/executesearch').'" /></a></div>
+                     <div class="{!}fp-tb-refresh"><a href="#"><img alt="'. get_string('refresh', 'repository') .'"  src="'.$this->pix_url('a/refresh').'" /></a></div>
+                     <div class="{!}fp-tb-logout"><img alt="'. get_string('logout', 'repository') .'" src="'.$this->pix_url('a/logout').'" /><a href="#"></a></div>
+                     <div class="{!}fp-tb-manage"><a href="#"><img alt="'. get_string('settings', 'repository') .'" src="'.$this->pix_url('a/setting').'" /> '.get_string('manageurl', 'repository').'</a></div>
+                     <div class="{!}fp-tb-help"><a href="#"><img alt="'. get_string('help', 'repository') .'" src="'.$this->pix_url('a/help').'" /> '.get_string('help').'</a></div>
+                     <div class="{!}fp-tb-message"></div>
+                 </div>
++                <div class="{!}fp-vb-menu-jumpto"></div>
+                 <div class="{!}fp-viewbar">
+                     <a title="'. get_string('displayicons', 'repository') .'" class="{!}fp-vb-icons" href="#"></a>
+                     <a title="'. get_string('displaydetails', 'repository') .'" class="{!}fp-vb-details" href="#"></a>
