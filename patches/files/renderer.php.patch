@@ -1,11 +1,11 @@
 diff --git a/files/renderer.php b/files/renderer.php
-index eda9047..bbc729f 100644
+index c4a3216..64b8dc7 100644
 --- a/files/renderer.php
 +++ b/files/renderer.php
 @@ -204,6 +204,7 @@ class core_files_renderer extends plugin_renderer_base {
-                 <div class="{!}fp-btn-add"><a href="#"><img src="'.$this->pix_url('a/add_file').'" /> '.$straddfile.'</a></div>
-                 <div class="{!}fp-btn-mkdir"><a href="#"><img src="'.$this->pix_url('a/create_folder').'" /> '.$strmakedir.'</a></div>
-                 <div class="{!}fp-btn-download"><a href="#"><img src="'.$this->pix_url('a/download_all').'" /> '.$strdownload.'</a></div>
+                 <div class="{!}fp-btn-add"><a role="button" href="#"><img src="'.$this->pix_url('a/add_file').'" /> '.$straddfile.'</a></div>
+                 <div class="{!}fp-btn-mkdir"><a role="button" href="#"><img src="'.$this->pix_url('a/create_folder').'" /> '.$strmakedir.'</a></div>
+                 <div class="{!}fp-btn-download"><a role="button" href="#"><img src="'.$this->pix_url('a/download_all').'" /> '.$strdownload.'</a></div>
 +                <div class="{!}fp-menu-jumpto"></div>
              </div>
              <div class="{!}fp-viewbar">
@@ -19,11 +19,11 @@ index eda9047..bbc729f 100644
 +        // JS so that it only displayed for the ELIS Files repo plugin
 +
          $rv = '
- <div class="file-picker fp-generallayout">
+ <div tabindex="0" class="file-picker fp-generallayout" role="dialog" aria-live="assertive">
      <div class="fp-repo-area">
 @@ -528,16 +533,19 @@ class core_files_renderer extends plugin_renderer_base {
      </div>
-     <div class="fp-repo-items">
+     <div class="fp-repo-items" tabindex="0">
          <div class="fp-navbar">
 -            <div>
 +            <div class="fp-height">
