@@ -1,13 +1,14 @@
 diff --git a/lib/outputrequirementslib.php b/lib/outputrequirementslib.php
-index 5994d37..9d50b33 100644
+index 53623f7..267fad4 100644
 --- a/lib/outputrequirementslib.php
 +++ b/lib/outputrequirementslib.php
-@@ -654,7 +654,31 @@ class page_requirements_manager {
+@@ -654,7 +654,32 @@ class page_requirements_manager {
                                                          array('nofilesavailable', 'repository'), array('norepositoriesavailable', 'repository'),
                                                          array('fileexistsdialogheader', 'repository'), array('fileexistsdialog_editor', 'repository'),
                                                          array('fileexistsdialog_filemanager', 'repository'), array('renameto', 'repository'),
--                                                        array('referencesexist', 'repository')
+-                                                        array('referencesexist', 'repository'), array('select', 'repository')
 +                                                        array('referencesexist', 'repository'),
++                                                        array('select', 'repository'),
 +                                                        array('entername', 'repository'),
 +                                                        // Added for ELIS files
 +                                                        array('errorupload', 'repository_elis_files'),

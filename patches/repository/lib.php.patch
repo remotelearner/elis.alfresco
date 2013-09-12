@@ -1,8 +1,8 @@
 diff --git a/repository/lib.php b/repository/lib.php
-index 137700b..5417411 100644
+index a207c9d..86c54fb 100644
 --- a/repository/lib.php
 +++ b/repository/lib.php
-@@ -2849,6 +2849,54 @@ abstract class repository implements cacheable_object {
+@@ -2842,6 +2842,54 @@ abstract class repository implements cacheable_object {
          return serialize($sourcefield);
      }
  
