@@ -1,5 +1,5 @@
 diff --git a/elis/core/lang/en/elis_core.php b/elis/core/lang/en/elis_core.php
-index ea3660e..253210b 100644
+index 6ee7bba..fbb4c48 100644
 --- a/elis/core/lang/en/elis_core.php
 +++ b/elis/core/lang/en/elis_core.php
 @@ -41,9 +41,9 @@ $string['date_format'] = '%d/%m/%Y';
@@ -15,7 +15,7 @@ index ea3660e..253210b 100644
  $string['done'] = 'done';
  $string['elis'] = 'ELIS';
  $string['elisversion'] = '<strong>ELIS Version:</strong> {$a}';
-@@ -85,8 +85,8 @@ $string['fld_courserole_help'] = '<h1>Course role filter</h1>
+@@ -89,8 +89,8 @@ $string['fld_courserole_help'] = '<h1>Course role filter</h1>
  <p>This filter allows you to filter users based the role they have assigned in the course
  specified by its shortname from a specified course category (if the shortname textbox is empty,
  the category is "any category" and the role is "any role" then the filter is not active).</p>';
@@ -24,8 +24,8 @@ index ea3660e..253210b 100644
 +$string['fld_credits'] = 'Credits';
  $string['fld_description'] = 'Description';
  $string['fld_email'] = 'Email address';
- $string['fld_email_help'] = '<h1>Email address filter</h1>
-@@ -142,7 +142,7 @@ The filter has the following options:</p>
+ $string['fld_email2'] = 'Email address 2';
+@@ -160,7 +160,7 @@ The filter has the following options:</p>
  <li>ends with - this option allows only ID numbers that end with the text entered (if no text is entered, then the filter is disabled)</li>
  <li>is empty - this option allows only ID numbers that are equal to the empty string (the text entered is ignored)</li>
  </ul>';
@@ -34,14 +34,11 @@ index ea3660e..253210b 100644
  $string['fld_inactive_help'] = '<h1>Inactive filter</h1>
  <p>This filter allows you to filter users\' status as active, inactive or both.</p>';
  $string['fld_iscustom'] = 'Custom';
-@@ -167,9 +167,9 @@ The filter has the following options:</p>
+@@ -185,6 +185,7 @@ The filter has the following options:</p>
  <li>ends with - this option allows only lastnames that end with the text entered (if no text is entered, then the filter is disabled)</li>
  <li>is empty - this option allows only lastnames that are equal to the empty string (the text entered is ignored)</li>
  </ul>';
 +$string['fld_name'] = 'Name';
  $string['fld_length'] = 'Length';
  $string['fld_lengthdescription'] = 'Length description';
--$string['fld_name'] = 'Name';
- $string['fld_priority'] = 'Priority';
- $string['fld_reqcredits'] = 'Required credits';
- $string['fld_startdate'] = 'Start date';
+ $string['fld_mi'] = 'Middle Initial';

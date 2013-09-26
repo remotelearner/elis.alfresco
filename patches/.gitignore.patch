@@ -1,0 +1,10 @@
+diff --git a/.gitignore b/.gitignore
+index ccb59bb..5c7b3c1 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -31,3 +31,5 @@ composer.phar
+ composer.lock
+ /vendor/
+ /local/defaults.php
++/repository/elis_files/tests/fixtures/elis_files_config.xml
++/repository/elis_files/tests/fixtures/elis_files_config2.xml
