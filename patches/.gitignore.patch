@@ -1,0 +1,10 @@
+diff --git a/.gitignore b/.gitignore
+index 5eac6d5..9c83f6a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -34,3 +34,5 @@ composer.lock
+ /behat.yml
+ */yui/build/*/*-coverage.js
+ /lib/yuilib/*/build/*/*-coverage.js
++/repository/elis_files/tests/fixtures/elis_files_config.xml
++/repository/elis_files/tests/fixtures/elis_files_config2.xml

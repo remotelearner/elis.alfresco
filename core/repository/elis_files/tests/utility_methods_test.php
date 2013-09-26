@@ -93,7 +93,7 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
      * This methods does the initial work initializing the repository
      */
     public function init_repo() {
-        $repo = @new repository_elis_files('elis_files', SYSCONTEXTID,
+        $repo = new repository_elis_files('elis_files', SYSCONTEXTID,
                 array('ajax' => false, 'name' => 'bogus', 'type' => 'elis_files'));
         $filename = self::generate_temp_file(1);
 
@@ -165,7 +165,7 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
         global $USER;
 
         $dataset = $this->get_parent_data_provider();
-
+        $i = 0;
         foreach ($dataset as $data) {
 
             $childuuid = $data[0];
@@ -174,18 +174,20 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
             // This condition was added to test if the uuid was false, assert for a false value and then report on the error
             // The idea is to mimic a data provider method where by the test will continue if there is one false assertion
             if (empty($childuuid)) {
-                $this->assertFalse($childuuid, $data[2].' in parent '.$data[1].' is false ');
+                $this->assertFalse($childuuid, 'Data set#'.$i.': '.$data[2].' in parent '.$data[1].' is false ');
+                $i++;
                 continue;
             }
 
             $uuid = self::$repo->elis_files->suuid;
             $node = self::$repo->elis_files->get_parent($childuuid);
 
-            $this->assertTrue(!empty($node->uuid));
+            $this->assertTrue(!empty($node->uuid), 'Data set#'.$i.' childuuid = '.$childuuid);
             if ($parentname == USERS_HOME) {
                 $parentname = elis_files_transform_username($USER->username);
             }
-            $this->assertEquals($parentname, $node->title);
+            $this->assertEquals($parentname, $node->title, 'Data set#'.$i);
+            $i++;
         }
     }
 
@@ -201,7 +203,7 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
         global $USER;
 
         $dataset = $this->get_parent_data_provider();
-
+        $i = 0;
         foreach ($dataset as $data) {
 
             $childuuid = $data[0];
@@ -210,7 +212,8 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
             // This condition was added to test if the uuid was false, assert for a false value and then report on the error
             // The idea is to mimic a data provider method where by the test will continue if there is one false assertion
             if (empty($childuuid)) {
-                $this->assertFalse($childuuid, $data[2].' in parent '.$data[1].' is false ');
+                $this->assertFalse($childuuid, 'Data set#'.$i.': '.$data[2].' in parent '.$data[1].' is false ');
+                $i++;
                 continue;
             }
 
@@ -219,14 +222,15 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
             self::$repo->get_parent_path_from_tree($childuuid, $foldertree, $resultpath, 0, 0, false, 0);
 
             if ($parentname != 'Company Home') {
-                $this->assertTrue(!empty($resultpath));
+                $this->assertTrue(!empty($resultpath), 'Data set#'.$i.' childuuid = '.$childuuid);
                 if ($parentname == USERS_HOME) {
                     $parentname = elis_files_transform_username($USER->username);
                 }
-                $this->assertEquals($parentname, $resultpath[count($resultpath) -1]['name']);
+                $this->assertEquals($parentname, $resultpath[count($resultpath) -1]['name'], 'Data set#'.$i);
             } else {
-                $this->assertTrue(empty($resultpath));
+                $this->assertTrue(empty($resultpath), 'Data set#'.$i);
             }
+            $i++;
         }
     }
 }

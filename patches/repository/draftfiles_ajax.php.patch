@@ -1,5 +1,5 @@
 diff --git a/repository/draftfiles_ajax.php b/repository/draftfiles_ajax.php
-index e50544a..575ab04 100644
+index e50544a..fa06cfd 100644
 --- a/repository/draftfiles_ajax.php
 +++ b/repository/draftfiles_ajax.php
 @@ -27,9 +27,34 @@
@@ -37,7 +37,7 @@ index e50544a..575ab04 100644
  $PAGE->set_context(get_system_context());
  require_login();
  if (isguestuser()) {
-@@ -58,13 +83,53 @@ switch ($action) {
+@@ -58,13 +83,52 @@ switch ($action) {
  
      case 'list':
          $filepath = optional_param('filepath', '/', PARAM_PATH);
@@ -51,9 +51,8 @@ index e50544a..575ab04 100644
 +            $repository = $DB->get_record_sql($sql, array('elis_files'));
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        $listing = $repo->get_listing($filepath);
 +                        if (!$listing) {
@@ -91,7 +90,7 @@ index e50544a..575ab04 100644
          echo json_encode($data);
          die;
  
-@@ -72,9 +137,53 @@ switch ($action) {
+@@ -72,9 +136,52 @@ switch ($action) {
          $filepath   = required_param('filepath', PARAM_PATH);
          $newdirname = required_param('newdirname', PARAM_FILE);
  
@@ -106,9 +105,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        // TBD: next call shouldn't be required but fails w/o!
 +                        $listing = (object)$repo->get_listing($filepath);
@@ -146,7 +144,7 @@ index e50544a..575ab04 100644
          $return->filepath = $filepath;
          echo json_encode($return);
          die;
-@@ -83,9 +192,65 @@ switch ($action) {
+@@ -83,9 +190,64 @@ switch ($action) {
          $filename   = required_param('filename', PARAM_FILE);
          $filepath   = required_param('filepath', PARAM_PATH);
  
@@ -160,9 +158,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        // TBD: next call shouldn't be required but fails w/o!
 +                        $listing = (object)$repo->get_listing($filepath);
@@ -213,7 +210,7 @@ index e50544a..575ab04 100644
          if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
              $parent_path = $stored_file->get_parent_directory()->get_filepath();
              if ($stored_file->is_directory()) {
-@@ -97,7 +262,7 @@ switch ($action) {
+@@ -97,7 +259,7 @@ switch ($action) {
                  $return->filepath = $parent_path;
                  echo json_encode($return);
              } else {
@@ -222,7 +219,7 @@ index e50544a..575ab04 100644
                      $return->filepath = $parent_path;
                      echo json_encode($return);
                  } else {
-@@ -107,6 +272,8 @@ switch ($action) {
+@@ -107,6 +269,8 @@ switch ($action) {
          } else {
              echo json_encode(false);
          }
@@ -231,7 +228,7 @@ index e50544a..575ab04 100644
          die;
  
      case 'setmainfile':
-@@ -125,6 +292,77 @@ switch ($action) {
+@@ -125,6 +289,76 @@ switch ($action) {
          // Allows to Rename file, move it to another directory, change it's license and author information in one request
          $filename    = required_param('filename', PARAM_FILE);
          $filepath    = required_param('filepath', PARAM_PATH);
@@ -252,9 +249,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        // TBD: next call shouldn't be required but fails w/o!
 +                        $listing = (object)$repo->get_listing($filepath);
@@ -309,7 +305,7 @@ index e50544a..575ab04 100644
          $updatedata = array();
          $updatedata['filename'] = optional_param('newfilename', $filename, PARAM_FILE);
          $updatedata['filepath'] = $newfilepath = optional_param('newfilepath', $filepath, PARAM_PATH);
-@@ -145,6 +383,69 @@ switch ($action) {
+@@ -145,6 +379,68 @@ switch ($action) {
          $filepath = required_param('filepath', PARAM_PATH);
          $newdirname = required_param('newdirname', PARAM_FILE);
          $parent = required_param('newfilepath', PARAM_PATH);
@@ -324,9 +320,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        // TBD: next call shouldn't be required but fails w/o!
 +                        $listing = (object)$repo->get_listing($filepath);
@@ -379,7 +374,7 @@ index e50544a..575ab04 100644
          $newfilepath = clean_param($parent . '/' . $newdirname . '/', PARAM_PATH);
          try {
              repository::update_draftfile($draftid, $filepath, '.', array('filepath' => $newfilepath));
-@@ -157,54 +458,280 @@ switch ($action) {
+@@ -157,54 +453,278 @@ switch ($action) {
          $filepath = required_param('filepath', PARAM_PATH);
  
          $zipper = get_file_packer('application/zip');
@@ -395,9 +390,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        $listing = (object)$repo->get_listing($filepath);
 +                    }
@@ -554,9 +548,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        $listing = (object)$repo->get_listing($filepath);
 +                    }
@@ -675,7 +668,7 @@ index e50544a..575ab04 100644
          die;
  
      case 'unzip':
-@@ -212,13 +739,102 @@ switch ($action) {
+@@ -212,13 +732,101 @@ switch ($action) {
          $filepath = required_param('filepath', PARAM_PATH);
  
          $zipper = get_file_packer('application/zip');
@@ -694,9 +687,8 @@ index e50544a..575ab04 100644
 +            $repo = null;
 +            if ($repository) {
 +                try {
-+                    $repo = @new repository_elis_files('elis_files',
-+                                get_context_instance(CONTEXT_USER, $USER->id),
-+                                array('ajax'=>false, 'name'=>$repository->name, 'type'=>'elis_files'));
++                    $repo = new repository_elis_files('elis_files', get_context_instance(CONTEXT_USER, $USER->id),
++                            array('ajax' => false, 'name' => $repository->name, 'type' => 'elis_files'));
 +                    if (!empty($repo)) {
 +                        $parent_listing = (object)$repo->get_listing($parent);
 +                    }
@@ -781,7 +773,7 @@ index e50544a..575ab04 100644
          $donotremovedirs = array();
          $doremovedirs = array($temppath);
          // Extract archive and move all files from $temppath to $filepath
-@@ -255,6 +871,8 @@ switch ($action) {
+@@ -255,6 +863,8 @@ switch ($action) {
              }
          }
          die(json_encode($return));
