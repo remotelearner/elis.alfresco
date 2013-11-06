@@ -102,12 +102,12 @@ index aedfbe8..ee6e9cc 100644
                          }
 +                        // do a scope callback for elis files after overwrite
 +                        if (scope.options.env !== 'filepicker' && data.duplicateelisfiles !== undefined) {
-                         var fileinfo = {'client_id':scope.options.client_id,
-                                 'url':data.existingfile.url,
-                                 'file':data.existingfile.filename};
-                         var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
-                         scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-                     }
+                             var fileinfo = {'client_id':scope.options.client_id,
+                                     'url':data.existingfile.url,
+                                     'file':data.existingfile.filename};
+                             var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
+                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                         }
 +                    }
                  }, true);
              }
@@ -161,13 +161,13 @@ index aedfbe8..ee6e9cc 100644
 +                        }
 +                    }, true);
 +                } else {
-                 if (scope.options.editor_target && scope.options.env == 'editor') {
-                     scope.options.editor_target.value = data.newfile.url;
-                     scope.options.editor_target.onchange();
+                     if (scope.options.editor_target && scope.options.env == 'editor') {
+                         scope.options.editor_target.value = data.newfile.url;
+                         scope.options.editor_target.onchange();
 @@ -689,6 +772,7 @@ M.core_filepicker.init = function(Y, options) {
-                                 'file':data.newfile.filename};
-                 scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-             }
+                                     'file':data.newfile.filename};
+                     scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                 }
 +            }
              var handleCancel = function(e) {
                  // Delete tmp file
@@ -620,7 +620,7 @@ index aedfbe8..ee6e9cc 100644
 +                                    }
 +                                    category_treeview.subscribe('clickEvent', category_treeview.onEventToggleHighlight);
 +                                    category_treeview.render();
-             }
+                                 }
  
 +                                function dialog_handler() {
 +                                    scope.viewbar.set('disabled', false);
