@@ -676,8 +676,8 @@ index 8d5403e..b78cd51 100644
 +                        }
 +                        if (obj.filepath) {
 +                            // Successful zip file creation, so refresh listing
-                         args.scope.refresh(obj.filepath);
-                     }
+                             args.scope.refresh(obj.filepath);
+                         }
 +                        // End RL EDIT
 +                    }
                  });
