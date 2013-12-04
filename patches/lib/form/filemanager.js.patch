@@ -1,5 +1,5 @@
 diff --git a/lib/form/filemanager.js b/lib/form/filemanager.js
-index af3eda7..489062d 100644
+index af3eda7..b10b7e5 100644
 --- a/lib/form/filemanager.js
 +++ b/lib/form/filemanager.js
 @@ -36,6 +36,13 @@
@@ -48,8 +48,9 @@ index af3eda7..489062d 100644
              this.viewmode = 1; // TODO take from cookies?
              this.filemanager.all('.fp-vb-icons,.fp-vb-tree,.fp-vb-details').removeClass('checked')
              this.filemanager.all('.fp-vb-icons').addClass('checked')
+-            this.refresh(this.currentpath); // MDL-31113 get latest list from server
 +            this.update_form_buttons(this.currentpath, true); // RL EDIT: ELIS-6958
-             this.refresh(this.currentpath); // MDL-31113 get latest list from server
++            this.refresh_content_and_jump_options([this.currentpath]); // RL EDIT: ELIS-8581, MDL-31113 get latest list from server
          },
  
          wait: function() {
@@ -280,7 +281,7 @@ index af3eda7..489062d 100644
              this.filemanager.all('.fp-vb-icons,.fp-vb-tree,.fp-vb-details').
                  on('click', function(e) {
                      e.preventDefault();
-@@ -375,7 +549,163 @@ M.form_filemanager.init = function(Y, options) {
+@@ -375,7 +549,161 @@ M.form_filemanager.init = function(Y, options) {
                      }
                  }, this);
          },
@@ -305,8 +306,6 @@ index af3eda7..489062d 100644
 +                this.moodlefiles = M.str.repository_elis_files.moodle + ' '
 +                                   + this.options.path[0].name; // TBD
 +                this.moodle_itemid = this.options.itemid;
-+                this.on_location_item_click(null, null,
-+                        [this.currentpath, this, null, null, -1]);
 +            }
 +        },
 +        setup_jumpmenu_event : function(event, location_button) {
@@ -444,7 +443,7 @@ index af3eda7..489062d 100644
          show_filepicker: function (e) {
              // if maxfiles == -1, the no limit
              e.preventDefault();
-@@ -389,7 +719,6 @@ M.form_filemanager.init = function(Y, options) {
+@@ -389,7 +717,6 @@ M.form_filemanager.init = function(Y, options) {
              options.savepath = this.currentpath;
              M.core_filepicker.show(Y, options);
          },
@@ -452,7 +451,7 @@ index af3eda7..489062d 100644
          print_path: function() {
              var p = this.options.path;
              this.pathbar.setContent('').addClass('empty');
-@@ -413,8 +742,10 @@ M.form_filemanager.init = function(Y, options) {
+@@ -413,8 +740,10 @@ M.form_filemanager.init = function(Y, options) {
                      el.one('.fp-path-folder-name').setContent(Y.Escape.html(p[i].name)).
                          on('click', function(e, path) {
                              e.preventDefault();
@@ -464,7 +463,7 @@ index af3eda7..489062d 100644
                              }
                          }, this, p[i].path);
                  }
-@@ -441,18 +772,31 @@ M.form_filemanager.init = function(Y, options) {
+@@ -441,18 +770,31 @@ M.form_filemanager.init = function(Y, options) {
                  node.fileinfo.fullname = node.fileinfo.title;
                  node.fileinfo.filename = '.';
              }
@@ -497,7 +496,7 @@ index af3eda7..489062d 100644
                          scope.options = obj;
                          scope.currentpath = node.path?node.path:'/';
                      }
-@@ -460,8 +804,9 @@ M.form_filemanager.init = function(Y, options) {
+@@ -460,8 +802,9 @@ M.form_filemanager.init = function(Y, options) {
                      node.origlist = obj.list ? obj.list : null;
                      node.origpath = obj.path ? obj.path : null;
                      node.children = [];
@@ -509,7 +508,7 @@ index af3eda7..489062d 100644
                              // if this child is a folder and has already been retrieved
                              retrieved_children[list[k].filepath].fileinfo = list[k];
                              node.children[node.children.length] = retrieved_children[list[k].filepath];
-@@ -471,6 +816,7 @@ M.form_filemanager.init = function(Y, options) {
+@@ -471,6 +814,7 @@ M.form_filemanager.init = function(Y, options) {
                          }
                      }
                      if (cb == null) {
@@ -517,7 +516,7 @@ index af3eda7..489062d 100644
                          node.refresh();
                      } else {
                          // invoke callback requested by TreeView component
-@@ -506,7 +852,38 @@ M.form_filemanager.init = function(Y, options) {
+@@ -506,7 +850,38 @@ M.form_filemanager.init = function(Y, options) {
                  this.processingimages = false;
              }, this), 200)
          },
@@ -556,7 +555,7 @@ index af3eda7..489062d 100644
              this.filemanager.removeClass('fm-updating').removeClass('fm-noitems');
              if ((appendfiles == null) && (!this.options.list || this.options.list.length == 0) && this.viewmode != 2) {
                  this.filemanager.addClass('fm-noitems');
-@@ -565,6 +942,10 @@ M.form_filemanager.init = function(Y, options) {
+@@ -565,6 +940,10 @@ M.form_filemanager.init = function(Y, options) {
                  options.norootrightclick = true;
                  options.callback = function(e, node) {
                      // TODO MDL-32736 e is not an event here but an object with properties 'event' and 'node'
@@ -567,7 +566,7 @@ index af3eda7..489062d 100644
                      if (!node.fullname) {return;}
                      if (node.type != 'folder') {
                          if (e.node.parent && e.node.parent.origpath) {
-@@ -608,20 +989,30 @@ M.form_filemanager.init = function(Y, options) {
+@@ -608,20 +987,30 @@ M.form_filemanager.init = function(Y, options) {
              var appendfilepaths = function(list, node) {
                  if (!node || !node.children || !node.children.length) {return;}
                  for (var i in node.children) {
@@ -601,7 +600,7 @@ index af3eda7..489062d 100644
          update_file: function(confirmed) {
              var selectnode = this.selectnode;
              var fileinfo = this.selectui.fileinfo;
-@@ -670,6 +1061,10 @@ M.form_filemanager.init = function(Y, options) {
+@@ -670,6 +1059,10 @@ M.form_filemanager.init = function(Y, options) {
                          newfilename:newfilename, newfilepath:targetpath,
                          newlicense:newlicense, newauthor:newauthor};
                      action = 'updatefile';
@@ -612,7 +611,7 @@ index af3eda7..489062d 100644
                  }
              }
              if (!action) {
-@@ -765,7 +1160,17 @@ M.form_filemanager.init = function(Y, options) {
+@@ -765,7 +1158,17 @@ M.form_filemanager.init = function(Y, options) {
                          width : '1px',
                          height : '1px'
                      });
@@ -631,7 +630,7 @@ index af3eda7..489062d 100644
                      Y.one('body').appendChild(node);
                  }
              }, this);
-@@ -776,6 +1181,10 @@ M.form_filemanager.init = function(Y, options) {
+@@ -776,6 +1179,10 @@ M.form_filemanager.init = function(Y, options) {
                  var fileinfo = this.selectui.fileinfo;
                  dialog_options.scope = this;
                  params.filepath = fileinfo.filepath;
@@ -642,7 +641,7 @@ index af3eda7..489062d 100644
                  if (fileinfo.type == 'folder') {
                      params.filename = '.';
                      dialog_options.message = M.str.repository.confirmdeletefolder;
-@@ -817,6 +1226,10 @@ M.form_filemanager.init = function(Y, options) {
+@@ -817,6 +1224,10 @@ M.form_filemanager.init = function(Y, options) {
                  }
                  params['filepath']   = fileinfo.filepath;
                  params['filename']   = '.';
@@ -653,7 +652,7 @@ index af3eda7..489062d 100644
                  selectnode.addClass('loading');
                  this.request({
                      action: 'zip',
-@@ -824,20 +1237,36 @@ M.form_filemanager.init = function(Y, options) {
+@@ -824,20 +1235,36 @@ M.form_filemanager.init = function(Y, options) {
                      params: params,
                      callback: function(id, obj, args) {
                          args.scope.selectui.hide();
@@ -666,8 +665,8 @@ index af3eda7..489062d 100644
 +
 +                        if (obj.filepath) {
 +                            // Successful zip file creation, so refresh listing
-                             args.scope.refresh(obj.filepath);
-                         }
+                         args.scope.refresh(obj.filepath);
+                     }
 +                    }
                  });
              }, this);
@@ -691,7 +690,7 @@ index af3eda7..489062d 100644
                  selectnode.addClass('loading');
                  this.request({
                      action: 'unzip',
-@@ -899,6 +1328,12 @@ M.form_filemanager.init = function(Y, options) {
+@@ -899,6 +1326,12 @@ M.form_filemanager.init = function(Y, options) {
              } else {
                  selectnode.addClass('fp-file');
              }
@@ -704,7 +703,7 @@ index af3eda7..489062d 100644
              if (this.enablemainfile && (node.sortorder != 1) && node.type == 'file') {
                  selectnode.addClass('fp-cansetmain');
              }
-@@ -909,12 +1344,42 @@ M.form_filemanager.init = function(Y, options) {
+@@ -909,12 +1342,42 @@ M.form_filemanager.init = function(Y, options) {
              selectnode.all('.fp-license select option[selected]').set('selected', false);
              selectnode.all('.fp-license select option[value='+node.license+']').set('selected', true);
              selectnode.all('.fp-path select option[selected]').set('selected', false);
