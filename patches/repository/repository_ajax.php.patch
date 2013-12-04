@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index d2b1dec..51154c1 100644
+index 1fc5159..f8c973c 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -51,7 +51,10 @@ $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file
@@ -12,7 +12,7 @@ index d2b1dec..51154c1 100644
 +$categories        = optional_param_array('categories', NULL, PARAM_RAW); // this parameter specifies an array of categories to filter on
 +// End RL EDIT
  list($context, $course, $cm) = get_context_info_array($contextid);
- require_login($course, false, $cm);
+ require_login($course, false, $cm, false, true);
  $PAGE->set_context($context);
 @@ -126,6 +129,12 @@ switch ($action) {
      case 'list':

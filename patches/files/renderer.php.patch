@@ -1,5 +1,5 @@
 diff --git a/files/renderer.php b/files/renderer.php
-index 5bf1aed..b234369 100644
+index 43c2df9..c06fafe 100644
 --- a/files/renderer.php
 +++ b/files/renderer.php
 @@ -204,6 +204,7 @@ class core_files_renderer extends plugin_renderer_base {

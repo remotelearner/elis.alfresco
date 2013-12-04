@@ -1,5 +1,5 @@
 diff --git a/lib/filestorage/stored_file.php b/lib/filestorage/stored_file.php
-index fbce9af..d8fee1a 100644
+index f1794ad..0899a37 100644
 --- a/lib/filestorage/stored_file.php
 +++ b/lib/filestorage/stored_file.php
 @@ -739,6 +739,15 @@ class stored_file {
