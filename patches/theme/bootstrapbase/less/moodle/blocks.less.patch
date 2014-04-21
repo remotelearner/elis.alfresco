@@ -1,0 +1,117 @@
+diff --git a/theme/bootstrapbase/less/moodle/blocks.less b/theme/bootstrapbase/less/moodle/blocks.less
+index 68b7205..dbf9038 100644
+--- a/theme/bootstrapbase/less/moodle/blocks.less
++++ b/theme/bootstrapbase/less/moodle/blocks.less
+@@ -3,13 +3,17 @@
+     padding: 8px 0;
+ }
+ 
++.block .header h2 {
++    padding: .2em 0 0 .2em;
++    margin: 0;
++}
++.block .header .title h2,
+ .block h3.main {
+   .nav-header;
+   font-size: 1.1em;
+ }
+ 
+-.block .header .commands,
+-.block .header .block_action,
++.block .header .title .commands,
+ .block_adminblock .content,
+ .block .footer {
+     display: block;
+@@ -29,20 +33,12 @@
+     width: 12px;
+     height: 12px;
+ }
+-.block {
+-    .header h2 {
+-        .nav-header;
+-        font-size: 1.1em;
+-        word-wrap: break-word;
+-        margin: 0;
+-    }
+-    .content {
++
++.block .content {
+         padding: 4px 14px;
+-        word-wrap: break-word;
+-        hr {
++}
++.block .content hr {
+             margin: 5px 0;
+-        }
+-    }
+ }
+ 
+ .jsenabled .block.hidden .content {
+@@ -69,13 +65,9 @@
+     margin-bottom: 4px;
+ }
+ 
+-// Style the div that contains the cancel link for moving a block with JS disabled.
+-.blockannotation {
+-    // Blocks have a bottom margin of 20px, to associate this link with the block being moved
+-    // we move it up 10px, and then give it a bottom margin of 10px giving it a better visual association
+-    position: relative;
+-    top: -10px;
+-    margin-bottom: 10px;
++.block .blockannotation {
++    font-size: 0.75em;
++    margin: -1em 0 1em;
+ }
+ 
+ .block.list_block .unlist > li > .column {
+@@ -91,7 +83,7 @@
+ .blockmovetarget {
+     display: block;
+     height: 1em;
+-    margin-bottom: 20px;
++    margin-bottom: 1em;
+ }
+ 
+ .block.invisible {
+@@ -115,12 +107,15 @@
+ .block_calendar_upcoming .footer {
+     margin-top: .5em;
+ }
+-.block_settings #adminsearchquery,
+-.block_blog_menu  #blogsearchquery,
+-.block_search_forums #searchform_search,
++#adminsearchquery,
++#blogsearchquery,
++#searchform_search,
+ .block_adminblock select {
+     max-width: 92%;
+ }
++.block_adminblock .singleselect {
++    display: block;
++}
+ #searchform_search {
+     width: auto;
+ }
+@@ -128,22 +123,6 @@
+     border-top-color: darken(@wellBackground, 7%);
+ }
+ 
+-// Overide for login block.
+-.block_login {
+-    input#login_username,
+-    input#login_password {
+-        width: 95%;
+-    }
+-    .content {
+-        margin-left: auto;
+-        margin-right: auto;
+-        max-width: 280px;
+-    }
+-    input[type="submit"] {
+-        margin: 10px 0;
+-    }
+-}
+-
+ // Overide for RTL layout.
+ .dir-rtl {
+     .block .header,

@@ -1,0 +1,17 @@
+diff --git a/theme/bootstrapbase/less/moodle.less b/theme/bootstrapbase/less/moodle.less
+index 8980235..cc6ab6af 100644
+--- a/theme/bootstrapbase/less/moodle.less
++++ b/theme/bootstrapbase/less/moodle.less
+@@ -30,12 +30,6 @@
+ @horizontalComponentOffset980: 220px;
+ @horizontalComponentOffset1200: 265px;
+ 
+-// We need to darken the link colour as its contrast is too low for accessibility tests.
+-// Bootstrap defines - @linkColor: #08c;
+-// We only need to darken this ever so slightly - so 5%;
+-// Calculated with => @linkColor: darken(#08c, 5%);
+-@linkColor:             #0077b3;
+-@linkColorHover:        darken(@linkColor, 15%);
+ 
+ // Roll back nameclashes.
+ @import "moodle/undo";

@@ -1,0 +1,25 @@
+diff --git a/lib/dml/sqlsrv_native_moodle_database.php b/lib/dml/sqlsrv_native_moodle_database.php
+index 0b9dcaa..9feec87 100644
+--- a/lib/dml/sqlsrv_native_moodle_database.php
++++ b/lib/dml/sqlsrv_native_moodle_database.php
+@@ -145,11 +145,6 @@ class sqlsrv_native_moodle_database extends moodle_database {
+      * @throws dml_connection_exception if error
+      */
+     public function connect($dbhost, $dbuser, $dbpass, $dbname, $prefix, array $dboptions=null) {
+-        if ($prefix == '' and !$this->external) {
+-            // Enforce prefixes for everybody but mysql.
+-            throw new dml_exception('prefixcannotbeempty', $this->get_dbfamily());
+-        }
+-
+         $driverstatus = $this->driver_installed();
+ 
+         if ($driverstatus !== true) {
+@@ -400,7 +395,7 @@ class sqlsrv_native_moodle_database extends moodle_database {
+         if ($result) {
+             while ($row = sqlsrv_fetch_array($result)) {
+                 $tablename = reset($row);
+-                if ($this->prefix !== false && $this->prefix !== '') {
++                if ($this->prefix !== '') {
+                     if (strpos($tablename, $this->prefix) !== 0) {
+                         continue;
+                     }

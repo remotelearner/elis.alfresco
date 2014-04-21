@@ -1,0 +1,14 @@
+diff --git a/theme/clean/config.php b/theme/clean/config.php
+index 7ae92be..f4aa157 100644
+--- a/theme/clean/config.php
++++ b/theme/clean/config.php
+@@ -45,6 +45,9 @@ $THEME->yuicssmodules = array();
+ $THEME->editor_sheets = array();
+ 
+ $THEME->plugins_exclude_sheets = array(
++    'block' => array(
++        'html',
++    ),
+     'gradereport' => array(
+         'grader',
+     ),

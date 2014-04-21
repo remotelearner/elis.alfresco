@@ -1,0 +1,13 @@
+diff --git a/grade/report/user/lib.php b/grade/report/user/lib.php
+index 0b0c15a..33c8477 100644
+--- a/grade/report/user/lib.php
++++ b/grade/report/user/lib.php
+@@ -415,7 +415,7 @@ class grade_report_user extends grade_report {
+                     $data['weight']['headers'] = "$header_cat $header_row weight";
+                     // has a weight assigned, might be extra credit
+                     if ($grade_object->aggregationcoef > 0 && $type <> 'courseitem') {
+-                        $data['weight']['content'] = number_format($grade_object->aggregationcoef,2);
++                        $data['weight']['content'] = number_format($grade_object->aggregationcoef,2).'%';
+                     }
+                 }
+ 

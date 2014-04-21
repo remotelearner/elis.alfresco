@@ -1,0 +1,24 @@
+diff --git a/mod/glossary/exportentry.php b/mod/glossary/exportentry.php
+index 9353b87..6b38886 100644
+--- a/mod/glossary/exportentry.php
++++ b/mod/glossary/exportentry.php
+@@ -73,7 +73,7 @@ if (!$mainglossary->allowduplicatedentries) {
+             'glossaryid = :glossaryid AND LOWER(concept) = :concept', array(
+                 'glossaryid' => $mainglossary->id,
+                 'concept'    => textlib::strtolower($entry->concept)))) {
+-        $PAGE->set_title($glossary->name);
++        $PAGE->set_title(format_string($glossary->name));
+         $PAGE->set_heading($course->fullname);
+         echo $OUTPUT->header();
+         echo $OUTPUT->notification(get_string('errconceptalreadyexists', 'glossary'));
+@@ -85,8 +85,8 @@ if (!$mainglossary->allowduplicatedentries) {
+ }
+ 
+ if (!data_submitted() or !$confirm or !confirm_sesskey()) {
+-    $PAGE->set_title($glossary->name);
+-    $PAGE->set_heading($course->fullname);
++    $PAGE->set_title(format_string($glossary->name));
++    $PAGE->set_heading(format_string($course->fullname));
+     echo $OUTPUT->header();
+     echo '<div class="boxaligncenter">';
+     $areyousure = '<h2>'.format_string($entry->concept).'</h2><p align="center">'.get_string('areyousureexport','glossary').'<br /><b>'.format_string($mainglossary->name).'</b>?';

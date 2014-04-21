@@ -1,0 +1,13 @@
+diff --git a/grade/import/csv/index.php b/grade/import/csv/index.php
+index ece046d..8cdc537 100644
+--- a/grade/import/csv/index.php
++++ b/grade/import/csv/index.php
+@@ -235,7 +235,7 @@ if ($formdata = $mform2->get_data()) {
+                     $studentid = $value;
+                 break;
+                 case 'useridnumber':
+-                    if (empty($value) || !$user = $DB->get_record('user', array('idnumber' => $value))) {
++                    if (!$user = $DB->get_record('user', array('idnumber' => $value))) {
+                          // user not found, abort whole import
+                         import_cleanup($importcode);
+                         echo $OUTPUT->notification("user mapping error, could not find user with idnumber \"$value\"");

@@ -1,0 +1,37 @@
+diff --git a/grade/grading/form/guide/backup/moodle2/restore_gradingform_guide_plugin.class.php b/grade/grading/form/guide/backup/moodle2/restore_gradingform_guide_plugin.class.php
+index f833404..dd99814 100644
+--- a/grade/grading/form/guide/backup/moodle2/restore_gradingform_guide_plugin.class.php
++++ b/grade/grading/form/guide/backup/moodle2/restore_gradingform_guide_plugin.class.php
+@@ -48,11 +48,6 @@ class restore_gradingform_guide_plugin extends restore_gradingform_plugin {
+         $paths[] = new restore_path_element('gradingform_guide_comment',
+             $this->get_pathfor('/guidecomments/guidecomment'));
+ 
+-        // MDL-37714: Correctly locate frequent used comments in both the
+-        // current and incorrect old format.
+-        $paths[] = new restore_path_element('gradingform_guide_comment_legacy',
+-            $this->get_pathfor('/guidecriteria/guidecomments/guidecomment'));
+-
+         return $paths;
+     }
+ 
+@@ -105,20 +100,6 @@ class restore_gradingform_guide_plugin extends restore_gradingform_plugin {
+     }
+ 
+     /**
+-     * Processes comments element data
+-     *
+-     * @param array|stdClass $data The data to insert as a comment
+-     */
+-    public function process_gradingform_guide_comment_legacy($data) {
+-        global $DB;
+-
+-        $data = (object)$data;
+-        $data->definitionid = $this->get_new_parentid('grading_definition');
+-
+-        $DB->insert_record('gradingform_guide_comments', $data);
+-    }
+-
+-    /**
+      * Processes filling element data
+      *
+      * @param array|stdClass $data The data to insert as a filling

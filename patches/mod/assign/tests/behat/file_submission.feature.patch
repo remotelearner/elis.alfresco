@@ -1,0 +1,10 @@
+diff --git a/mod/assign/tests/behat/file_submission.feature b/mod/assign/tests/behat/file_submission.feature
+index 07a5dc0..7bc5380 100644
+--- a/mod/assign/tests/behat/file_submission.feature
++++ b/mod/assign/tests/behat/file_submission.feature
+@@ -1,4 +1,4 @@
+-@mod @mod_assign @_only_local @_file_upload
++@mod @mod_assign @_only_local
+ Feature: In an assignment, students can upload files for assessment
+   In order to complete my assignments providing files
+   As a student

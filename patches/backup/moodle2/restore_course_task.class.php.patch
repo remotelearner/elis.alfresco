@@ -1,0 +1,12 @@
+diff --git a/backup/moodle2/restore_course_task.class.php b/backup/moodle2/restore_course_task.class.php
+index d32e1e2..e9058b8 100644
+--- a/backup/moodle2/restore_course_task.class.php
++++ b/backup/moodle2/restore_course_task.class.php
+@@ -124,7 +124,6 @@ class restore_course_task extends restore_task {
+         $contents = array();
+ 
+         $contents[] = new restore_decode_content('course', 'summary');
+-        $contents[] = new restore_decode_content('event', 'description');
+ 
+         return $contents;
+     }

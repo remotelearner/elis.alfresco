@@ -1,0 +1,25 @@
+diff --git a/mod/quiz/tests/quizdisplayoptions_test.php b/mod/quiz/tests/quizdisplayoptions_test.php
+index e0b51b0..5efb6e1 100644
+--- a/mod/quiz/tests/quizdisplayoptions_test.php
++++ b/mod/quiz/tests/quizdisplayoptions_test.php
+@@ -55,10 +55,6 @@ class mod_quiz_display_options_testcase extends basic_testcase {
+         $this->assertEquals(true, $options->attempt);
+         $this->assertEquals(mod_quiz_display_options::VISIBLE, $options->correctness);
+         $this->assertEquals(mod_quiz_display_options::MAX_ONLY, $options->marks);
+-        $this->assertEquals(mod_quiz_display_options::VISIBLE, $options->feedback);
+-        // The next two should be controlled by the same settings as ->feedback.
+-        $this->assertEquals(mod_quiz_display_options::VISIBLE, $options->numpartscorrect);
+-        $this->assertEquals(mod_quiz_display_options::VISIBLE, $options->manualcomment);
+         $this->assertEquals(2, $options->markdp);
+ 
+         $quiz->questiondecimalpoints = 5;
+@@ -68,9 +64,6 @@ class mod_quiz_display_options_testcase extends basic_testcase {
+         $this->assertEquals(mod_quiz_display_options::MARK_AND_MAX, $options->marks);
+         $this->assertEquals(mod_quiz_display_options::VISIBLE, $options->generalfeedback);
+         $this->assertEquals(mod_quiz_display_options::HIDDEN, $options->feedback);
+-        // The next two should be controlled by the same settings as ->feedback.
+-        $this->assertEquals(mod_quiz_display_options::HIDDEN, $options->numpartscorrect);
+-        $this->assertEquals(mod_quiz_display_options::HIDDEN, $options->manualcomment);
+         $this->assertEquals(5, $options->markdp);
+ 
+         $options = mod_quiz_display_options::make_from_quiz($quiz,

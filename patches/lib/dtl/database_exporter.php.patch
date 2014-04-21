@@ -1,0 +1,13 @@
+diff --git a/lib/dtl/database_exporter.php b/lib/dtl/database_exporter.php
+index 5cdc3f2..4d9b7bb 100644
+--- a/lib/dtl/database_exporter.php
++++ b/lib/dtl/database_exporter.php
+@@ -132,7 +132,7 @@ abstract class database_exporter {
+         if ($this->check_schema and $errors = $this->manager->check_database_schema($this->schema)) {
+             $details = '';
+             foreach ($errors as $table=>$items) {
+-                $details .= '<div>'.get_string('tablex', 'dbtransfer', $table);
++                $details .= '<div>'.get_string('table').' '.$table.':';
+                 $details .= '<ul>';
+                 foreach ($items as $item) {
+                     $details .= '<li>'.$item.'</li>';

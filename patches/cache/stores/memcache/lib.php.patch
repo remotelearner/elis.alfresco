@@ -1,0 +1,13 @@
+diff --git a/cache/stores/memcache/lib.php b/cache/stores/memcache/lib.php
+index 21e8f6c..1ee6e5e 100644
+--- a/cache/stores/memcache/lib.php
++++ b/cache/stores/memcache/lib.php
+@@ -216,7 +216,7 @@ class cachestore_memcache extends cache_store implements cache_is_configurable {
+      * @return int
+      */
+     public static function get_supported_modes(array $configuration = array()) {
+-        return self::MODE_APPLICATION;
++        return self::MODE_APPLICATION + self::MODE_SESSION;
+     }
+ 
+     /**

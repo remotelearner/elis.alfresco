@@ -1,0 +1,161 @@
+diff --git a/theme/bootstrapbase/less/moodle/core.less b/theme/bootstrapbase/less/moodle/core.less
+index 3b317ce..da29659 100644
+--- a/theme/bootstrapbase/less/moodle/core.less
++++ b/theme/bootstrapbase/less/moodle/core.less
+@@ -29,7 +29,11 @@
+     width:100%;
+ }
+ 
+-// grid.less implied.
++.fluid-span (@columns) {
++    width: (@fluidGridColumnWidth * @columns) + (@fluidGridGutterWidth * (@columns - 1));
++    *width: (@fluidGridColumnWidth * @columns) + (@fluidGridGutterWidth * (@columns - 1)) - (.5 / @gridRowWidth * 100 * 1%);
++}
++
+ .empty-region-side-post.used-region-side-pre #region-main.span8 {
+     /** increase the span size by 1 **/
+     .fluid-span(9);
+@@ -115,9 +119,6 @@ a.dimmed_text:visited,
+ .notifysuccess {
+     color: @successText;
+ }
+-.highlight {
+-    background: @infoBackground;
+-}
+ .reportlink {
+     text-align: right;
+ }
+@@ -523,13 +524,6 @@ a.skip:active {
+     margin-bottom: -2000px;
+     padding-bottom: 2000px;
+ }
+-.dir-rtl {
+-    .loginbox.twocolumns .loginpanel,
+-    .loginbox.twocolumns .signuppanel {
+-        float:right;
+-    }
+-}
+-
+ .loginbox .potentialidp .smallicon {
+     vertical-align: text-bottom;
+     margin: 0 .3em;
+@@ -1100,88 +1094,30 @@ body.tag .managelink {
+     float: right;
+     margin-left: 3px;
+ }
+-#page-enrol-users {
+-    .enrol_user_buttons {
++#page-enrol-users .enrol_user_buttons {
+         float: right;
+-        .enrolusersbutton {
+-            display: inline;
+-            div,
+-            form {
+-                display: inline;
+-                margin-right: 0;
+-            }
+-        }
+-    }
+-    #filterform {
+-        .well;
+-        .well-small;
+-        display: inline-block;
+-        .fitem {
+-            display: inline-block;
+-            line-height: @baseLineHeight * 2;
+-            margin-right: .3em;
+-            white-space: nowrap;
+-            label {
+-                display: inline;
+-                line-height: @baseLineHeight;
+-                padding-right: .3em;
+-            }
+-            :before,
+-            :after {
++}
++#page-enrol-users.dir-rtl .enrol_user_buttons {
++    float: left;
++}
++#page-enrol-users .enrol_user_buttons .enrolusersbutton {
++    margin-left: 1em;
+                 display: inline;
+-            }
+-        }
+-        div,
+-        fieldset {
++}
++#page-enrol-users .enrol_user_buttons .enrolusersbutton div,
++#page-enrol-users .enrol_user_buttons .enrolusersbutton form {
+             display: inline;
+-            float: none;
+-            clear: none;
+-            width: auto;
+-            margin: 0;
+-        }
+-        select,
+-        .ftext input {
+-            width: 7em;
+-        }
+-        input,
+-        select {
+-            margin-bottom: 0;
+-        }
+-    }
+-    .user-enroller-panel .uep-search-results .user .details {
+-       width: 237px;
+-    }
+ }
+-.dir-rtl {
+-    &#page-enrol-users {
+-        .col_userdetails {
+-            .subfield_picture {
++#page-enrol-users .enrol_user_buttons .enrolusersbutton input {
++    padding-left: 6px;
++    padding-right: 6px;
++}
++#page-enrol-users.dir-rtl .col_userdetails .subfield_picture {
+                 float: right;
+-            }
+-        }
+-        .enrol_user_buttons {
+-            float: left;
+-            .enrolusersbutton {
+-                margin-left: 0;
+-                margin-right: 1em;
+-                div {
+-                    margin-left: 0;
+-                }
+-            }
+-        }
+-        #filterform {
+-            .fitem {
+-                margin-right: 0;
+-                margin-left: .3em;
+-                label {
+-                    padding-right: 0;
+-                    padding-left: .3em;
+-                }
+-            }
+-        }
+-    }
+ }
+-
++#page-enrol-users .user-enroller-panel .uep-search-results .user .details {
++    width: 237px;
++}
+ /**
+ * Overide for RTL layout
+ **/
+@@ -1679,12 +1615,6 @@ body#page-lib-editor-tinymce-plugins-moodlemedia-preview {
+     margin: 0.7em 0;
+     text-align: center;
+ }
+-/* Fixed for safari browser on iPhone4S with ios7.*/
+-@media (max-height: 639px) {
+-    .ios.safari .choosercontainer #chooseform .submitbuttons {
+-        padding: 45px 0;
+-    }
+-}
+ .choosercontainer #chooseform .submitbuttons input {
+     min-width: 100px;
+     margin: 0 0.5em;

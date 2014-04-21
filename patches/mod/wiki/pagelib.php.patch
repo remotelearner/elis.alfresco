@@ -1,0 +1,42 @@
+diff --git a/mod/wiki/pagelib.php b/mod/wiki/pagelib.php
+index 4a4d148..60d89d9 100644
+--- a/mod/wiki/pagelib.php
++++ b/mod/wiki/pagelib.php
+@@ -114,7 +114,7 @@ abstract class page_wiki {
+     function print_header() {
+         global $OUTPUT, $PAGE, $CFG, $USER, $SESSION;
+ 
+-        $PAGE->set_heading($PAGE->course->fullname);
++        $PAGE->set_heading(format_string($PAGE->course->fullname));
+ 
+         $this->set_url();
+ 
+@@ -564,6 +564,10 @@ class page_wiki_edit extends page_wiki {
+             $params['filearea']   = 'attachments';
+         }
+ 
++        if (!empty($CFG->usetags)) {
++            $params['tags'] = tag_get_tags_csv('wiki_pages', $this->page->id, TAG_RETURN_TEXT);
++        }
++
+         $form = new mod_wiki_edit_form($url, $params);
+ 
+         if ($formdata = $form->get_data()) {
+@@ -572,7 +576,7 @@ class page_wiki_edit extends page_wiki {
+             }
+         } else {
+             if (!empty($CFG->usetags)) {
+-                $data->tags = tag_get_tags_array('wiki_pages', $this->page->id);
++                $data->tags = tag_get_tags_array('wiki', $this->page->id);
+             }
+         }
+ 
+@@ -1047,7 +1051,7 @@ class page_wiki_preview extends page_wiki_edit {
+             }
+             $parseroutput = wiki_parse_content($data->contentformat, $text, $options);
+             $this->set_newcontent($text);
+-            echo $OUTPUT->notification(get_string('previewwarning', 'wiki'), 'notifyproblem');
++            echo $OUTPUT->notification(get_string('previewwarning', 'wiki'), 'notifyproblem wiki_info');
+             $content = format_text($parseroutput['parsed_text'], FORMAT_HTML, array('overflowdiv'=>true, 'filter'=>false));
+             echo $OUTPUT->box($content, 'generalbox wiki_previewbox');
+             $content = $this->newcontent;

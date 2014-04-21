@@ -1,0 +1,10 @@
+diff --git a/repository/tests/behat/cancel_add_file.feature b/repository/tests/behat/cancel_add_file.feature
+index 99caf73..f995bd8 100644
+--- a/repository/tests/behat/cancel_add_file.feature
++++ b/repository/tests/behat/cancel_add_file.feature
+@@ -1,4 +1,4 @@
+-@core @core_filepicker @_only_local @_file_upload
++@core @core_filepicker @_only_local
+ Feature: A selected file can be cancelled
+   In order to refine the file manager contents
+   As a user

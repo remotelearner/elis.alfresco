@@ -1,0 +1,42 @@
+diff --git a/badges/mybadges.php b/badges/mybadges.php
+index 3f15a93..d944e73 100644
+--- a/badges/mybadges.php
++++ b/badges/mybadges.php
+@@ -42,14 +42,7 @@ if (empty($CFG->enablebadges)) {
+     print_error('badgesdisabled', 'badges');
+ }
+ 
+-$url = new moodle_url('/badges/mybadges.php');
+-$PAGE->set_url($url);
+-
+ if (isguestuser()) {
+-    $PAGE->set_context(context_system::instance());
+-    echo $OUTPUT->header();
+-    echo $OUTPUT->box(get_string('error:guestuseraccess', 'badges'), 'notifyproblem');
+-    echo $OUTPUT->footer();
+     die();
+ }
+ 
+@@ -63,10 +56,10 @@ if ($clearsearch) {
+ 
+ if ($hide) {
+     require_sesskey();
+-    $DB->set_field('badge_issued', 'visible', 0, array('id' => $hide, 'userid' => $USER->id));
++    $DB->set_field('badge_issued', 'visible', 0, array('id' => $hide));
+ } else if ($show) {
+     require_sesskey();
+-    $DB->set_field('badge_issued', 'visible', 1, array('id' => $show, 'userid' => $USER->id));
++    $DB->set_field('badge_issued', 'visible', 1, array('id' => $show));
+ } else if ($download && $hash) {
+     require_sesskey();
+     $badge = new badge($download);
+@@ -87,6 +80,9 @@ if ($hide) {
+ $context = context_user::instance($USER->id);
+ require_capability('moodle/badges:manageownbadges', $context);
+ 
++$url = new moodle_url('/badges/mybadges.php');
++
++$PAGE->set_url($url);
+ $PAGE->set_context($context);
+ 
+ $title = get_string('mybadges', 'badges');

@@ -1,0 +1,26 @@
+diff --git a/theme/bootstrapbase/less/moodle/buttons.less b/theme/bootstrapbase/less/moodle/buttons.less
+index 4b45c1b..822ea0f 100644
+--- a/theme/bootstrapbase/less/moodle/buttons.less
++++ b/theme/bootstrapbase/less/moodle/buttons.less
+@@ -34,20 +34,13 @@ p.arrow_button {
+     }
+ }
+ #addcontrols {
+-    // The margin top is equal the combination of the line-height and margin of a <p>,
+-    // because the visual parent is a <p>.
+-    margin-top: @baseLineHeight + (@baseLineHeight / 2);
++    margin-top: 5em;
+     text-align: center;
+     margin-bottom: 3em;
+-    label {
+-        display: inline;
+-    }
+ }
+ #addcontrols input,
+ #removecontrols input {
+     .btn-block;
+-    margin-right: auto;
+-    margin-left: auto;
+ }
+ 
+ button,

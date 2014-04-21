@@ -1,0 +1,15 @@
+diff --git a/theme/base/style/dock.css b/theme/base/style/dock.css
+index 6c77f77..2fda102 100644
+--- a/theme/base/style/dock.css
++++ b/theme/base/style/dock.css
+@@ -45,10 +45,3 @@ body.dir-rtl.has_dock  {margin-left: 0px; margin-right: 30px}
+ 
+ /* Test span used to calculate positioning of docked item labels */
+ .transform-test-node { position:absolute;line-height:normal; }
+-
+-/* Hide the move icon for blocks which are docked */
+-#dock .editing_move,
+-#dock .moodle-core-dragdrop-draghandle {
+-    display: none;
+-}
+-

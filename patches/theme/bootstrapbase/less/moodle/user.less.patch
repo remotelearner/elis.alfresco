@@ -1,0 +1,64 @@
+diff --git a/theme/bootstrapbase/less/moodle/user.less b/theme/bootstrapbase/less/moodle/user.less
+index 656327c..cdf5bce 100644
+--- a/theme/bootstrapbase/less/moodle/user.less
++++ b/theme/bootstrapbase/less/moodle/user.less
+@@ -17,22 +17,6 @@
+     float: left;
+     clear: none;
+ }
+-.dir-rtl {
+-    .userprofile .description {
+-        margin-right:0;
+-    }
+-    .user-box {
+-        float:right;
+-    }
+-    .userprofile dl.list dt {
+-        float:right;
+-        text-align: left;
+-        padding-left: 10px;
+-    }
+-    .userprofile dl.list dd {
+-        margin-left:0;
+-    }
+-}
+ .userlist .main .action-icon img {
+     vertical-align: middle;
+ }
+@@ -172,8 +156,9 @@
+     margin-right: auto;
+ }
+ /** Overide for RTL layout **/
+-.dir-rtl .userprofilebox .descriptionbox {
+-    margin: 0;
++.dir-rtl .descriptionbox {
++    margin-right: 110px;
++    margin-left: 0;
+ }
+ .dir-rtl .userlist table#participants td,
+ .dir-rtl .userlist table#participants th {
+@@ -185,24 +170,3 @@
+ #page-my-index.dir-rtl .block h3.main {
+     text-align: right;
+ }
+-
+-.profileeditor {
+-    > .singleselect {
+-        margin: 0 0.5em 0 0;
+-    }
+-    > .singlebutton {
+-        display: inline-block;
+-        margin: 0 0 0 0.5em;
+-        div, input {
+-            margin: 0;
+-        }
+-    }
+-}
+-.dir-rtl .profileeditor {
+-    > .singleselect {
+-        margin: 0 0 0 0.5em;
+-    }
+-    > .singlebutton {
+-        margin: 0 0.5em 0 0;
+-    }
+-}

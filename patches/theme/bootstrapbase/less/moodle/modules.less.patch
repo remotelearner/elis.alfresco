@@ -1,0 +1,35 @@
+diff --git a/theme/bootstrapbase/less/moodle/modules.less b/theme/bootstrapbase/less/moodle/modules.less
+index 17aad6d..ade4e80 100644
+--- a/theme/bootstrapbase/less/moodle/modules.less
++++ b/theme/bootstrapbase/less/moodle/modules.less
+@@ -9,14 +9,6 @@ select {
+     width: auto;
+ }
+ 
+-// Forum
+-.path-mod-forum .forumsearch {
+-    input,
+-    .helptooltip {
+-        margin: 0 3px;
+-    }
+-}
+-
+ .path-mod-forum .forumheaderlist,
+ .path-mod-forum .forumheaderlist td {
+     border: none;
+@@ -44,9 +36,12 @@ select {
+      margin-bottom: 0 !important;
+ }
+ 
+-#page-mod-forum-discuss .discussioncontrols {
+-    width: auto;
+-    margin: 0;
++#page-mod-forum-discuss .discussioncontrol.displaymode {
++    text-align: left;
++}
++
++#page-mod-forum-discuss .discussioncontrols .discussioncontrol {
++    float: left;
+ }
+ 
+ #page-footer {

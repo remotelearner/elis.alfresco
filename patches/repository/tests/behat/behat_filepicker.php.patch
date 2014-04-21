@@ -1,0 +1,22 @@
+diff --git a/repository/tests/behat/behat_filepicker.php b/repository/tests/behat/behat_filepicker.php
+index 24e832e..2b61f6d 100644
+--- a/repository/tests/behat/behat_filepicker.php
++++ b/repository/tests/behat/behat_filepicker.php
+@@ -17,7 +17,7 @@
+ /**
+  * Files and filepicker manipulation steps definitions.
+  *
+- * @package    core_filepicker
++ * @package    core
+  * @category   test
+  * @copyright  2013 David Monllaó
+  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+@@ -34,7 +34,7 @@ use Behat\Mink\Exception\ExpectationException as ExpectationException;
+  *
+  * Extends behat_files rather than behat_base as is file-related.
+  *
+- * @package    core_filepicker
++ * @package    core
+  * @category   test
+  * @copyright  2013 David Monllaó
+  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later

@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/view.php b/mod/feedback/view.php
+index 0d20efe..c16fdcd 100644
+--- a/mod/feedback/view.php
++++ b/mod/feedback/view.php
+@@ -110,8 +110,8 @@ if ($course->id == SITEID) {
+     $PAGE->set_pagelayout('incourse');
+ }
+ $PAGE->set_url('/mod/feedback/view.php', array('id'=>$cm->id, 'do_show'=>'view'));
+-$PAGE->set_title($feedback->name);
+-$PAGE->set_heading($course->fullname);
++$PAGE->set_title(format_string($feedback->name));
++$PAGE->set_heading(format_string($course->fullname));
+ echo $OUTPUT->header();
+ 
+ //ishidden check.

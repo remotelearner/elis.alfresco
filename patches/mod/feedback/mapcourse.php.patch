@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/mapcourse.php b/mod/feedback/mapcourse.php
+index 6545ef4..ba33874 100644
+--- a/mod/feedback/mapcourse.php
++++ b/mod/feedback/mapcourse.php
+@@ -84,8 +84,8 @@ if ($coursefilter) {
+ $strfeedbacks = get_string("modulenameplural", "feedback");
+ $strfeedback  = get_string("modulename", "feedback");
+ 
+-$PAGE->set_heading($course->fullname);
+-$PAGE->set_title($feedback->name);
++$PAGE->set_heading(format_string($course->fullname));
++$PAGE->set_title(format_string($feedback->name));
+ echo $OUTPUT->header();
+ 
+ require('tabs.php');

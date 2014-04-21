@@ -1,0 +1,13 @@
+diff --git a/mod/choice/view.php b/mod/choice/view.php
+index 35dbf07..7999f8a 100644
+--- a/mod/choice/view.php
++++ b/mod/choice/view.php
+@@ -45,7 +45,7 @@
+         }
+     }
+ 
+-    $PAGE->set_title($choice->name);
++    $PAGE->set_title(format_string($choice->name));
+     $PAGE->set_heading($course->fullname);
+ 
+     // Mark viewed by user (if required)

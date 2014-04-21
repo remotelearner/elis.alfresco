@@ -1,0 +1,17 @@
+diff --git a/admin/environment.xml b/admin/environment.xml
+index 916b91a..31477f9 100644
+--- a/admin/environment.xml
++++ b/admin/environment.xml
+@@ -1122,12 +1122,5 @@
+         </FEEDBACK>
+       </PHP_SETTING>
+     </PHP_SETTINGS>
+-    <CUSTOM_CHECKS>
+-      <CUSTOM_CHECK file="question/engine/upgrade/upgradelib.php" function="quiz_attempts_upgraded" level="required">
+-        <FEEDBACK>
+-          <ON_ERROR message="quizattemptsupgradedmessage" />
+-        </FEEDBACK>
+-      </CUSTOM_CHECK>
+-    </CUSTOM_CHECKS>
+   </MOODLE>
+ </COMPATIBILITY_MATRIX>

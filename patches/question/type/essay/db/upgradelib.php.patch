@@ -1,0 +1,12 @@
+diff --git a/question/type/essay/db/upgradelib.php b/question/type/essay/db/upgradelib.php
+index 139ff1f..90ef926 100644
+--- a/question/type/essay/db/upgradelib.php
++++ b/question/type/essay/db/upgradelib.php
+@@ -62,7 +62,6 @@ class qtype_essay_qe2_attempt_updater extends question_qtype_attempt_updater {
+     public function set_data_elements_for_step($state, &$data) {
+         if (!empty($state->answer)) {
+             $data['answer'] = $state->answer;
+-            $data['answerformat'] = FORMAT_HTML;
+         }
+     }
+ }

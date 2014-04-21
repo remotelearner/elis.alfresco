@@ -1,0 +1,15 @@
+diff --git a/theme/base/style/message.css b/theme/base/style/message.css
+index d017ab9..028beed 100644
+--- a/theme/base/style/message.css
++++ b/theme/base/style/message.css
+@@ -41,10 +41,7 @@ table.message .searchresults td {padding:5px;}
+ 
+ .message .messagearea .messagehistory .heading {width:100%;clear:both;}
+ .message .messagearea .messagehistory .left {padding-bottom:10px;width:50%;float:left;clear:both;}
+-.dir-rtl .message .messagearea .messagehistory .left { float: right; }
+ .message .messagearea .messagehistory .right {padding-bottom:10px;width:50%;float:right;clear:both;}
+-.dir-rtl .message .messagearea .messagehistory .right { float:left; }
+-
+ .message .messagearea .messagehistory .notification {padding:10px;background-color:#EEEEEE;margin-top:5px;}
+ .message .messagearea .messagesend {padding-top:20px;clear:both;}
+ .message .messagearea .messagesend .messagesendbox {width:100%}

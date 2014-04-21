@@ -1,0 +1,13 @@
+diff --git a/grade/grading/form/guide/backup/moodle2/backup_gradingform_guide_plugin.class.php b/grade/grading/form/guide/backup/moodle2/backup_gradingform_guide_plugin.class.php
+index 6ca09c9..75af83a 100644
+--- a/grade/grading/form/guide/backup/moodle2/backup_gradingform_guide_plugin.class.php
++++ b/grade/grading/form/guide/backup/moodle2/backup_gradingform_guide_plugin.class.php
+@@ -65,7 +65,7 @@ class backup_gradingform_guide_plugin extends backup_gradingform_plugin {
+ 
+         $pluginwrapper->add_child($criteria);
+         $criteria->add_child($criterion);
+-        $pluginwrapper->add_child($comments);
++        $criteria->add_child($comments);
+         $comments->add_child($comment);
+ 
+         // Set sources to populate the data.

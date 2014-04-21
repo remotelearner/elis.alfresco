@@ -1,0 +1,17 @@
+diff --git a/lib/upgrade.txt b/lib/upgrade.txt
+index ff84c5b..4f6b660 100644
+--- a/lib/upgrade.txt
++++ b/lib/upgrade.txt
+@@ -1,12 +1,5 @@
+ This files describes API changes in core libraries and APIs,
+ information provided here is intended especially for developers.
+-
+-=== 2.5.5 / 2.6.2 / 2.7 ===
+-
+-* New "Time spent waiting for the database" performance metric displayed along with the
+-  other MDL_PERF vars; the change affects both the error logs and the vars displayed in
+-  the page footer.
+-
+ === 2.5.3 ===
+ 
+ * update_internal_user_password() and setnew_password_and_mail() now trigger user_updated event.

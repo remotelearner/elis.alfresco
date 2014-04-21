@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/show_entries.php b/mod/feedback/show_entries.php
+index 1906627..2945a7b 100644
+--- a/mod/feedback/show_entries.php
++++ b/mod/feedback/show_entries.php
+@@ -81,8 +81,8 @@ if ($do_show == 'showoneentry') {
+ $strfeedbacks = get_string("modulenameplural", "feedback");
+ $strfeedback  = get_string("modulename", "feedback");
+ 
+-$PAGE->set_heading($course->fullname);
+-$PAGE->set_title($feedback->name);
++$PAGE->set_heading(format_string($course->fullname));
++$PAGE->set_title(format_string($feedback->name));
+ echo $OUTPUT->header();
+ 
+ require('tabs.php');

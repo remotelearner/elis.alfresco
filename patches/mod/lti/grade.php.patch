@@ -1,0 +1,13 @@
+diff --git a/mod/lti/grade.php b/mod/lti/grade.php
+index 907f43a..9ec342f 100644
+--- a/mod/lti/grade.php
++++ b/mod/lti/grade.php
+@@ -155,7 +155,7 @@ $table = str_replace('<!--table body-->', $rows, $html);
+ 
+ $title = get_string('submissionsfor', 'lti', $lti->name);
+ 
+-$PAGE->set_title($title);
++$PAGE->set_title(format_string($title , true));
+ $PAGE->set_heading($course->fullname);
+ 
+ echo $OUTPUT->header();

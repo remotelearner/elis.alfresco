@@ -1,0 +1,13 @@
+diff --git a/backup/util/ui/renderer.php b/backup/util/ui/renderer.php
+index 57e71cb..2285915 100644
+--- a/backup/util/ui/renderer.php
++++ b/backup/util/ui/renderer.php
+@@ -392,7 +392,7 @@ class core_backup_renderer extends plugin_renderer_base {
+         }
+         if (array_key_exists('warnings', $results)) {
+             foreach ($results['warnings'] as $warning) {
+-                $output .= $this->output->notification($warning, 'notifyproblem');
++                $output .= $this->output->notification($warning, 'notifywarning notifyproblem');
+             }
+         }
+         return $output.html_writer::end_tag('div');

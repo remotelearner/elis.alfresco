@@ -1,0 +1,30 @@
+diff --git a/lib/behat/form_field/behat_form_editor.php b/lib/behat/form_field/behat_form_editor.php
+index 457a886..ed3cd27 100644
+--- a/lib/behat/form_field/behat_form_editor.php
++++ b/lib/behat/form_field/behat_form_editor.php
+@@ -27,7 +27,7 @@
+ 
+ use Behat\Mink\Element\NodeElement as NodeElement;
+ 
+-require_once(__DIR__ . '/behat_form_textarea.php');
++require_once(__DIR__ . '/behat_form_field.php');
+ 
+ /**
+  * Moodle editor field.
+@@ -38,7 +38,7 @@ require_once(__DIR__ . '/behat_form_textarea.php');
+  * @copyright 2012 David Monllaó
+  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+  */
+-class behat_form_editor extends behat_form_textarea {
++class behat_form_editor extends behat_form_field {
+ 
+     /**
+      * Sets the value to a field.
+@@ -52,7 +52,6 @@ class behat_form_editor extends behat_form_textarea {
+         if ($editorid = $this->get_editor_id()) {
+ 
+             // Set the value to the iframe and save it to the textarea.
+-            $value = str_replace('"', '\"', $value);
+             $this->session->executeScript('
+                 tinyMCE.get("'.$editorid.'").setContent("' . $value . '");
+                 tinyMCE.get("'.$editorid.'").save();

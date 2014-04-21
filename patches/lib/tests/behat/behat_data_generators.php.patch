@@ -1,0 +1,21 @@
+diff --git a/lib/tests/behat/behat_data_generators.php b/lib/tests/behat/behat_data_generators.php
+index 18dfb22..0a5b390 100644
+--- a/lib/tests/behat/behat_data_generators.php
++++ b/lib/tests/behat/behat_data_generators.php
+@@ -299,13 +299,13 @@ class behat_data_generators extends behat_base {
+         $context = $this->get_context($data['contextlevel'], $data['reference']);
+ 
+         switch ($data['permission']) {
+-            case get_string('allow', 'role'):
++            case self::cap_allow:
+                 $permission = CAP_ALLOW;
+                 break;
+-            case get_string('prevent', 'role'):
++            case self::cap_prevent:
+                 $permission = CAP_PREVENT;
+                 break;
+-            case get_string('prohibit', 'role'):
++            case self::cap_prohibit:
+                 $permission = CAP_PROHIBIT;
+                 break;
+             default:

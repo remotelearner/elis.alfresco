@@ -1,0 +1,96 @@
+diff --git a/lib/yui/src/notification/js/notification.js b/lib/yui/src/notification/js/notification.js
+index 6cb3569..7e34338 100644
+--- a/lib/yui/src/notification/js/notification.js
++++ b/lib/yui/src/notification/js/notification.js
+@@ -93,17 +93,6 @@ Y.extend(DIALOGUE, Y.Panel, {
+             }
+         }
+     },
+-    hide: function(e) {
+-        if (e) {
+-            // If the event was closed by an escape key event, then we need to check that this
+-            // dialogue is currently focused to prevent closing all dialogues in the stack.
+-            if (e.type === 'key' && e.keyCode === 27 && !this.get('focused')) {
+-                return;
+-            }
+-        }
+-
+-        return DIALOGUE.superclass.hide.call(this, arguments);
+-    },
+     centerDialogue : function() {
+         var bb = this.get('boundingBox'),
+             hidden = bb.hasClass(DIALOGUE_PREFIX+'-hidden'),
+@@ -154,7 +143,7 @@ ALERT = function(config) {
+     ALERT.superclass.constructor.apply(this, [config]);
+ };
+ Y.extend(ALERT, DIALOGUE, {
+-    closeEvents: [],
++    _enterKeypress : null,
+     initializer : function() {
+         this.publish('complete');
+         var yes = Y.Node.create('<input type="button" id="id_yuialertconfirm-' + this.COUNT + '" value="'+this.get(CONFIRMYES)+'" />'),
+@@ -167,21 +156,11 @@ Y.extend(ALERT, DIALOGUE, {
+         this.setStdModContent(Y.WidgetStdMod.HEADER, '<h1 id="moodle-dialogue-'+COUNT+'-header-text">'
+                 + this.get(TITLE) + '</h1>', Y.WidgetStdMod.REPLACE);
+         this.after('destroyedChange', function(){this.get(BASE).remove();}, this);
+-        this.closeEvents.push(
+-            Y.on('key', this.submit, window, 'down:13', this),
+-            yes.on('click', this.submit, this)
+-        );
+-
+-        var closeButton = this.get('boundingBox').one('.closebutton');
+-        if (closeButton) {
+-            // The close button should act exactly like the 'No' button.
+-            this.closeEvents.push(
+-                closeButton.on('click', this.submit, this)
+-            );
+-        }
++        this._enterKeypress = Y.on('key', this.submit, window, 'down:13', this);
++        yes.on('click', this.submit, this);
+     },
+     submit : function() {
+-        new Y.EventHandle(this.closeEvents).detach();
++        this._enterKeypress.detach();
+         this.fire('complete');
+         this.hide();
+         this.destroy();
+@@ -215,7 +194,8 @@ CONFIRM = function(config) {
+     CONFIRM.superclass.constructor.apply(this, [config]);
+ };
+ Y.extend(CONFIRM, DIALOGUE, {
+-    closeEvents: [],
++    _enterKeypress : null,
++    _escKeypress : null,
+     initializer : function() {
+         this.publish('complete');
+         this.publish('complete-yes');
+@@ -232,23 +212,14 @@ Y.extend(CONFIRM, DIALOGUE, {
+         this.setStdModContent(Y.WidgetStdMod.HEADER, '<h1 id="moodle-dialogue-'+COUNT+'-header-text">'
+                 + this.get(TITLE) + '</h1>', Y.WidgetStdMod.REPLACE);
+         this.after('destroyedChange', function(){this.get(BASE).remove();}, this);
+-
+-        this.closeEvents.push(
+-            Y.on('key', this.submit, window, 'down:27', this, false),
+-            yes.on('click', this.submit, this, true),
+-            no.on('click', this.submit, this, false)
+-        );
+-
+-        var closeButton = this.get('boundingBox').one('.closebutton');
+-        if (closeButton) {
+-            // The close button should act exactly like the 'No' button.
+-            this.closeEvents.push(
+-                closeButton.on('click', this.submit, this)
+-            );
+-        }
++        this._enterKeypress = Y.on('key', this.submit, window, 'down:13', this, true);
++        this._escKeypress = Y.on('key', this.submit, window, 'down:27', this, false);
++        yes.on('click', this.submit, this, true);
++        no.on('click', this.submit, this, false);
+     },
+     submit : function(e, outcome) {
+-        new Y.EventHandle(this.closeEvents).detach();
++        this._enterKeypress.detach();
++        this._escKeypress.detach();
+         this.fire('complete', outcome);
+         if (outcome) {
+             this.fire('complete-yes');

@@ -1,0 +1,20 @@
+diff --git a/enrol/externallib.php b/enrol/externallib.php
+index 628c46f..0b11256 100644
+--- a/enrol/externallib.php
++++ b/enrol/externallib.php
+@@ -113,7 +113,6 @@ class core_enrol_external extends external_api {
+                     foreach ($thefields as $f) {
+                         $userfields[] = clean_param($f, PARAM_ALPHANUMEXT);
+                     }
+-                    break;
+                 case 'limitfrom' :
+                     $limitfrom = clean_param($option['value'], PARAM_INT);
+                     break;
+@@ -415,7 +414,6 @@ class core_enrol_external extends external_api {
+                 foreach ($thefields as $f) {
+                     $userfields[] = clean_param($f, PARAM_ALPHANUMEXT);
+                 }
+-                break;
+             case 'limitfrom' :
+                 $limitfrom = clean_param($option['value'], PARAM_INT);
+                 break;

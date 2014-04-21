@@ -1,0 +1,14 @@
+diff --git a/theme/afterburner/style/afterburner_dock.css b/theme/afterburner/style/afterburner_dock.css
+index 6b1bb61..3d75263 100644
+--- a/theme/afterburner/style/afterburner_dock.css
++++ b/theme/afterburner/style/afterburner_dock.css
+@@ -125,9 +125,3 @@ Docked Item Panel
+     width:auto; /* adds scroll to dock panel */
+ }
+ #dockeditempanel .dockeditempanel_bd .block_navigation .block_tree li {overflow:visible;}
+-
+-/* Hide the move icon for blocks which are docked */
+-#dock .editing_move,
+-#dock .moodle-core-dragdrop-draghandle {
+-    display: none;
+-}

@@ -1,0 +1,9 @@
+diff --git a/report/loglive/lang/en/report_loglive.php b/report/loglive/lang/en/report_loglive.php
+index 9a16528..0b04e16 100644
+--- a/report/loglive/lang/en/report_loglive.php
++++ b/report/loglive/lang/en/report_loglive.php
+@@ -27,4 +27,3 @@
+ $string['loglive:view'] = 'View live logs';
+ $string['pluginname'] = 'Live logs';
+ $string['livelogs'] = 'Live logs from the past hour';
+-$string['page'] = 'Page {$a}';

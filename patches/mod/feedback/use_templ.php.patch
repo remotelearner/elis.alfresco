@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/use_templ.php b/mod/feedback/use_templ.php
+index 5326189..12f62ce 100644
+--- a/mod/feedback/use_templ.php
++++ b/mod/feedback/use_templ.php
+@@ -82,8 +82,8 @@ $strfeedback  = get_string("modulename", "feedback");
+ 
+ $PAGE->navbar->add($strfeedbacks, new moodle_url('/mod/feedback/index.php', array('id'=>$course->id)));
+ $PAGE->navbar->add(format_string($feedback->name));
+-$PAGE->set_heading($course->fullname);
+-$PAGE->set_title($feedback->name);
++$PAGE->set_heading(format_string($course->fullname));
++$PAGE->set_title(format_string($feedback->name));
+ echo $OUTPUT->header();
+ 
+ /// Print the main part of the page

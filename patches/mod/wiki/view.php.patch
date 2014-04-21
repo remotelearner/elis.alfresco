@@ -1,0 +1,24 @@
+diff --git a/mod/wiki/view.php b/mod/wiki/view.php
+index 0c9a8fb..ecb2468 100644
+--- a/mod/wiki/view.php
++++ b/mod/wiki/view.php
+@@ -271,9 +271,8 @@ if ($id) {
+     print_error('incorrectparameters');
+ }
+ 
+-if (!wiki_user_can_view($subwiki, $wiki)) {
+-    print_error('cannotviewpage', 'wiki');
+-}
++$context = context_module::instance($cm->id);
++require_capability('mod/wiki:viewpage', $context);
+ 
+ // Update 'viewed' state if required by completion system
+ require_once($CFG->libdir . '/completionlib.php');
+@@ -298,7 +297,6 @@ if ($id) {
+ $wikipage->set_gid($currentgroup);
+ $wikipage->set_page($page);
+ 
+-$context = context_module::instance($cm->id);
+ if($pageid) {
+     add_to_log($course->id, 'wiki', 'view', "view.php?pageid=".$pageid, $pageid, $cm->id);
+ } else if($id) {

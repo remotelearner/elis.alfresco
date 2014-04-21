@@ -1,0 +1,13 @@
+diff --git a/mod/feedback/index.php b/mod/feedback/index.php
+index ea0a5b1..c8eca6c 100644
+--- a/mod/feedback/index.php
++++ b/mod/feedback/index.php
+@@ -48,7 +48,7 @@ $strfeedbacks = get_string("modulenameplural", "feedback");
+ $strfeedback  = get_string("modulename", "feedback");
+ 
+ $PAGE->navbar->add($strfeedbacks);
+-$PAGE->set_heading($course->fullname);
++$PAGE->set_heading(format_string($course->fullname));
+ $PAGE->set_title(get_string('modulename', 'feedback').' '.get_string('activities'));
+ echo $OUTPUT->header();
+ 

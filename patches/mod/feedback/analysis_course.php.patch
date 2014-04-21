@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/analysis_course.php b/mod/feedback/analysis_course.php
+index 07ab5a3..dcf186f 100644
+--- a/mod/feedback/analysis_course.php
++++ b/mod/feedback/analysis_course.php
+@@ -80,8 +80,8 @@ if (!($feedback->publish_stats OR has_capability('mod/feedback:viewreports', $co
+ $strfeedbacks = get_string("modulenameplural", "feedback");
+ $strfeedback  = get_string("modulename", "feedback");
+ 
+-$PAGE->set_heading($course->fullname);
+-$PAGE->set_title($feedback->name);
++$PAGE->set_heading(format_string($course->fullname));
++$PAGE->set_title(format_string($feedback->name));
+ echo $OUTPUT->header();
+ 
+ /// print the tabs

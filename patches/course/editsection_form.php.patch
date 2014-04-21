@@ -1,0 +1,20 @@
+diff --git a/course/editsection_form.php b/course/editsection_form.php
+index b48bc30..7663e93 100644
+--- a/course/editsection_form.php
++++ b/course/editsection_form.php
+@@ -67,14 +67,13 @@ class editsection_form extends moodleform {
+             // Grouping conditions - only if grouping is enabled at site level
+             if (!empty($CFG->enablegroupmembersonly)) {
+                 $options = array();
++                $options[0] = get_string('none');
+                 if ($groupings = $DB->get_records('groupings', array('courseid' => $course->id))) {
+                     foreach ($groupings as $grouping) {
+                         $options[$grouping->id] = format_string(
+                                 $grouping->name, true, array('context' => $context));
+                     }
+                 }
+-                collatorlib::asort($options);
+-                $options = array(0 => get_string('none')) + $options;
+                 $mform->addElement('select', 'groupingid', get_string('groupingsection', 'group'), $options);
+                 $mform->addHelpButton('groupingid', 'groupingsection', 'group');
+             }

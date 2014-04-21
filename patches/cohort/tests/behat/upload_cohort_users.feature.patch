@@ -1,0 +1,10 @@
+diff --git a/cohort/tests/behat/upload_cohort_users.feature b/cohort/tests/behat/upload_cohort_users.feature
+index 879ad8c..47b169a 100644
+--- a/cohort/tests/behat/upload_cohort_users.feature
++++ b/cohort/tests/behat/upload_cohort_users.feature
+@@ -1,4 +1,4 @@
+-@core @core_cohort @_only_local @_file_upload
++@core @core_cohort @_only_local
+ Feature: Upload users to a cohort
+   In order to quickly fill site-wide groups with users
+   As an admin

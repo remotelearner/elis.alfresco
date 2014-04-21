@@ -1,0 +1,13 @@
+diff --git a/mod/glossary/edit.php b/mod/glossary/edit.php
+index f7e3e4c..00e9343 100644
+--- a/mod/glossary/edit.php
++++ b/mod/glossary/edit.php
+@@ -181,7 +181,7 @@ if (!empty($id)) {
+     $PAGE->navbar->add(get_string('edit'));
+ }
+ 
+-$PAGE->set_title($glossary->name);
++$PAGE->set_title(format_string($glossary->name));
+ $PAGE->set_heading($course->fullname);
+ echo $OUTPUT->header();
+ echo $OUTPUT->heading(format_string($glossary->name));

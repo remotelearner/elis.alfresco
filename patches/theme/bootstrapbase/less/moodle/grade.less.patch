@@ -1,0 +1,107 @@
+diff --git a/theme/bootstrapbase/less/moodle/grade.less b/theme/bootstrapbase/less/moodle/grade.less
+index 18ebe26..80ed5a9 100644
+--- a/theme/bootstrapbase/less/moodle/grade.less
++++ b/theme/bootstrapbase/less/moodle/grade.less
+@@ -65,18 +65,11 @@
+     white-space: nowrap;
+     width: 105px;
+ }
+-.gradetreebox th.cell,
+-.gradetreebox input[type=text] {
+-    width: auto;
+-}
+-.gradetreebox input[type=text],
+-.gradetreebox select {
+-        margin-bottom: 0;
+-        font-size: inherit;
++.gradetreebox td.name {
++    white-space: nowrap;
+ }
+ .gradetreebox td.name h4 {
+     display: inline;
+-    font-size: inherit;
+ }
+ .gradetreebox td.range {
+     white-space: nowrap;
+@@ -273,12 +266,6 @@ table#user-grades td.course {
+     font-weight:700;
+ }
+ 
+-.path-grade-report-grader td input.text {
+-    border: 1px solid #666;
+-    width: auto;
+-    margin: 0;
+-    padding: 0;
+-}
+ .path-grade-report-grader #overDiv table {
+ margin:0;
+ }
+@@ -349,9 +336,6 @@ table#user-grades .userpic {
+ table#user-grades .quickfeedback {
+     border:1px dashed #000;
+     margin-left: 10px;
+-    width: auto;
+-    margin: 0;
+-    padding: 0;
+ }
+ .dir-rtl table#user-grades .quickfeedback {
+     margin-left: 0;
+@@ -441,9 +425,18 @@ margin:10px auto 0;
+     width:auto;
+     vertical-align:middle;
+ }
++
+ .path-grade-report-grader .left_scroller {
+     float:left;
+     clear:none;
++    #fixed_column .heading th.header,
++    #fixed_column td,
++    #fixed_column th {
++        height: 4em;
++    }
++    #fixed_column td.controls {
++        height: 2em;
++    }
+ }
+ .path-grade-report-grader.dir-rtl .left_scroller {
+     float: right;
+@@ -452,20 +445,19 @@ margin:10px auto 0;
+     width: auto;
+     clear: none;
+     overflow-x: scroll;
+-}
+ 
+-.path-grade-report-grader {
+-    div.left_scroller,
+-    div.right_scroller {
+-        tr, td, th {
+-            height: 4.5em;
++    tr.heading_name_row th,
++    table#user-grades td.grade {
++        height: 4em;
+         }
+-       td.controls {
++    .path-grade-report-grader .left_scroller .topleft,
++    tr.avg td,
++    tr.groupavg,
++    tr.controls_row,
++    div.right_scroller tr {
+             height: 2em;
+         }
+-    }
+ }
+-
+ table#fixed_column,
+ table#user-grades,
+ table#fixed_column th,
+@@ -511,9 +503,7 @@ table#user-grades input {
+ .path-grade-report-grader .right_scroller td select {
+     font-size: @fontSizeSmall;
+ }
+-.path-grade-report-grader tr.controls .grade_icons {
+-    margin-bottom: 0;
+-}
++
+ .path-grade-report-grader .grade_icons img.ajax {
+     float:right;
+ }

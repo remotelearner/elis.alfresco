@@ -1,0 +1,15 @@
+diff --git a/mod/wiki/editcomments.php b/mod/wiki/editcomments.php
+index 8749e6b..13c9ebc 100644
+--- a/mod/wiki/editcomments.php
++++ b/mod/wiki/editcomments.php
+@@ -54,10 +54,6 @@ if (!$wiki = wiki_get_wiki($subwiki->wikiid)) {
+ }
+ require_login($course, true, $cm);
+ 
+-if (!wiki_user_can_view($subwiki, $wiki)) {
+-    print_error('cannotviewpage', 'wiki');
+-}
+-
+ $editcomments = new page_wiki_editcomment($wiki, $subwiki, $cm);
+ $comment = new stdClass();
+ if ($action == 'edit') {

@@ -1,0 +1,20 @@
+diff --git a/mod/assign/module.js b/mod/assign/module.js
+index bc3cab1..90a789c 100644
+--- a/mod/assign/module.js
++++ b/mod/assign/module.js
+@@ -65,7 +65,6 @@ M.mod_assign.init_grading_table = function(Y) {
+         }
+ 
+         var batchform = Y.one('form.gradingbatchoperationsform');
+-        if (batchform) {
+             batchform.on('submit', function(e) {
+                 checkboxes = Y.all('td.c0 input');
+                 var selectedusers = [];
+@@ -97,7 +96,6 @@ M.mod_assign.init_grading_table = function(Y) {
+                     }
+                 }
+             });
+-        }
+ 
+         Y.use('node-menunav', function(Y) {
+             var menus = Y.all('.gradingtable .actionmenu');

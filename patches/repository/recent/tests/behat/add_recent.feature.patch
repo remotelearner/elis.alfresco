@@ -1,0 +1,10 @@
+diff --git a/repository/recent/tests/behat/add_recent.feature b/repository/recent/tests/behat/add_recent.feature
+index 04679be..2504826 100644
+--- a/repository/recent/tests/behat/add_recent.feature
++++ b/repository/recent/tests/behat/add_recent.feature
+@@ -1,4 +1,4 @@
+-@repository @repository_recent @_only_local @_file_upload
++@repository @repository_recent @_only_local
+ Feature: Recent files repository lists the recently used files
+   In order to save time when selecting files
+   As a user

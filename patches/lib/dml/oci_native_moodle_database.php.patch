@@ -1,0 +1,13 @@
+diff --git a/lib/dml/oci_native_moodle_database.php b/lib/dml/oci_native_moodle_database.php
+index bba6065..f146088 100644
+--- a/lib/dml/oci_native_moodle_database.php
++++ b/lib/dml/oci_native_moodle_database.php
+@@ -415,7 +415,7 @@ class oci_native_moodle_database extends moodle_database {
+         oci_free_statement($stmt);
+         $records = array_map('strtolower', $records['TABLE_NAME']);
+         foreach ($records as $tablename) {
+-            if ($this->prefix !== false && $this->prefix !== '') {
++            if ($this->prefix !== '') {
+                 if (strpos($tablename, $this->prefix) !== 0) {
+                     continue;
+                 }

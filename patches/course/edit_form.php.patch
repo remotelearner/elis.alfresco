@@ -1,0 +1,12 @@
+diff --git a/course/edit_form.php b/course/edit_form.php
+index 93da2a9..b14daec 100644
+--- a/course/edit_form.php
++++ b/course/edit_form.php
+@@ -307,7 +307,6 @@ class course_edit_form extends moodleform {
+                     $options[$grouping->id] = format_string($grouping->name);
+                 }
+             }
+-            collatorlib::asort($options);
+             $gr_el =& $mform->getElement('defaultgroupingid');
+             $gr_el->load($options);
+         }

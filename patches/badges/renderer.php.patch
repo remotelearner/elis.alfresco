@@ -1,0 +1,53 @@
+diff --git a/badges/renderer.php b/badges/renderer.php
+index 869d2d9..b7b0148 100644
+--- a/badges/renderer.php
++++ b/badges/renderer.php
+@@ -279,7 +279,7 @@ class core_badges_renderer extends plugin_renderer_base {
+ 
+     // Outputs issued badge with actions available.
+     protected function render_issued_badge(issued_badge $ibadge) {
+-        global $USER, $CFG, $DB, $SITE;
++        global $USER, $CFG, $DB;
+         $issued = $ibadge->issued;
+         $userinfo = $ibadge->recipient;
+         $badge = new badge($ibadge->badgeid);
+@@ -316,19 +316,12 @@ class core_badges_renderer extends plugin_renderer_base {
+ 
+         // Recipient information.
+         $datatable->data[] = array($this->output->heading(get_string('recipientdetails', 'badges'), 3), '');
+-        if ($userinfo->deleted) {
+-            $strdata = new stdClass();
+-            $strdata->user = fullname($userinfo);
+-            $strdata->site = format_string($SITE->fullname, true, array('context' => context_system::instance()));
+-            $datatable->data[] = array(get_string('name'), get_string('error:userdeleted', 'badges', $strdata));
+-        } else {
+             $datatable->data[] = array(get_string('name'), fullname($userinfo));
+             if (empty($userinfo->backpackemail)) {
+                 $datatable->data[] = array(get_string('email'), obfuscate_mailto($userinfo->accountemail));
+             } else {
+                 $datatable->data[] = array(get_string('email'), obfuscate_mailto($userinfo->backpackemail));
+             }
+-        }
+ 
+         $datatable->data[] = array($this->output->heading(get_string('issuerdetails', 'badges'), 3), '');
+         $datatable->data[] = array(get_string('issuername', 'badges'), $badge->issuername);
+@@ -671,9 +664,7 @@ class core_badges_renderer extends plugin_renderer_base {
+         }
+ 
+         if (has_capability('moodle/badges:viewawarded', $context)) {
+-            $awarded = $DB->count_records_sql('SELECT COUNT(b.userid)
+-                                                FROM {badge_issued} b INNER JOIN {user} u ON b.userid = u.id
+-                                                WHERE b.badgeid = :badgeid AND u.deleted = 0', array('badgeid' => $badgeid));
++            $awarded = $DB->count_records('badge_issued', array('badgeid' => $badgeid));
+             $row[] = new tabobject('awards',
+                         new moodle_url('/badges/recipients.php', array('id' => $badgeid)),
+                         get_string('bawards', 'badges', $awarded)
+@@ -943,7 +934,7 @@ class issued_badge implements renderable {
+                 array('hash' => $hash), IGNORE_MISSING);
+         if ($rec) {
+             // Get a recipient from database.
+-            $user = $DB->get_record_sql('SELECT u.id, u.lastname, u.firstname, u.deleted,
++            $user = $DB->get_record_sql('SELECT u.id, u.lastname, u.firstname,
+                                                 u.email AS accountemail, b.email AS backpackemail
+                         FROM {user} u LEFT JOIN {badge_backpack} b ON u.id = b.userid
+                         WHERE u.id = :userid', array('userid' => $rec->userid));

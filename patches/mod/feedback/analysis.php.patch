@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/analysis.php b/mod/feedback/analysis.php
+index 0d19b1c..02a8d39 100644
+--- a/mod/feedback/analysis.php
++++ b/mod/feedback/analysis.php
+@@ -77,8 +77,8 @@ $strfeedbacks = get_string("modulenameplural", "feedback");
+ $strfeedback  = get_string("modulename", "feedback");
+ 
+ $PAGE->navbar->add(get_string('analysis', 'feedback'));
+-$PAGE->set_heading($course->fullname);
+-$PAGE->set_title($feedback->name);
++$PAGE->set_heading(format_string($course->fullname));
++$PAGE->set_title(format_string($feedback->name));
+ echo $OUTPUT->header();
+ 
+ /// print the tabs
