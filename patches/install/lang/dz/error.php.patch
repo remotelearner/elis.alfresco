@@ -1,0 +1,20 @@
+diff --git a/install/lang/dz/error.php b/install/lang/dz/error.php
+index 1006ee8..b8eb949 100644
+--- a/install/lang/dz/error.php
++++ b/install/lang/dz/error.php
+@@ -30,7 +30,6 @@
+ 
+ defined('MOODLE_INTERNAL') || die();
+ 
+-$string['cannotcreatedboninstall'] = 'གཞི་གྲངས་མཛོད་<p>བཟོ་མི་བཏུབ། བཀོད་མི་གཞི་གྲངས་མཛོད་</p> <p>དེ་མེད་པའི་ཁར་ ལག་ལེན་པ་ལུ་ གཞི་གྲངས་མཛོད་བཟོ་ནི་གི་གནང་བ་མེད།གནས་ཁོངས་བདག་སྐྱོང་པ་ </p> <p>་གིས་གཞི་གྲངས་མཛོད་དེ་གི་སྡེབ་སྒྲིག་</p>གཏན་འབེབས་འབད་དགོ';
+ $string['cannotcreatelangdir'] = 'སྐད་ཡིག་སྣོད་ཐོ་ གསར་བསྐྲུན་འབད་མི་བཏུབ།';
+ $string['cannotcreatetempdir'] = 'གནས་སྐབས་ཀྱི་སྣོད་ཐོ་ གསར་བསྐྲུན་འབད་མི་བཏུབ།';
+ $string['cannotdownloadcomponents'] = 'ཆ་ཤས་ཚུ་ཕབ་ལེན་འབད་མི་བཏུབ།';
+@@ -40,7 +39,6 @@ $string['cannotsavemd5file'] = 'md5 ཡིག་སྣོད་ སྲུངས
+ $string['cannotsavezipfile'] = 'ZIP ཡིག་སྣོད་ སྲུངས་མི་བཏུབ།';
+ $string['cannotunzipfile'] = 'ཡིག་སྣོད་ unzip འབད་མི་བཏུབ།';
+ $string['componentisuptodate'] = 'ཆ་ཤས་འདི་ དུས་མཐུན་སྦེ་ཡོད།';
+-$string['dmlexceptiononinstall'] = 'p>གཞི་གྲངས་མཛོད་ཀྱི་འཛོལ་བཅིག་འཐོན་ནུག [{$a->errorcode}].<br />{$a->debuginfo}</p>';
+ $string['downloadedfilecheckfailed'] = 'ཕབ་ལེན་འབད་ཡོད་པའི་ཡིག་སྣོད་ཞིབ་དཔྱད་འཐུས་ཤོར་བྱུང་ཡོདཔ།';
+ $string['invalidmd5'] = 'check འགྱུར་ཅནའདི་ཕྱི་འགྱུར་ཨིན་མས་ - ལོག་འབད་གནང་།';
+ $string['missingrequiredfield'] = 'དགོ་པའི་ས་སྒོ་འདི་མིན་འདུག';

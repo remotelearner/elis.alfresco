@@ -1,0 +1,20 @@
+diff --git a/mod/quiz/override_form.php b/mod/quiz/override_form.php
+index 8c6ca6b..80976ec 100644
+--- a/mod/quiz/override_form.php
++++ b/mod/quiz/override_form.php
+@@ -157,15 +157,10 @@ class quiz_override_form extends moodleform {
+                 }
+ 
+                 $userchoices = array();
+-                $canviewemail = in_array('email', get_extra_user_fields($this->context));
+                 foreach ($users as $id => $user) {
+                     if (empty($invalidusers[$id]) || (!empty($override) &&
+                             $id == $override->userid)) {
+-                        if ($canviewemail) {
+                             $userchoices[$id] = fullname($user) . ', ' . $user->email;
+-                        } else {
+-                            $userchoices[$id] = fullname($user);
+-                        }
+                     }
+                 }
+                 unset($users);

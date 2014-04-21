@@ -1,0 +1,15 @@
+diff --git a/mod/feedback/complete_guest.php b/mod/feedback/complete_guest.php
+index 374e152..695cf41 100644
+--- a/mod/feedback/complete_guest.php
++++ b/mod/feedback/complete_guest.php
+@@ -177,8 +177,8 @@ if ((empty($cm->visible) AND
+ //check, if the feedback is open (timeopen, timeclose)
+ $checktime = time();
+ 
+-$feedback_is_closed = ($feedback->timeopen > $checktime) ||
+-                      ($feedback->timeclose < $checktime &&
++$feedback_is_closed = ($feedback->timeopen > $checktime) OR
++                      ($feedback->timeclose < $checktime AND
+                             $feedback->timeclose > 0);
+ 
+ if ($feedback_is_closed) {

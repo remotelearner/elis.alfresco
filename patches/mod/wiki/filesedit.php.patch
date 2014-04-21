@@ -1,0 +1,15 @@
+diff --git a/mod/wiki/filesedit.php b/mod/wiki/filesedit.php
+index f5154ee..c306eb1 100644
+--- a/mod/wiki/filesedit.php
++++ b/mod/wiki/filesedit.php
+@@ -53,10 +53,6 @@ $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST)
+ $context = context_module::instance($cm->id);
+ 
+ require_login($course, true, $cm);
+-
+-if (!wiki_user_can_view($subwiki, $wiki)) {
+-    print_error('cannotviewpage', 'wiki');
+-}
+ require_capability('mod/wiki:managefiles', $context);
+ 
+ if (empty($returnurl)) {

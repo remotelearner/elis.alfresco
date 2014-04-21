@@ -1,0 +1,17 @@
+diff --git a/mod/wiki/map.php b/mod/wiki/map.php
+index 42afa05..745f724 100644
+--- a/mod/wiki/map.php
++++ b/mod/wiki/map.php
+@@ -54,10 +54,8 @@ if (!$wiki = wiki_get_wiki($subwiki->wikiid)) {
+ }
+ 
+ require_login($course, true, $cm);
+-
+-if (!wiki_user_can_view($subwiki, $wiki)) {
+-    print_error('cannotviewpage', 'wiki');
+-}
++$context = context_module::instance($cm->id);
++require_capability('mod/wiki:viewpage', $context);
+ 
+ $wikipage = new page_wiki_map($wiki, $subwiki, $cm);
+ add_to_log($course->id, "wiki", "map", "map.php?pageid=".$pageid, $pageid, $cm->id);

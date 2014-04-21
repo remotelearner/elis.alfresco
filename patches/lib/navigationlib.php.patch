@@ -1,5 +1,5 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index 8834bf9..834f4c8 100644
+index 4b211cf..ad3a8d4 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
 @@ -2058,7 +2058,7 @@ class global_navigation extends navigation_node {
@@ -20,7 +20,7 @@ index 8834bf9..834f4c8 100644
              $usernode->add(get_string('myfiles'), $url, self::TYPE_SETTING);
          }
  
-@@ -3721,6 +3721,34 @@ class settings_navigation extends navigation_node {
+@@ -3728,6 +3728,34 @@ class settings_navigation extends navigation_node {
  
          }
  

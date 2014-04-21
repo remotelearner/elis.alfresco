@@ -1,0 +1,15 @@
+diff --git a/mod/wiki/diff.php b/mod/wiki/diff.php
+index a7bac48..cdd354c 100644
+--- a/mod/wiki/diff.php
++++ b/mod/wiki/diff.php
+@@ -68,10 +68,6 @@ if ($compare >= $comparewith) {
+ 
+ require_login($course, true, $cm);
+ 
+-if (!wiki_user_can_view($subwiki, $wiki)) {
+-    print_error('cannotviewpage', 'wiki');
+-}
+-
+ $wikipage = new page_wiki_diff($wiki, $subwiki, $cm);
+ 
+ $wikipage->set_page($page);

@@ -1,0 +1,13 @@
+diff --git a/lib/thirdpartylibs.xml b/lib/thirdpartylibs.xml
+index 0f454a7..3c18f42 100644
+--- a/lib/thirdpartylibs.xml
++++ b/lib/thirdpartylibs.xml
+@@ -88,7 +88,7 @@
+     <location>flowplayer</location>
+     <name>Flowplayer</name>
+     <license>GPL</license>
+-    <version>3.2.18</version>
++    <version>3.2.14</version>
+     <licenseversion>3</licenseversion>
+   </library>
+   <library>

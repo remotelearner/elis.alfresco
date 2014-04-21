@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index 7f6e4a6..ab158de 100644
+index fa8f488..c5a7d23 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -51,6 +51,10 @@ $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file
@@ -13,7 +13,7 @@ index 7f6e4a6..ab158de 100644
  
  list($context, $course, $cm) = get_context_info_array($contextid);
  require_login($course, false, $cm, false, true);
-@@ -127,6 +131,12 @@ switch ($action) {
+@@ -129,6 +133,12 @@ switch ($action) {
      case 'list':
          if ($repo->check_login()) {
              $listing = repository::prepare_listing($repo->get_listing($req_path, $page));
@@ -24,15 +24,16 @@ index 7f6e4a6..ab158de 100644
 +            }
 +            // End RL EDIT
              $listing['repo_id'] = $repo_id;
+             ajax_check_captured_output();
              echo json_encode($listing);
-             break;
-@@ -147,15 +157,28 @@ switch ($action) {
+@@ -152,17 +162,30 @@ switch ($action) {
          $search_form['repo_id'] = $repo_id;
          $search_form['form'] = $repo->print_search();
          $search_form['allowcaching'] = true;
 +        // RL EDIT: BJB130301 ELIS-8326 (Kaltura)
 +        $search_form['tree'] = method_exists($repo, 'category_tree') ? $repo->category_tree() : array();
 +        // End RL EDIT
+         ajax_check_captured_output();
          echo json_encode($search_form);
          break;
      case 'search':
@@ -45,6 +46,7 @@ index 7f6e4a6..ab158de 100644
 +        // End RL EDIT
          $search_result['repo_id'] = $repo_id;
          $search_result['issearchresult'] = true;
+         ajax_check_captured_output();
          echo json_encode($search_result);
          break;
      case 'download':
@@ -56,7 +58,7 @@ index 7f6e4a6..ab158de 100644
          // validate mimetype
          $mimetypes = array();
          if ((is_array($accepted_types) and in_array('*', $accepted_types)) or $accepted_types == '*') {
-@@ -179,7 +202,7 @@ switch ($action) {
+@@ -186,7 +209,7 @@ switch ($action) {
              $allowexternallink = false;
          }
          // allow external links in url element all the time
@@ -65,7 +67,7 @@ index 7f6e4a6..ab158de 100644
  
          $reference = $repo->get_file_reference($source);
  
-@@ -291,28 +314,116 @@ switch ($action) {
+@@ -300,29 +323,117 @@ switch ($action) {
                  // If the moodle file is an alias we copy this alias, otherwise we copy the file
                  // {@link repository::copy_to_area()}.
                  $fileinfo = $repo->copy_to_area($reference, $record, $maxbytes, $areamaxbytes);
@@ -114,6 +116,7 @@ index 7f6e4a6..ab158de 100644
 +                    $fileinfo = $repo->copy_to_area($source, $record, $maxbytes);
 +                }
 +                // End RL EDIT
+                 ajax_check_captured_output();
                  echo json_encode($fileinfo);
                  die;
              } else {
@@ -184,7 +187,7 @@ index 7f6e4a6..ab158de 100644
                  if (empty($info)) {
                      $info['e'] = get_string('error', 'moodle');
                  }
-@@ -321,8 +432,145 @@ switch ($action) {
+@@ -332,8 +443,145 @@ switch ($action) {
              die;
          }
          break;
@@ -327,10 +330,10 @@ index 7f6e4a6..ab158de 100644
 +            die(json_encode($err));
 +        }
 +        // End RL EDIT
+         ajax_check_captured_output();
          echo json_encode($result);
          break;
- 
-@@ -334,7 +582,53 @@ switch ($action) {
+@@ -346,7 +594,53 @@ switch ($action) {
          $newfilepath = required_param('newfilepath', PARAM_PATH);
          $newfilename = required_param('newfilename', PARAM_FILE);
  
@@ -381,10 +384,10 @@ index 7f6e4a6..ab158de 100644
          $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
 +        }
 +        // End RL EDIT
+         ajax_check_captured_output();
          echo json_encode($info);
          break;
- 
-@@ -346,3 +640,73 @@ switch ($action) {
+@@ -360,3 +654,73 @@ switch ($action) {
  
          break;
  }

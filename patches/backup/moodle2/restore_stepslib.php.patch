@@ -1,0 +1,14 @@
+diff --git a/backup/moodle2/restore_stepslib.php b/backup/moodle2/restore_stepslib.php
+index 2d5a84a..652451b 100644
+--- a/backup/moodle2/restore_stepslib.php
++++ b/backup/moodle2/restore_stepslib.php
+@@ -3837,9 +3837,6 @@ abstract class restore_questions_activity_structure_step extends restore_activit
+ 
+         $data->questionusageid = $this->get_new_parentid($nameprefix . 'question_usage');
+         $data->questionid      = $question->newitemid;
+-        if (!property_exists($data, 'variant')) {
+-            $data->variant = 1;
+-        }
+         $data->timemodified    = $this->apply_date_offset($data->timemodified);
+ 
+         $newitemid = $DB->insert_record('question_attempts', $data);
