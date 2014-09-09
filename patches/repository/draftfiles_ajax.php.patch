@@ -79,12 +79,12 @@ index e50544a..fa06cfd 100644
 +            }
 +            //debug_errorlog_obj('draftfiles_ajax.php:: data.A = ', $data);
 +        } else {
-         $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
-         $info = file_get_draft_area_info($draftid);
-         $data->filecount = $info['filecount'];
-         $data->filesize = $info['filesize'];
-         $data->tree = new stdClass();
-         file_get_drafarea_folders($draftid, '/', $data->tree);
+             $data = repository::prepare_listing(file_get_drafarea_files($draftid, $filepath));
+             $info = file_get_draft_area_info($draftid);
+             $data->filecount = $info['filecount'];
+             $data->filesize = $info['filesize'];
+             $data->tree = new stdClass();
+             file_get_drafarea_folders($draftid, '/', $data->tree);
 +             //debug_errorlog_obj('draftfiles_ajax.php:: data.B = ', $data);
 +        }
          echo json_encode($data);
@@ -136,8 +136,8 @@ index e50544a..fa06cfd 100644
 +                                            $newdirname);
 +            }
 +        } else {
-         $fs = get_file_storage();
-         $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
+             $fs = get_file_storage();
+             $fs->create_directory($user_context->id, 'user', 'draft', $draftid, file_correct_filepath(file_correct_filepath($filepath).$newdirname));
 -        $return = new stdClass();
 +        }
 +        // End RL EDIT
@@ -204,25 +204,25 @@ index e50544a..fa06cfd 100644
 +            }
 +            echo json_encode($return);
 +        } else {
-         $fs = get_file_storage();
-         $filepath = file_correct_filepath($filepath);
+             $fs = get_file_storage();
+             $filepath = file_correct_filepath($filepath);
 -        $return = new stdClass();
-         if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
-             $parent_path = $stored_file->get_parent_directory()->get_filepath();
-             if ($stored_file->is_directory()) {
+             if ($stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename)) {
+                 $parent_path = $stored_file->get_parent_directory()->get_filepath();
+                 if ($stored_file->is_directory()) {
 @@ -97,7 +259,7 @@ switch ($action) {
-                 $return->filepath = $parent_path;
-                 echo json_encode($return);
-             } else {
--                if($result = $stored_file->delete()) {
-+                    if ($result = $stored_file->delete()) {
                      $return->filepath = $parent_path;
                      echo json_encode($return);
                  } else {
+-                if($result = $stored_file->delete()) {
++                    if ($result = $stored_file->delete()) {
+                         $return->filepath = $parent_path;
+                         echo json_encode($return);
+                     } else {
 @@ -107,6 +269,8 @@ switch ($action) {
-         } else {
-             echo json_encode(false);
-         }
+             } else {
+                 echo json_encode(false);
+             }
 +        }
 +        // End RL EDIT
          die;
@@ -517,7 +517,7 @@ index e50544a..fa06cfd 100644
 +        } else {
 +            $fs = get_file_storage();
 +            $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
-         $parent_path = $file->get_parent_directory()->get_filepath();
+             $parent_path = $file->get_parent_directory()->get_filepath();
 -
 -        $filepath = explode('/', trim($file->get_filepath(), '/'));
 -        $filepath = array_pop($filepath);
@@ -525,12 +525,12 @@ index e50544a..fa06cfd 100644
 -
 -        if ($newfile = $zipper->archive_to_storage(array($filepath => $file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $zipfile, $USER->id)) {
 +            if ($newfile = $zipper->archive_to_storage(array($file), $user_context->id, 'user', 'draft', $draftid, $parent_path, $filepath.'.zip', $USER->id)) {
-             $return = new stdClass();
-             $return->filepath = $parent_path;
-             echo json_encode($return);
-         } else {
-             echo json_encode(false);
-         }
+                 $return = new stdClass();
+                 $return->filepath = $parent_path;
+                 echo json_encode($return);
+             } else {
+                 echo json_encode(false);
+             }
 +        }
 +        // End RL EDIT
          die;
@@ -631,38 +631,38 @@ index e50544a..fa06cfd 100644
 +                echo json_encode(false);
 +            }
 +        } else {
-         $fs = get_file_storage();
+             $fs = get_file_storage();
 -        $area = file_get_draft_area_info($draftid, $filepath);
 -        if ($area['filecount'] == 0 && $area['foldercount'] == 0) {
 +            $area = file_get_draft_area_info($draftid);
 +            if ($area['filecount'] == 0) {
-             echo json_encode(false);
-             die;
-         }
+                 echo json_encode(false);
+                 die;
+             }
  
-         $stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
-         if ($filepath === '/') {
+             $stored_file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, '.');
+             if ($filepath === '/') {
 +                $parent_path = '/';
-             $filename = get_string('files').'.zip';
-         } else {
+                 $filename = get_string('files').'.zip';
+             } else {
 -            $filename = explode('/', trim($filepath, '/'));
 -            $filename = array_pop($filename) . '.zip';
 +                $parent_path = $stored_file->get_parent_directory()->get_filepath();
 +                $filename = trim($filepath, '/').'.zip';
-         }
+             }
  
-         // archive compressed file to an unused draft area
-         $newdraftitemid = file_get_unused_draft_itemid();
+             // archive compressed file to an unused draft area
+             $newdraftitemid = file_get_unused_draft_itemid();
 -        if ($newfile = $zipper->archive_to_storage(array('/' => $stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
 +            if ($newfile = $zipper->archive_to_storage(array($stored_file), $user_context->id, 'user', 'draft', $newdraftitemid, '/', $filename, $USER->id)) {
-             $return = new stdClass();
-             $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
+                 $return = new stdClass();
+                 $return->fileurl  = moodle_url::make_draftfile_url($newdraftitemid, '/', $filename)->out();
 -            $return->filepath = $filepath;
 +                $return->filepath = $parent_path;
-             echo json_encode($return);
-         } else {
-             echo json_encode(false);
-         }
+                 echo json_encode($return);
+             } else {
+                 echo json_encode(false);
+             }
 +        }
 +        // End RL EDIT
          die;
@@ -759,7 +759,7 @@ index e50544a..fa06cfd 100644
 +        } else {
 +            $fs = get_file_storage();
 +            $file = $fs->get_file($user_context->id, 'user', 'draft', $draftid, $filepath, $filename);
-         // Find unused name for directory to extract the archive.
+             // Find unused name for directory to extract the archive.
 -        $temppath = $fs->get_unused_dirname($user_context->id, 'user', 'draft', $draftid, $filepath. pathinfo($filename, PATHINFO_FILENAME). '/');
 +            $temppath = $filepath. pathinfo($filename, PATHINFO_FILENAME). '/';
 +            if ($fs->file_exists($user_context->id, 'user', 'draft', $draftid, $temppath, '.')) {
@@ -770,13 +770,13 @@ index e50544a..fa06cfd 100644
 +                    }
 +                }
 +            }
-         $donotremovedirs = array();
-         $doremovedirs = array($temppath);
-         // Extract archive and move all files from $temppath to $filepath
+             $donotremovedirs = array();
+             $doremovedirs = array($temppath);
+             // Extract archive and move all files from $temppath to $filepath
 @@ -255,6 +863,8 @@ switch ($action) {
+                 }
              }
-         }
-         die(json_encode($return));
+             die(json_encode($return));
 +        }
 +        // End RL EDIT
  

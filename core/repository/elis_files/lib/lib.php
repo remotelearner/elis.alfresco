@@ -946,11 +946,9 @@ function elis_files_upload_ws($filename, $filepath, $filemime, $filesize, $uuid 
         $serviceuri = '/moodle/updatecontent';
         $uuid = $overwrite;
     }
-    $response = elis_files_utils_http_request($serviceuri, 'ticket',
-                            array() /* TBD: headers? */, 'CUSTOM-POST',
-                            array('filedata' => "@{$filepath}",
-                                  'uuid' => $uuid),
-                            $useadmin ? '' : $USER->username);
+    $response = elis_files_utils_http_request($serviceuri, 'ticket', array() /* TBD: headers? */, 'CUSTOM-POST',
+            array('filedata' => class_exists('CURLFile') ? new CURLFile($filepath) : "@{$filepath}", 'uuid' => $uuid),
+            $useadmin ? '' : $USER->username);
     if (empty($response) || empty($response->code) ||
         (floor($response->code/100) * 100) != 200) {
         ob_start();

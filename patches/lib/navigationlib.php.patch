@@ -1,5 +1,5 @@
 diff --git a/lib/navigationlib.php b/lib/navigationlib.php
-index 12a9a9a..bef6b7f 100644
+index 6a0f562..535ac08 100644
 --- a/lib/navigationlib.php
 +++ b/lib/navigationlib.php
 @@ -2058,7 +2058,7 @@ class global_navigation extends navigation_node {
@@ -20,17 +20,7 @@ index 12a9a9a..bef6b7f 100644
              $usernode->add(get_string('myfiles'), $url, self::TYPE_SETTING);
          }
  
-@@ -2719,9 +2719,6 @@ class global_navigation_for_ajax extends global_navigation {
-         $this->rootnodes['site']    = $this->add_course($SITE);
-         $this->rootnodes['mycourses'] = $this->add(get_string('mycourses'), new moodle_url('/my'), self::TYPE_ROOTNODE, null, 'mycourses');
-         $this->rootnodes['courses'] = $this->add(get_string('courses'), null, self::TYPE_ROOTNODE, null, 'courses');
--        // The courses branch is always displayed, and is always expandable (although may be empty).
--        // This mimicks what is done during {@link global_navigation::initialise()}.
--        $this->rootnodes['courses']->isexpandable = true;
- 
-         // Branchtype will be one of navigation_node::TYPE_*
-         switch ($this->branchtype) {
-@@ -3692,6 +3689,34 @@ class settings_navigation extends navigation_node {
+@@ -3698,6 +3698,34 @@ class settings_navigation extends navigation_node {
  
          }
  

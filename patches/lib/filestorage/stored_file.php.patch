@@ -1,8 +1,8 @@
 diff --git a/lib/filestorage/stored_file.php b/lib/filestorage/stored_file.php
-index f1794ad..0899a37 100644
+index 7b37de3..c6f1722 100644
 --- a/lib/filestorage/stored_file.php
 +++ b/lib/filestorage/stored_file.php
-@@ -739,6 +739,15 @@ class stored_file {
+@@ -745,6 +745,15 @@ class stored_file {
       * @return int 0 means file OK, anything else is a problem and file can not be used
       */
      public function get_status() {

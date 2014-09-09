@@ -1,5 +1,5 @@
 diff --git a/lib/form/dndupload.js b/lib/form/dndupload.js
-index 4be0650..fc91ecb 100644
+index f93f261..923dbb5 100644
 --- a/lib/form/dndupload.js
 +++ b/lib/form/dndupload.js
 @@ -85,7 +85,10 @@ M.form_dndupload.init = function(Y, options) {
@@ -60,7 +60,7 @@ index 4be0650..fc91ecb 100644
              if (!this.check_drag(e, true)) {
                  return true;
              }
-@@ -795,8 +811,23 @@ M.form_dndupload.init = function(Y, options) {
+@@ -798,8 +814,23 @@ M.form_dndupload.init = function(Y, options) {
           * Upload the next file from the uploadqueue - called recursively after each
           * upload is complete, then handles the callback to the filemanager/filepicker
           * @param lastresult - the last result from the server
@@ -86,7 +86,7 @@ index 4be0650..fc91ecb 100644
              if (this.uploadqueue.length > 0) {
                  var filedetails = this.uploadqueue.shift();
                  this.upload_file(filedetails.file, filedetails.filename, filedetails.overwrite);
-@@ -813,6 +844,27 @@ M.form_dndupload.init = function(Y, options) {
+@@ -816,6 +847,27 @@ M.form_dndupload.init = function(Y, options) {
          },
  
          /**
@@ -114,7 +114,7 @@ index 4be0650..fc91ecb 100644
           * Upload a single file via an AJAX call to the 'upload' repository. Automatically
           * calls do_upload as each upload completes.
           * @param File file - the file to upload
-@@ -860,7 +912,8 @@ M.form_dndupload.init = function(Y, options) {
+@@ -863,7 +915,8 @@ M.form_dndupload.init = function(Y, options) {
                                  }
                              }
                          }
@@ -124,7 +124,7 @@ index 4be0650..fc91ecb 100644
                      } else {
                          self.print_msg(M.util.get_string('serverconnection', 'error'), 'error');
                          self.uploadfinished();
-@@ -871,7 +924,18 @@ M.form_dndupload.init = function(Y, options) {
+@@ -874,7 +927,18 @@ M.form_dndupload.init = function(Y, options) {
              // Prepare the data to send
              var formdata = new FormData();
              formdata.append('action', 'upload');
@@ -137,13 +137,13 @@ index 4be0650..fc91ecb 100644
 +                formdata.append('duplicatefilemetatype', file.type);
 +                formdata.append('newfilename', filename);
 +            } else {
-             formdata.append('repo_upload_file', file); // The FormData class allows us to attach a file
+                 formdata.append('repo_upload_file', file); // The FormData class allows us to attach a file
 +            }
 +            // End RL EDIT
              formdata.append('sesskey', M.cfg.sesskey);
              formdata.append('repo_id', this.repositoryid);
              formdata.append('itemid', this.options.itemid);
-@@ -880,7 +944,14 @@ M.form_dndupload.init = function(Y, options) {
+@@ -883,7 +947,14 @@ M.form_dndupload.init = function(Y, options) {
              }
              if (this.options.filemanager) { // Filepickers do not have folders
                  formdata.append('savepath', this.options.filemanager.currentpath);

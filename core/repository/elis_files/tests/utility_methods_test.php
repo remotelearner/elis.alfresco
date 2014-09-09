@@ -233,4 +233,71 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
             $i++;
         }
     }
+
+    /**
+     * Dataprovider for test_get_referer()
+     */
+    public function get_referer_data() {
+        return array(
+                array('/foobar'),
+                array('/foobar.ext'),
+                array('/foo?bar=1'),
+                array('/bar.none?foo=2&bogus=abc'),
+                array('http://www.my.domain/pluginfile.php/2/mod_resource/content/2/file.ext?id=1001&arg=val'),
+                array('https://ssl.my.domain/pluginfile.php/2/mod_resource/content/2/file.ext?course=222&arg=val'),
+        );
+    }
+
+    /**
+     * Test get_referer() method
+     * @param string $in the input referer string
+     * @dataProvider get_referer_data
+     */
+    public function test_get_referer($in) {
+        $this->resetAfterTest(true);
+        $this->setup_test_data_xml();
+        $this->init_repo();
+
+        $_SERVER['HTTP_REFERER'] = $in;
+        $this->assertEquals($in, self::$repo->elis_files->get_referer());
+        $_SERVER['HTTP_REFERER'] = '';
+        $_GET['referer'] = urlencode($in);
+        $this->assertEquals($in, self::$repo->elis_files->get_referer());
+    }
+
+    /**
+     * Dataprovider for test_get_openfile_link()
+     * Note: these values do not have to be real alfresco uuids
+     */
+    public function get_openfile_link_data() {
+        return array(
+                array('foo'),
+                array('bar'),
+                array('480b8480-f669-4e88-b2d5-b032ddb996c6'),
+                array('800b8480-f669-4e88-b2d5-b032ddb996c6'),
+                array('160b8480-f669-4e88-b2d5-b032ddb996c6'),
+        );
+    }
+
+    /**
+     * Test get_openfile_link() method
+     * @param string $in the input alfresco uuid
+     * @dataProvider get_openfile_link_data
+     */
+    public function test_get_openfile_link($in) {
+        $this->resetAfterTest(true);
+        $this->setup_test_data_xml();
+        $this->init_repo();
+
+        $referer = '/bogus/referer/path.ext?id=1001&arg=val';
+        $_SERVER['HTTP_REFERER'] = urlencode($referer);
+        $openfileurl = self::$repo->elis_files->get_openfile_link($in);
+        $results = parse_url($openfileurl);
+        $this->assertTrue(!empty($results['query']));
+        $output = array();
+        parse_str($results['query'], $output);
+        $this->assertEquals($in, $output['uuid']);
+        // $this->assertEquals(sesskey(), $output['sesskey']);
+        $this->assertEquals($_SERVER['HTTP_REFERER'], $output['referer']);
+    }
 }

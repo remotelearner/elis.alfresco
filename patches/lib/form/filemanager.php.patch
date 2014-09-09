@@ -1,5 +1,5 @@
 diff --git a/lib/form/filemanager.php b/lib/form/filemanager.php
-index 5f203b9..0591c5e 100644
+index c43359f..ce89fbd 100644
 --- a/lib/form/filemanager.php
 +++ b/lib/form/filemanager.php
 @@ -49,7 +49,11 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
@@ -15,7 +15,7 @@ index 5f203b9..0591c5e 100644
  
      /**
       * Constructor
-@@ -277,6 +281,11 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
+@@ -295,6 +299,11 @@ class MoodleQuickForm_filemanager extends HTML_QuickForm_element {
          $options->return_types = $this->_options['return_types'];
          $options->context = $PAGE->context;
          $options->areamaxbytes = $this->_options['areamaxbytes'];
@@ -27,7 +27,7 @@ index 5f203b9..0591c5e 100644
  
          $html = $this->_getTabs();
          $fm = new form_filemanager($options);
-@@ -326,6 +335,7 @@ class form_filemanager implements renderable {
+@@ -344,6 +353,7 @@ class form_filemanager implements renderable {
      public function __construct(stdClass $options) {
          global $CFG, $USER, $PAGE;
          require_once($CFG->dirroot. '/repository/lib.php');
@@ -35,7 +35,7 @@ index 5f203b9..0591c5e 100644
          $defaults = array(
              'maxbytes'=>-1,
              'areamaxbytes' => FILE_AREA_MAX_BYTES_UNLIMITED,
-@@ -337,7 +347,8 @@ class form_filemanager implements renderable {
+@@ -355,7 +365,8 @@ class form_filemanager implements renderable {
              'return_types'=>FILE_INTERNAL,
              'context'=>$PAGE->context,
              'author'=>fullname($USER),
@@ -45,7 +45,7 @@ index 5f203b9..0591c5e 100644
              );
          if (!empty($CFG->licenses)) {
              $array = explode(',', $CFG->licenses);
-@@ -393,6 +404,7 @@ class form_filemanager implements renderable {
+@@ -411,6 +422,7 @@ class form_filemanager implements renderable {
          $params->context = $options->context;
          $params->env = 'filemanager';
          $params->disable_types = !empty($options->disable_types)?$options->disable_types:array();
