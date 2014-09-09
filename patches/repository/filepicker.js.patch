@@ -106,12 +106,12 @@ index afc2344..51859d5 100644
 +                        // RL EDIT: BJB130215
 +                        // Do a scope callback for elis files after overwrite
 +                        if (scope.options.env !== 'filepicker' && data.duplicateelisfiles !== undefined) {
-                         var fileinfo = {'client_id':scope.options.client_id,
-                                 'url':data.existingfile.url,
-                                 'file':data.existingfile.filename};
-                         var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
-                         scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-                     }
+                             var fileinfo = {'client_id':scope.options.client_id,
+                                     'url':data.existingfile.url,
+                                     'file':data.existingfile.filename};
+                             var formcallback_scope = scope.options.magicscope ? scope.options.magicscope : scope;
+                             scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                         }
 +                        // End RL EDIT
 +                    }
                  }, true);
@@ -167,13 +167,13 @@ index afc2344..51859d5 100644
 +                        }
 +                    }, true);
 +                } else {
-                 if (scope.options.editor_target && scope.options.env == 'editor') {
-                     scope.options.editor_target.value = data.newfile.url;
-                     scope.options.editor_target.onchange();
+                     if (scope.options.editor_target && scope.options.env == 'editor') {
+                         scope.options.editor_target.value = data.newfile.url;
+                         scope.options.editor_target.onchange();
 @@ -688,6 +777,8 @@ M.core_filepicker.init = function(Y, options) {
-                                 'file':data.newfile.filename};
-                 scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
-             }
+                                     'file':data.newfile.filename};
+                     scope.options.formcallback.apply(formcallback_scope, [fileinfo]);
+                 }
 +                // End RL EDIT
 +            }
              var handleCancel = function(e) {
@@ -654,7 +654,7 @@ index afc2344..51859d5 100644
 +                                            tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_root, false);
 +                                        } else {
 +                                            tree_nodes[item_id] = new YAHOO.widget.HTMLNode(tree_info, tree_nodes[item_parent], false);
-             }
+                                         }
 +                                    }
 +                                    category_treeview.subscribe('clickEvent', category_treeview.onEventToggleHighlight);
 +                                    category_treeview.render();

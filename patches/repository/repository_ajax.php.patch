@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index fa8f488..c5a7d23 100644
+index 8b5fe04..ab389b8 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -51,6 +51,10 @@ $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file
@@ -180,7 +180,7 @@ index fa8f488..c5a7d23 100644
 +                        die(json_encode($err));
 +                    }
 +                } else {
-                 $info = repository::move_to_filepool($downloadedfile['path'], $record);
+                     $info = repository::move_to_filepool($downloadedfile['path'], $record);
 +                }
 +                @unlink($downloadedfile['path']);
 +                // End RL EDIT
@@ -196,7 +196,7 @@ index fa8f488..c5a7d23 100644
 +        // RL EDIT: BJB130215
 +        $elis_files_exists = file_exists($CFG->dirroot.'/repository/elis_files/lib/lib.php');
 +        if (method_exists($repo, 'upload')) {
-         $result = $repo->upload($saveas_filename, $maxbytes);
+             $result = $repo->upload($saveas_filename, $maxbytes);
 +        } else if ($elis_files_exists) {
 +            require_once($CFG->dirroot.'/repository/elis_files/lib/lib.php');
 +            $decodedpath = unserialize(base64_decode($saveas_path));
@@ -381,7 +381,7 @@ index fa8f488..c5a7d23 100644
 +            }
 +        } else {
 +            // moving the file within the Moodle file area
-         $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
+             $info = repository::overwrite_existing_draftfile($itemid, $filepath, $filename, $newfilepath, $newfilename);
 +        }
 +        // End RL EDIT
          ajax_check_captured_output();

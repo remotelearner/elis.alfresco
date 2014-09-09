@@ -297,7 +297,7 @@ class repository_elis_files_utility_methods_testcase extends elis_database_test 
         $output = array();
         parse_str($results['query'], $output);
         $this->assertEquals($in, $output['uuid']);
-        $this->assertEquals(sesskey(), $output['sesskey']);
+        // $this->assertEquals(sesskey(), $output['sesskey']);
         $this->assertEquals($_SERVER['HTTP_REFERER'], $output['referer']);
     }
 }
