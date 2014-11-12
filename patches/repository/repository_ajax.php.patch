@@ -1,5 +1,5 @@
 diff --git a/repository/repository_ajax.php b/repository/repository_ajax.php
-index d591a7c..330a3cc 100644
+index d591a7c..d1ff4c3 100644
 --- a/repository/repository_ajax.php
 +++ b/repository/repository_ajax.php
 @@ -51,7 +51,10 @@ $saveas_path   = optional_param('savepath', '/', PARAM_PATH);   // save as file
@@ -67,14 +67,18 @@ index d591a7c..330a3cc 100644
  
          $reference = $repo->get_file_reference($source);
  
-@@ -300,12 +321,58 @@ switch ($action) {
+@@ -300,12 +321,60 @@ switch ($action) {
                  // {@link repository::copy_to_area()}.
                  $fileinfo = $repo->copy_to_area($reference, $record, $maxbytes, $areamaxbytes);
  
-+                // RL EDIT: BJB130215 - ELIS Files (alfresco)
-+                $decodedsrc = unserialize(base64_decode($source));
++                // RL EDIT: BJB140918, BJB130215 - ELIS Files (alfresco)
 +                // error_log("repository_ajax.php::download (IV): saveas_path = {$saveas_path}, toelisfiles = {$toelisfiles}");
 +                if ($toelisfiles) {
++                    try {
++                        $decodedsrc = @unserialize(base64_decode($reference));
++                    } catch (Exception $e) {
++                        $decodedsrc = null;
++                    }
 +                    // Copying to ELIS Files (Alfresco repo)
 +                    $fpsrc = null;
 +                    $tempfname = false;
@@ -111,8 +115,6 @@ index d591a7c..330a3cc 100644
 +                        $err->error = get_string('cannotdownload', 'repository');
 +                        die(json_encode($err));
 +                    }
-+                } else { // TBD ??? is the following even required ???
-+                    $fileinfo = $repo->copy_to_area($source, $record, $maxbytes);
 +                }
 +                // End RL EDIT
 +
@@ -126,7 +128,7 @@ index d591a7c..330a3cc 100644
                  if (empty($downloadedfile['path'])) {
                      $err->error = get_string('cannotdownload', 'repository');
                      die(json_encode($err));
-@@ -313,15 +380,60 @@ switch ($action) {
+@@ -313,15 +382,60 @@ switch ($action) {
  
                  // Check if exceed maxbytes.
                  if ($maxbytes != -1 && filesize($downloadedfile['path']) > $maxbytes) {
@@ -188,7 +190,7 @@ index d591a7c..330a3cc 100644
                  if (empty($info)) {
                      $info['e'] = get_string('error', 'moodle');
                  }
-@@ -331,8 +443,144 @@ switch ($action) {
+@@ -331,8 +445,144 @@ switch ($action) {
              die;
          }
          break;
@@ -333,7 +335,7 @@ index d591a7c..330a3cc 100644
          ajax_check_captured_output();
          echo json_encode($result);
          break;
-@@ -345,7 +593,53 @@ switch ($action) {
+@@ -345,7 +595,53 @@ switch ($action) {
          $newfilepath = required_param('newfilepath', PARAM_PATH);
          $newfilename = required_param('newfilename', PARAM_FILE);
  
@@ -387,7 +389,7 @@ index d591a7c..330a3cc 100644
          ajax_check_captured_output();
          echo json_encode($info);
          break;
-@@ -359,3 +653,73 @@ switch ($action) {
+@@ -359,3 +655,73 @@ switch ($action) {
  
          break;
  }
