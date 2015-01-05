@@ -3202,21 +3202,19 @@ class ELIS_files {
 
         // Look for these permissions anywhere in the system
         foreach ($capabilities as $capability => $value) {
-            $sql = "SELECT ra.*
-                    FROM {role_assignments} ra
-                    INNER JOIN {role_capabilities} rc ON rc.roleid = ra.roleid
-                    WHERE ra.userid = :userid
-                    AND rc.capability = :capability
-                    AND rc.permission = :permission";
-
-            $params = array(
-                'userid'     => $user->id,
-                'capability' => $capability,
-                'permission' => CAP_ALLOW
-            );
-
-            if ($DB->record_exists_sql($sql, $params)) {
+            if (has_capability($capability, context_system::instance(), $user)) {
                 $capabilities[$capability] = true;
+            } else {
+                $roles = get_roles_with_capability($capability, CAP_ALLOW);
+                if (!empty($roles)) {
+                    $sql = 'SELECT ra.id
+                              FROM {role_assignments} ra
+                             WHERE ra.userid = ? AND ra.roleid IN ('.implode(', ', array_keys($roles)).')';
+                    $params = array($user->id);
+                    if ($DB->record_exists_sql($sql, $params)) {
+                        $capabilities[$capability] = true;
+                    }
+                }
             }
         }
     }
